@@ -80,6 +80,7 @@ COPY ./backend/requirements.txt ./requirements.txt
 RUN if [ "$USE_CUDA" = "true" ]; then \
         pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu117 --no-cache-dir && \
         pip3 install -r requirements.txt --no-cache-dir; \
+        pip3 install nvidia-cublas-cu12 nvidia-cudnn-cu12; \
     elif [ "$USE_MPS" = "true" ]; then \
         pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu --no-cache-dir && \
         pip3 install -r requirements.txt --no-cache-dir && \

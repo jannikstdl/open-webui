@@ -23,8 +23,12 @@ from utils.misc import calculate_sha256
 
 from config import CACHE_DIR, UPLOAD_DIR, WHISPER_MODEL, WHISPER_MODEL_DIR, DEVICE_TYPE
 
-if DEVICE_TYPE != "cuda":
+whisper_device_type = DEVICE_TYPE
+
+if whisper_device_type != "cuda":
     whisper_device_type = "cpu"
+
+print(f"whisper_device_type: {whisper_device_type}")
 
 
 app = FastAPI()
