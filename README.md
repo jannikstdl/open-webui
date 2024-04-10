@@ -96,6 +96,11 @@ Don't forget to explore our sibling project, [Open WebUI Community](https://open
 
 > [!IMPORTANT]
 > When using Docker to install Open WebUI, make sure to include the `-v open-webui:/app/backend/data` in your Docker command. This step is crucial as it ensures your database is properly mounted and prevents any loss of data.
+>
+> If you  want to use Open WebUI with Ollama included or CUDA acelleration it's recomented to use our official images with the tags :cuda or :ollama
+> You need to install the [Nvidia CUDA container toolkit](https://docs.nvidia.com/dgx/nvidia-container-runtime-upgrade/) on your machine to be able to set CUDA as the Docker engine. Only works with Linux - use WSL for Windows!
+> 
+> If you want a combination of both or more customisation options like a different embedding model and/or CUDA version you need to build the image yourself following the instructions on our [Open WebUI Documentation](https://docs.openwebui.com/).
 
  **If Ollama is on your computer**, use this command:
 
