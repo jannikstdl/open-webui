@@ -58,6 +58,7 @@ We use JSON files to store translations. You can find the existing translation f
 
 To add a new language:
 
+- Make sure to use a clone of the "dev" branch from your fork (e.g. `git checkout -b locale-for-xy 'origin/dev'`) in order to avoid conflicts. 
 - Create a new directory in the `src/lib/i18n/locales` path with the appropriate language code as its name. For instance, if you're adding translations for Spanish (Spain), create a new directory named `es-ES`.
 - Copy the American English translation file(s) (from `en-US` directory in `src/lib/i18n/locale`) to this new directory and update the string values in JSON format according to your language. Make sure to preserve the structure of the JSON object.
 - Add the language code and its respective title to languages file at `src/lib/i18n/locales/languages.json`.
