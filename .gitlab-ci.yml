@@ -1,0 +1,39 @@
+image: registry.cloud.fits/devops-services/toolchain/builder-go:latest
+
+before_script:
+  - docker login registry.fits.cloud -u iz02483 -p $TOKEN
+
+build_and_push_image_latest:
+  script:
+    - docker build --build-arg HTTP_PROXY=${HTTP_PROXY} --build-arg HTTPS_PROXY=${HTTP_PROXY} --build-arg http_proxy=${HTTP_PROXY} --build-arg https_proxy=${HTTP_PROXY} -t registry.fits.cloud/fits-ai-services/images:latest .
+    - docker push registry.fits.cloud/fits-ai-services/images:latest
+  rules:
+    - if: '$CI_COMMIT_REF_NAME == "main"'
+    - when: manual
+
+
+build_and_push_image_version:
+  script:
+    - export VERSION_TAG=$(date +"%Y%m%d")-ID-$CI_PIPELINE_IID
+    - docker build --build-arg HTTP_PROXY=${HTTP_PROXY} --build-arg HTTPS_PROXY=${HTTP_PROXY} --build-arg http_proxy=${HTTP_PROXY} --build-arg https_proxy=${HTTP_PROXY} -t registry.fits.cloud/fits-ai-services/images:$VERSION_TAG .
+    - docker push registry.fits.cloud/fits-ai-services/images:$VERSION_TAG
+  rules:
+    - if: '$CI_COMMIT_REF_NAME == "main"'
+    - when: manual
+
+build_and_push_image_dev:
+  script:
+    - docker build --build-arg HTTP_PROXY=${HTTP_PROXY} --build-arg HTTPS_PROXY=${HTTP_PROXY} --build-arg http_proxy=${HTTP_PROXY} --build-arg https_proxy=${HTTP_PROXY} -t registry.fits.cloud/fits-ai-services/images:dev .
+    - docker push registry.fits.cloud/fits-ai-services/images:dev
+  rules:
+    - if: '$CI_COMMIT_REF_NAME == "dev"'
+    - when: manual
+
+build_and_push_image_new:
+  script:
+    - docker build --build-arg HTTP_PROXY=${HTTP_PROXY} --build-arg HTTPS_PROXY=${HTTP_PROXY} --build-arg http_proxy=${HTTP_PROXY} --build-arg https_proxy=${HTTP_PROXY} -t registry.fits.cloud/fits-ai-services/images:new .
+    - docker push registry.fits.cloud/fits-ai-services/images:new
+  rules:
+    - if: '$CI_COMMIT_REF_NAME == "major-update"'
+    - when: manual
+
