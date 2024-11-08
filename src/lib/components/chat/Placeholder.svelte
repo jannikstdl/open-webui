@@ -98,7 +98,7 @@
 				placement="top"
 			>
 				<div class="flex items-center gap-2 text-gray-500 font-medium text-lg my-2 w-fit">
-					<EyeSlash strokeWidth="2.5" className="size-5" /> Temporary Chat
+					<EyeSlash strokeWidth="2.5" className="size-5" /> {$i18n.t('Temporary Chat')}
 				</div>
 			</Tooltip>
 		{/if}
@@ -128,7 +128,7 @@
 												($i18n.language === 'dg-DG'
 													? `/doge.png`
 													: `${WEBUI_BASE_URL}/static/favicon.png`)}
-											class=" size-9 sm:size-10 rounded-full border-[1px] border-gray-200 dark:border-none"
+											class=" size-9 sm:size-10 rounded-md border-[1px] border-gray-200 dark:border-none"
 											alt="logo"
 											draggable="false"
 										/>

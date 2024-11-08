@@ -1,4 +1,9 @@
 <script>
+	// FI-TS_custom	- 08.11.2024 - überarbeitete landingpage
+	import Hero from '$lib/components/fi-ts_landingpage/Hero.svelte';
+	import FAQ from '$lib/components/fi-ts_landingpage/FAQ.svelte';
+	import Features from '$lib/components/fi-ts_landingpage/Features.svelte';
+
 	import { goto } from '$app/navigation';
 	import { getSessionUser, userSignIn, userSignUp } from '$lib/apis/auths';
 	import Spinner from '$lib/components/common/Spinner.svelte';
@@ -12,6 +17,7 @@
 
 	const i18n = getContext('i18n');
 
+	let isFocused = false;
 	let loaded = false;
 	let mode = 'signin';
 
@@ -117,7 +123,8 @@
 			</div>
 		</div>
 	</div>
-
+	
+	<div class="overflow-y-auto h-screen">
 	<div class=" bg-white dark:bg-gray-950 min-h-screen w-full flex justify-center font-primary">
 		<!-- <div class="hidden lg:flex lg:flex-1 px-10 md:px-16 w-full bg-yellow-50 justify-center">
 			<div class=" my-auto pb-16 text-left">
@@ -215,8 +222,20 @@
 										placeholder={$i18n.t('Enter Your Password')}
 										autocomplete="current-password"
 										required
+										on:focus={() => (isFocused = true)}
+										on:blur={() => (isFocused = false)}
 									/>
 								</div>
+								{#if mode === 'signup'}
+								<div
+									class={`mt-2 text-xs text-center text-gray-500 fade-in-up ${
+										isFocused ? 'show' : ''
+									}`}
+								>
+									Bitte verwende ein einmaliges Passwort, das du nicht für andere Dienste
+									verwendest.
+								</div>
+							{/if}
 							</div>
 						{/if}
 
@@ -350,9 +369,30 @@
 			{/if}
 		</div>
 	</div>
+	
+	<div class="relative mt-[-25vh]">
+		<Hero />
+	</div>
+		<Features />
+		<FAQ />
+	</div>
 {/if}
 
 <style>
+	.fade-in-up {
+		transition: opacity 0.2s ease-out, transform 0.2s ease-out, max-height 0.2s ease-out;
+		opacity: 0;
+		transform: translateY(15px);
+		max-height: 0;
+		overflow: hidden;
+	}
+
+	.fade-in-up.show {
+		opacity: 1;
+		transform: translateY(0px);
+		max-height: 30px;
+	}
+
 	.font-mona {
 		font-family:
 			'Mona Sans',

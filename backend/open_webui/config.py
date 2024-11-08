@@ -99,54 +99,47 @@ if os.path.exists(f"{DATA_DIR}/config.json"):
     save_to_db(data)
     os.rename(f"{DATA_DIR}/config.json", f"{DATA_DIR}/old_config.json")
 
+# FI-TS_custom 08.11.2024 - überarbeitete default-config
 DEFAULT_CONFIG = {
     "version": 0,
     "ui": {
-        "default_locale": "",
+        "default_locale": "de-DE", 
         "prompt_suggestions": [
             {
-                "title": [
-                    "Help me study",
-                    "vocabulary for a college entrance exam",
-                ],
-                "content": "Help me study vocabulary: write a sentence for me to fill in the blank, and I'll try to pick the correct option.",
-            },
-            {
-                "title": [
-                    "Give me ideas",
-                    "for what to do with my kids' art",
-                ],
-                "content": "What are 5 creative things I could do with my kids' art? I don't want to throw them away, but it's also so much clutter.",
-            },
-            {
-                "title": ["Tell me a fun fact", "about the Roman Empire"],
-                "content": "Tell me a random fun fact about the Roman Empire",
-            },
-            {
-                "title": [
-                    "Show me a code snippet",
-                    "of a website's sticky header",
-                ],
-                "content": "Show me a code snippet of a website's sticky header in CSS and JavaScript.",
-            },
-            {
-                "title": [
-                    "Explain options trading",
-                    "if I'm familiar with buying and selling stocks",
-                ],
-                "content": "Explain options trading in simple terms if I'm familiar with buying and selling stocks.",
-            },
-            {
-                "title": ["Overcome procrastination", "give me tips"],
-                "content": "Could you start by asking me about instances when I procrastinate the most and then give me some suggestions to overcome it?",
-            },
-            {
-                "title": [
-                    "Grammar check",
-                    "rewrite it for better readability ",
-                ],
-                "content": 'Check the following sentence for grammar and clarity: "[sentence]". Rewrite it for better readability while maintaining its original meaning.',
-            },
+			"title": ["Hilf mir beim Lernen", "Englisch-Vokabeln für Fortgeschrittene"],
+			"content": "Help me learn English vocabulary for C2 (Proficiency): write a sentence for me to fill the grammatical gap, and I will try to choose the correct option. If I get it wrong, give me hints the first time, and the solution with an explanation the second time. Then create a new task."
+		},
+		{
+			"title": [
+				"Kurzgeschichte erstellen",
+				"zu einem beliebigen Thema in meinem Lieblingsgenre"
+			],
+			"content": "Gestalten wir eine fesselnde Kurzgeschichte. Kannst du mich zunächst nach meinem Lieblingsgenre und einem Thema oder Element fragen, das enthalten sein sollte?"
+		},
+		{
+			"title": ["Erzähle mir einen interessanten Fakt", "über das Römische Reich"],
+			"content": "Erzähle mir einen zufälligen, interessanten Fakt über das Römische Reich."
+		},
+		{
+			"title": ["Entspannungstag planen", "plane einen Entspannungstag"],
+			"content": "Kannst du mir helfen, einen Entspannungstag zu planen, bei dem entspannende Aktivitäten im Mittelpunkt stehen? Frage mich zunächst, wie ich mich am liebsten entspanne."
+		},
+		{
+			"title": ["Textformulierung", "formuliere folgenden Satz um"],
+			"content": "Formuliere folgenden Text in \"[Stil]\" um: \"[Text]\""
+		},
+		{
+			"title": ["Codegenerierung", "generiere folgenden Code"],
+			"content": "Gib mir den Code für ein \"[Programmiersprache]\" Programm, welches \"[Zweck]\" erfüllt bzw. kann."
+		},
+		{
+			"title": ["Rechtschreibprüfung", "schreibe einen Text um"],
+			"content": "Überprüfe den folgenden Text auf Grammatik- und Rechtschreibfehler: \"[Text]\". Schreibe diesen Text um, während du die ursprüngliche Bedeutung beibehältst."
+		},
+		{
+			"title": ["Technische Fehleranalyse", "gib mir Tipps, um einen Fehler zu beheben"],
+			"content": "Ich bekomme in \"[Anwendung]\" folgenden Fehler: \"[Fehlerbeschreibung]\". Woran kann das liegen?"
+		},
         ],
     },
 }
@@ -494,9 +487,9 @@ else:
 # CUSTOM_NAME
 ####################################
 
-CUSTOM_NAME = os.environ.get("CUSTOM_NAME", "")
+CUSTOM_NAME = os.environ.get("CUSTOM_NAME", "FI-TS AI Chat")
 
-if CUSTOM_NAME:
+""" if CUSTOM_NAME:
     try:
         r = requests.get(f"https://api.openwebui.com/api/v1/custom/{CUSTOM_NAME}")
         data = r.json()
@@ -530,7 +523,7 @@ if CUSTOM_NAME:
             WEBUI_NAME = data["name"]
     except Exception as e:
         log.exception(e)
-        pass
+        pass FI-TS_custom 08.11.2024"""
 
 
 ####################################
@@ -691,33 +684,41 @@ DEFAULT_PROMPT_SUGGESTIONS = PersistentConfig(
     "DEFAULT_PROMPT_SUGGESTIONS",
     "ui.prompt_suggestions",
     [
-        {
-            "title": ["Help me study", "vocabulary for a college entrance exam"],
-            "content": "Help me study vocabulary: write a sentence for me to fill in the blank, and I'll try to pick the correct option.",
-        },
-        {
-            "title": ["Give me ideas", "for what to do with my kids' art"],
-            "content": "What are 5 creative things I could do with my kids' art? I don't want to throw them away, but it's also so much clutter.",
-        },
-        {
-            "title": ["Tell me a fun fact", "about the Roman Empire"],
-            "content": "Tell me a random fun fact about the Roman Empire",
-        },
-        {
-            "title": ["Show me a code snippet", "of a website's sticky header"],
-            "content": "Show me a code snippet of a website's sticky header in CSS and JavaScript.",
-        },
-        {
-            "title": [
-                "Explain options trading",
-                "if I'm familiar with buying and selling stocks",
-            ],
-            "content": "Explain options trading in simple terms if I'm familiar with buying and selling stocks.",
-        },
-        {
-            "title": ["Overcome procrastination", "give me tips"],
-            "content": "Could you start by asking me about instances when I procrastinate the most and then give me some suggestions to overcome it?",
-        },
+       {
+			"title": ["Hilf mir beim Lernen", "Englisch-Vokabeln für Fortgeschrittene"],
+			"content": "Help me learn English vocabulary for C2 (Proficiency): write a sentence for me to fill the grammatical gap, and I will try to choose the correct option. If I get it wrong, give me hints the first time, and the solution with an explanation the second time. Then create a new task."
+		},
+		{
+			"title": [
+				"Kurzgeschichte erstellen",
+				"zu einem beliebigen Thema in meinem Lieblingsgenre"
+			],
+			"content": "Gestalten wir eine fesselnde Kurzgeschichte. Kannst du mich zunächst nach meinem Lieblingsgenre und einem Thema oder Element fragen, das enthalten sein sollte?"
+		},
+		{
+			"title": ["Erzähle mir einen interessanten Fakt", "über das Römische Reich"],
+			"content": "Erzähle mir einen zufälligen, interessanten Fakt über das Römische Reich."
+		},
+		{
+			"title": ["Entspannungstag planen", "plane einen Entspannungstag"],
+			"content": "Kannst du mir helfen, einen Entspannungstag zu planen, bei dem entspannende Aktivitäten im Mittelpunkt stehen? Frage mich zunächst, wie ich mich am liebsten entspanne."
+		},
+		{
+			"title": ["Textformulierung", "formuliere folgenden Satz um"],
+			"content": "Formuliere folgenden Text in \"[Stil]\" um: \"[Text]\""
+		},
+		{
+			"title": ["Codegenerierung", "generiere folgenden Code"],
+			"content": "Gib mir den Code für ein \"[Programmiersprache]\" Programm, welches \"[Zweck]\" erfüllt bzw. kann."
+		},
+		{
+			"title": ["Rechtschreibprüfung", "schreibe einen Text um"],
+			"content": "Überprüfe den folgenden Text auf Grammatik- und Rechtschreibfehler: \"[Text]\". Schreibe diesen Text um, während du die ursprüngliche Bedeutung beibehältst."
+		},
+		{
+			"title": ["Technische Fehleranalyse", "gib mir Tipps, um einen Fehler zu beheben"],
+			"content": "Ich bekomme in \"[Anwendung]\" folgenden Fehler: \"[Fehlerbeschreibung]\". Woran kann das liegen?"
+		},
     ],
 )
 
@@ -798,7 +799,7 @@ ENABLE_ADMIN_CHAT_ACCESS = (
 ENABLE_COMMUNITY_SHARING = PersistentConfig(
     "ENABLE_COMMUNITY_SHARING",
     "ui.enable_community_sharing",
-    os.environ.get("ENABLE_COMMUNITY_SHARING", "True").lower() == "true",
+    os.environ.get("ENABLE_COMMUNITY_SHARING", "False").lower() == "true",
 )
 
 ENABLE_MESSAGE_RATING = PersistentConfig(
@@ -865,7 +866,7 @@ WEBUI_BANNERS = PersistentConfig("WEBUI_BANNERS", "ui.banners", banners)
 SHOW_ADMIN_DETAILS = PersistentConfig(
     "SHOW_ADMIN_DETAILS",
     "auth.admin.show",
-    os.environ.get("SHOW_ADMIN_DETAILS", "true").lower() == "true",
+    os.environ.get("SHOW_ADMIN_DETAILS", "false").lower() == "false",
 )
 
 ADMIN_EMAIL = PersistentConfig(
@@ -973,7 +974,7 @@ TIKA_SERVER_URL = PersistentConfig(
 )
 
 RAG_TOP_K = PersistentConfig(
-    "RAG_TOP_K", "rag.top_k", int(os.environ.get("RAG_TOP_K", "3"))
+    "RAG_TOP_K", "rag.top_k", int(os.environ.get("RAG_TOP_K", "5"))
 )
 RAG_RELEVANCE_THRESHOLD = PersistentConfig(
     "RAG_RELEVANCE_THRESHOLD",

@@ -2,16 +2,21 @@
 	import fileSaver from 'file-saver';
 	const { saveAs } = fileSaver;
 
+	import { MAIL_DOMAIN } from '$lib/constants';
+
 	import { downloadDatabase, downloadLiteLLMConfig } from '$lib/apis/utils';
 	import { onMount, getContext } from 'svelte';
 	import { config, user } from '$lib/stores';
 	import { toast } from 'svelte-sonner';
 	import { getAllUserChats } from '$lib/apis/chats';
+	import { getUsers } from '$lib/apis/users';
 	import { exportConfig, importConfig } from '$lib/apis/configs';
 
 	const i18n = getContext('i18n');
 
 	export let saveHandler: Function;
+
+	let users = [];
 
 	const exportAllUserChats = async () => {
 		let blob = new Blob([JSON.stringify(await getAllUserChats(localStorage.token))], {
@@ -20,8 +25,34 @@
 		saveAs(blob, `all-chats-export-${Date.now()}.json`);
 	};
 
+	function openEmail() {
+		const filteredEmails = users
+			.filter((user) => {
+				const email = user.email;
+				const atIndex = email.indexOf('@');
+				const domain = email.substring(atIndex + 1);
+				return (
+					atIndex > 0 &&
+					email.substring(0, atIndex).includes('.') &&
+					domain === MAIL_DOMAIN &&
+					email !== $user.email
+				);
+			})
+			.map((user) => user.email)
+			.join(',');
+		
+		if (filteredEmails === '') {
+			toast.error('Keine Benutzer mit valider E-Mail-Adresse gefunden');
+			return;
+		} else {
+			const mailtoLink = `mailto:?bcc=${filteredEmails}`;
+			window.open(mailtoLink, '_blank');
+		}
+	}
+
 	onMount(async () => {
 		// permissions = await getUserPermissions(localStorage.token);
+		users = await getUsers(localStorage.token);
 	});
 </script>
 
@@ -181,6 +212,34 @@
 					</div>
 				</button>
 			{/if}
+
+			<hr class=" dark:border-gray-850 my-1" />
+
+			<!-- FI-TS_custom 08.11.2024 -->
+			<button
+			class="flex rounded-md py-1.5 px-3 w-full hover:bg-gray-200 dark:hover:bg-gray-800 transition"
+			type="button"
+			on:click={openEmail}
+		>
+			<div class="self-center mr-3">
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					viewBox="0 0 16 16"
+					fill="currentColor"
+					class="w-4 h-4"
+				>
+					<path
+						d="M2.5 3A1.5 1.5 0 0 0 1 4.5v.793c.026.009.051.02.076.032L7.674 8.51c.206.1.446.1.652 0l6.598-3.185A.755.755 0 0 1 15 5.293V4.5A1.5 1.5 0 0 0 13.5 3h-11Z"
+					/>
+					<path
+						d="M15 6.954 8.978 9.86a2.25 2.25 0 0 1-1.956 0L1 6.954V11.5A1.5 1.5 0 0 0 2.5 13h11a1.5 1.5 0 0 0 1.5-1.5V6.954Z"
+						clip-rule="evenodd"
+						fill-rule="evenodd"
+					/>
+				</svg>
+			</div>
+			<div class="self-center text-sm font-medium">Mail an alle User</div>
+		</button>
 
 			<hr class=" dark:border-gray-850 my-1" />
 

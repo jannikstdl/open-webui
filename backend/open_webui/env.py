@@ -99,13 +99,13 @@ for source in log_sources:
 log.setLevel(SRC_LOG_LEVELS["CONFIG"])
 
 
-WEBUI_NAME = os.environ.get("WEBUI_NAME", "Open WebUI")
-if WEBUI_NAME != "Open WebUI":
-    WEBUI_NAME += " (Open WebUI)"
+WEBUI_NAME = os.environ.get("WEBUI_NAME", "FI-TS AI Chat")
+# if WEBUI_NAME != "Open WebUI": 
+#     WEBUI_NAME += " (Open WebUI)" # FI-TS_custom 08.11.2024
 
 WEBUI_URL = os.environ.get("WEBUI_URL", "http://localhost:3000")
 
-WEBUI_FAVICON_URL = "https://openwebui.com/favicon.png"
+WEBUI_FAVICON_URL = "{WEBUI_BASE_URL}/static/favicon.ico" # FI-TS_custom 08.11.2024
 
 
 ####################################
