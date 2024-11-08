@@ -35,7 +35,7 @@
 	let landingPageMode = '';
 	let chatBubble = true;
 	let chatDirection: 'LTR' | 'RTL' = 'LTR';
-	let showUpdateToast = true;
+	let showUpdateToast = false; // FI-TS_custom 08.11.2024
 
 	let showEmojiInCall = false;
 	let voiceInterruption = false;
@@ -173,7 +173,7 @@
 		responseAutoCopy = $settings.responseAutoCopy ?? false;
 
 		showUsername = $settings.showUsername ?? false;
-		showUpdateToast = $settings.showUpdateToast ?? true;
+		showUpdateToast = $settings.showUpdateToast ?? false; // FI-TS_custom 08.11.2024
 
 		showEmojiInCall = $settings.showEmojiInCall ?? false;
 		voiceInterruption = $settings.voiceInterruption ?? false;
