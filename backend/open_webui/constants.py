@@ -3,16 +3,16 @@ from enum import Enum
 
 class MESSAGES(str, Enum):
     DEFAULT = lambda msg="": f"{msg if msg else ''}"
-    MODEL_ADDED = lambda model="": f"The model '{model}' has been added successfully."
+    MODEL_ADDED = lambda model="": f"Das Modell '{model}' wurde erfolgreich hinzugefügt."
     MODEL_DELETED = (
-        lambda model="": f"The model '{model}' has been deleted successfully."
+        lambda model="": f"Das Modell '{model}' wurde erfolgreich gelöscht."
     )
 
 
 class WEBHOOK_MESSAGES(str, Enum):
     DEFAULT = lambda msg="": f"{msg if msg else ''}"
     USER_SIGNUP = lambda username="": (
-        f"New user signed up: {username}" if username else "New user signed up"
+        f"Neuer Benutzer registriert: {username}" if username else "Neuer Benutzer registriert"
     )
 
 
@@ -21,85 +21,85 @@ class ERROR_MESSAGES(str, Enum):
         return super().__str__()
 
     DEFAULT = (
-        lambda err="": f'{"Something went wrong :/" if err == "" else "[ERROR: " + str(err) + "]"}'
+        lambda err="": f'{"Etwas ist schief gelaufen :/" if err == "" else "[FEHLER: " + str(err) + "]"}'
     )
-    ENV_VAR_NOT_FOUND = "Required environment variable not found. Terminating now."
-    CREATE_USER_ERROR = "Oops! Something went wrong while creating your account. Please try again later. If the issue persists, contact support for assistance."
-    DELETE_USER_ERROR = "Oops! Something went wrong. We encountered an issue while trying to delete the user. Please give it another shot."
-    EMAIL_MISMATCH = "Uh-oh! This email does not match the email your provider is registered with. Please check your email and try again."
-    EMAIL_TAKEN = "Uh-oh! This email is already registered. Sign in with your existing account or choose another email to start anew."
+    ENV_VAR_NOT_FOUND = "Erforderliche Umgebungsvariable nicht gefunden. Beende jetzt."
+    CREATE_USER_ERROR = "Etwas ist schief gelaufen beim Erstellen deines Kontos. Bitte versuche es später erneut. Wenn das Problem weiterhin besteht, kontaktiere den Support für Unterstützung."
+    DELETE_USER_ERROR = "Etwas ist schief gelaufen. Wir haben ein Problem beim Löschen des Benutzers festgestellt. Bitte versuche es erneut."
+    EMAIL_MISMATCH = "Diese E-Mail stimmt nicht mit der E-Mail überein, mit der dein Anbieter registriert ist. Bitte überprüfe deine E-Mail und versuche es erneut."
+    EMAIL_TAKEN = "Diese E-Mail ist bereits registriert. Melde dich mit deinem bestehenden Konto an oder wähle eine andere E-Mail, um neu zu beginnen."
     USERNAME_TAKEN = (
-        "Uh-oh! This username is already registered. Please choose another username."
+        "Dieser Benutzername ist bereits registriert. Bitte wähle einen anderen Benutzernamen."
     )
-    COMMAND_TAKEN = "Uh-oh! This command is already registered. Please choose another command string."
-    FILE_EXISTS = "Uh-oh! This file is already registered. Please choose another file."
+    COMMAND_TAKEN = "Dieser Befehl ist bereits registriert. Bitte wähle eine andere Befehlszeichenfolge."
+    FILE_EXISTS = "Diese Datei ist bereits registriert. Bitte wähle eine andere Datei."
 
-    ID_TAKEN = "Uh-oh! This id is already registered. Please choose another id string."
-    MODEL_ID_TAKEN = "Uh-oh! This model id is already registered. Please choose another model id string."
-    NAME_TAG_TAKEN = "Uh-oh! This name tag is already registered. Please choose another name tag string."
+    ID_TAKEN = "Diese ID ist bereits registriert. Bitte wähle eine andere ID-Zeichenfolge."
+    MODEL_ID_TAKEN = "Diese Modell-ID ist bereits registriert. Bitte wähle eine andere Modell-ID-Zeichenfolge."
+    NAME_TAG_TAKEN = "Dieser Tag ist bereits registriert. Bitte wähle einen anderen Tag."
 
     INVALID_TOKEN = (
-        "Your session has expired or the token is invalid. Please sign in again."
+        "Deine Sitzung ist abgelaufen oder das Token ist ungültig. Bitte melde dich erneut an."
     )
-    INVALID_CRED = "The email or password provided is incorrect. Please check for typos and try logging in again."
-    INVALID_EMAIL_FORMAT = "The email format you entered is invalid. Please double-check and make sure you're using a valid email address (e.g., yourname@example.com)."
+    INVALID_CRED = "Die angegebene E-Mail oder das Passwort ist falsch. Bitte überprüfe auf Tippfehler und versuche es erneut."
+    INVALID_EMAIL_FORMAT = "Das von dir eingegebene E-Mail-Format ist ungültig. Bitte überprüfe es und stelle sicher, dass du eine gültige E-Mail-Adresse verwendest (z.B. deinname@beispiel.com)."
     INVALID_PASSWORD = (
-        "The password provided is incorrect. Please check for typos and try again."
+        "Das angegebene Passwort ist falsch. Bitte überprüfe auf Tippfehler und versuche es erneut."
     )
-    INVALID_TRUSTED_HEADER = "Your provider has not provided a trusted header. Please contact your administrator for assistance."
+    INVALID_TRUSTED_HEADER = "Dein Anbieter hat keinen vertrauenswürdigen Header bereitgestellt. Bitte kontaktiere deinen Administrator für Unterstützung."
 
-    EXISTING_USERS = "You can't turn off authentication because there are existing users. If you want to disable WEBUI_AUTH, make sure your web interface doesn't have any existing users and is a fresh installation."
+    EXISTING_USERS = "Du kannst die Authentifizierung nicht deaktivieren, da es bereits bestehende Benutzer gibt. Wenn du WEBUI_AUTH deaktivieren möchtest, stelle sicher, dass deine Weboberfläche keine bestehenden Benutzer hat und eine Neuinstallation ist."
 
     UNAUTHORIZED = "401 Unauthorized"
-    ACCESS_PROHIBITED = "You do not have permission to access this resource. Please contact your administrator for assistance."
+    ACCESS_PROHIBITED = "Du hast keine Berechtigung, auf diese Ressource zuzugreifen. Bitte kontaktiere deinen Administrator für Unterstützung."
     ACTION_PROHIBITED = (
-        "The requested action has been restricted as a security measure."
+        "Die angeforderte Aktion wurde aus Sicherheitsgründen eingeschränkt."
     )
 
     FILE_NOT_SENT = "FILE_NOT_SENT"
-    FILE_NOT_SUPPORTED = "Oops! It seems like the file format you're trying to upload is not supported. Please upload a file with a supported format (e.g., JPG, PNG, PDF, TXT) and try again."
+    FILE_NOT_SUPPORTED = "Es scheint, dass das Dateiformat, das du hochladen möchtest, nicht unterstützt wird. Bitte lade eine Datei mit einem unterstützten Format hoch (z.B. JPG, PNG, PDF, TXT) und versuche es erneut."
 
-    NOT_FOUND = "We could not find what you're looking for :/"
-    USER_NOT_FOUND = "We could not find what you're looking for :/"
-    API_KEY_NOT_FOUND = "Oops! It looks like there's a hiccup. The API key is missing. Please make sure to provide a valid API key to access this feature."
+    NOT_FOUND = "Wir konnten nicht finden, wonach du suchst :/"
+    USER_NOT_FOUND = "Wir konnten nicht finden, wonach du suchst :/"
+    API_KEY_NOT_FOUND = "Es sieht aus, als gäbe es ein Problem. Der API-Schlüssel fehlt. Bitte stelle sicher, dass du einen gültigen API-Schlüssel bereitstellst, um auf diese Funktion zuzugreifen."
 
-    MALICIOUS = "Unusual activities detected, please try again in a few minutes."
+    MALICIOUS = "Ungewöhnliche Aktivitäten erkannt, bitte versuche es in ein paar Minuten erneut."
 
-    PANDOC_NOT_INSTALLED = "Pandoc is not installed on the server. Please contact your administrator for assistance."
+    PANDOC_NOT_INSTALLED = "Pandoc ist nicht auf dem Server installiert. Bitte kontaktiere deinen Administrator für Unterstützung."
     INCORRECT_FORMAT = (
-        lambda err="": f"Invalid format. Please use the correct format{err}"
+        lambda err="": f"Ungültiges Format. Bitte verwende das korrekte Format{err}"
     )
-    RATE_LIMIT_EXCEEDED = "API rate limit exceeded"
+    RATE_LIMIT_EXCEEDED = "API-Ratenlimit überschritten"
 
-    MODEL_NOT_FOUND = lambda name="": f"Model '{name}' was not found"
-    OPENAI_NOT_FOUND = lambda name="": "OpenAI API was not found"
-    OLLAMA_NOT_FOUND = "WebUI could not connect to Ollama"
-    CREATE_API_KEY_ERROR = "Oops! Something went wrong while creating your API key. Please try again later. If the issue persists, contact support for assistance."
+    MODEL_NOT_FOUND = lambda name="": f"Modell '{name}' wurde nicht gefunden"
+    OPENAI_NOT_FOUND = lambda name="": "OpenAI API wurde nicht gefunden"
+    OLLAMA_NOT_FOUND = "WebUI konnte keine Verbindung zu Ollama herstellen"
+    CREATE_API_KEY_ERROR = "Etwas ist schief gelaufen beim Erstellen deines API-Schlüssels. Bitte versuche es später erneut. Wenn das Problem weiterhin besteht, kontaktiere den Support für Unterstützung."
 
-    EMPTY_CONTENT = "The content provided is empty. Please ensure that there is text or data present before proceeding."
+    EMPTY_CONTENT = "Der bereitgestellte Inhalt ist leer. Bitte stelle sicher, dass Text oder Daten vorhanden sind, bevor du fortfährst."
 
-    DB_NOT_SQLITE = "This feature is only available when running with SQLite databases."
+    DB_NOT_SQLITE = "Diese Funktion ist nur verfügbar, wenn mit SQLite-Datenbanken gearbeitet wird."
 
     INVALID_URL = (
-        "Oops! The URL you provided is invalid. Please double-check and try again."
+        "Die von dir angegebene URL ist ungültig. Bitte überprüfe sie und versuche es erneut."
     )
 
     WEB_SEARCH_ERROR = (
-        lambda err="": f"{err if err else 'Oops! Something went wrong while searching the web.'}"
+        lambda err="": f"{err if err else 'Etwas ist schief gelaufen bei der Websuche.'}"
     )
 
     OLLAMA_API_DISABLED = (
-        "The Ollama API is disabled. Please enable it to use this feature."
+        "Die Ollama API ist deaktiviert. Bitte aktiviere sie, um diese Funktion zu nutzen."
     )
 
     FILE_TOO_LARGE = (
-        lambda size="": f"Oops! The file you're trying to upload is too large. Please upload a file that is less than {size}."
+        lambda size="": f"Die Datei, die du hochladen möchtest, ist zu groß. Bitte lade eine Datei hoch, die kleiner als {size} ist."
     )
 
     DUPLICATE_CONTENT = (
-        "Duplicate content detected. Please provide unique content to proceed."
+        "Doppelter Inhalt erkannt. Bitte gib eindeutigen Inhalt an, um fortzufahren."
     )
-    FILE_NOT_PROCESSED = "Extracted content is not available for this file. Please ensure that the file is processed before proceeding."
+    FILE_NOT_PROCESSED = "Extrahierter Inhalt ist für diese Datei nicht verfügbar. Bitte stelle sicher, dass die Datei verarbeitet wird, bevor du fortfährst."
 
 
 class TASKS(str, Enum):
