@@ -31,7 +31,7 @@ build_and_push_image_dev:
 
 build_and_push_image_new:
   script:
-    - docker build --build-arg HTTP_PROXY=${HTTP_PROXY} --build-arg HTTPS_PROXY=${HTTP_PROXY} --build-arg http_proxy=${HTTP_PROXY} --build-arg https_proxy=${HTTP_PROXY} -t registry.fits.cloud/fits-ai-services/images:new .
+    - docker build --dns=8.8.8.8 --build-arg HTTP_PROXY=${HTTP_PROXY} --build-arg HTTPS_PROXY=${HTTP_PROXY} --build-arg http_proxy=${HTTP_PROXY} --build-arg https_proxy=${HTTP_PROXY} -t registry.fits.cloud/fits-ai-services/images:new .
     - docker push registry.fits.cloud/fits-ai-services/images:new
   rules:
     - if: '$CI_COMMIT_REF_NAME == "major-update"'
