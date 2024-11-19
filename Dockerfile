@@ -27,7 +27,7 @@ ARG BUILD_HASH
 WORKDIR /app
 
 COPY package.json package-lock.json ./
-RUN curl -I https://objects.githubusercontent.com
+RUN apk add --no-cache curl && curl -I https://objects.githubusercontent.com
 RUN npm ci
 
 COPY . .
