@@ -21,17 +21,33 @@ ARG UID=0
 ARG GID=0
 
 ######## WebUI frontend ########
+# syntax=docker/dockerfile:1
 FROM --platform=$BUILDPLATFORM node:22-alpine3.20 AS build
+
+# Build-Argumente
 ARG BUILD_HASH
+ARG HTTP_PROXY
+ARG HTTPS_PROXY
+
+# Proxy-Umgebungsvariablen setzen
+ENV HTTP_PROXY=${HTTP_PROXY}
+ENV HTTPS_PROXY=${HTTPS_PROXY}
 
 WORKDIR /app
 
 COPY package.json package-lock.json ./
+
 RUN apk add --no-cache curl
+
+# Testverbindung (funktioniert)
 RUN curl -I "https://objects.githubusercontent.com/github-production-release-asset-2e65be/156939672/ab73ff41-1078-4703-b0f4-b2e673c27810?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=releaseassetproduction%2F20241119%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20241119T150736Z&X-Amz-Expires=300&X-Amz-Signature=16362f580321de8c6fa3f319fcedfb6006956be69a5a89aa4789c8064fca9e29&X-Amz-SignedHeaders=host&response-content-disposition=attachment%3B%20filename%3Donnxruntime-linux-x64-gpu-1.19.2.tgz&response-content-type=application%2Foctet-stream"
 
+# npm für die Verwendung des Proxys konfigurieren
+RUN npm config set proxy $HTTP_PROXY
+RUN npm config set https-proxy $HTTPS_PROXY
 
-RUN npm ci
+# Abhängigkeiten installieren
+RUN npm ci --loglevel verbose
 
 COPY . .
 ENV APP_BUILD_HASH=${BUILD_HASH}
