@@ -27,7 +27,10 @@ ARG BUILD_HASH
 WORKDIR /app
 
 COPY package.json package-lock.json ./
-RUN apk add --no-cache curl && curl -I https://objects.githubusercontent.com
+RUN apk add --no-cache curl
+RUN RUN curl -I -L -s -o /dev/null -w "%{http_code}" "https://private-user-images.githubusercontent.com/177250284/354307519-b14b199c-a967-47c2-967f-13e5e622108c.png?jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3MzIwMjc5MjAsIm5iZiI6MTczMjAyNzYyMCwicGF0aCI6Ii8xNzcyNTAyODQvMzU0MzA3NTE5LWIxNGIxOTljLWE5NjctNDdjMi05NjdmLTEzZTVlNjIyMTA4Yy5wbmc_WC1BbXotQWxnb3JpdGhtPUFXUzQtSE1BQy1TSEEyNTYmWC1BbXotQ3JlZGVudGlhbD1BS0lBVkNPRFlMU0E1M1BRSzRaQSUyRjIwMjQxMTE5JTJGdXMtZWFzdC0xJTJGczMlMkZhd3M0X3JlcXVlc3QmWC1BbXotRGF0ZT0yMDI0MTExOVQxNDQ3MDBaJlgtQW16LUV4cGlyZXM9MzAwJlgtQW16LVNpZ25hdHVyZT0wYmYzMDU1M2MyYzQ2NmNiNTVkZjJkNzlkZDk5YjdmNjA1NTc4ODJkMzY3ZTg1ZDE3NGM1MDRkOTA3NTFkMWVhJlgtQW16LVNpZ25lZEhlYWRlcnM9aG9zdCJ9.uuDCAU1YOzdKmJ35_-GyQLRJ0s8-fs4R1i3rqGNjx0s" \
+| grep -q "^200$" || (echo "Connection failed!" && exit 1)
+
 RUN npm ci
 
 COPY . .
