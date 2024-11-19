@@ -24,8 +24,8 @@ ARG https_proxy
 # Set proxy environment variables
 ENV HTTP_PROXY=${HTTP_PROXY}
 ENV HTTPS_PROXY=${HTTPS_PROXY}
-ENV http_proxy=${http_proxy}
-ENV https_proxy=${https_proxy}
+ENV http_proxy=${HTTP_PROXY}
+ENV https_proxy=${HTTPS_PROXY}
 
 WORKDIR /app
 
@@ -34,13 +34,14 @@ COPY package.json package-lock.json ./
 
 # Download onnxruntime
 RUN apk add --no-cache curl && \
-    curl -x ${HTTP_PROXY} -L -o onnxruntime-linux-x64-gpu-1.19.2.tgz \
+    curl -x "${HTTP_PROXY}" -L -o onnxruntime-linux-x64-gpu-1.19.2.tgz \
     https://github.com/microsoft/onnxruntime/releases/download/v1.19.2/onnxruntime-linux-x64-gpu-1.19.2.tgz && \
     tar -tzf onnxruntime-linux-x64-gpu-1.19.2.tgz > /dev/null || (echo "Download failed" && exit 1)
 
 # Install npm dependencies
-RUN npm config set proxy ${HTTP_PROXY} && \
-    npm config set https-proxy ${HTTPS_PROXY} && \
+RUN npm config set proxy "${HTTP_PROXY}" && \
+    npm config set https-proxy "${HTTP_PROXY}" && \
+    npm config set strict-ssl false && \
     npm ci --verbose
 
 COPY . .
@@ -64,8 +65,8 @@ ARG HTTPS_PROXY
 # Set proxy environment variables
 ENV HTTP_PROXY=${HTTP_PROXY}
 ENV HTTPS_PROXY=${HTTPS_PROXY}
-ENV http_proxy=${http_proxy}
-ENV https_proxy=${https_proxy}
+ENV http_proxy=${HTTP_PROXY}
+ENV https_proxy=${HTTPS_PROXY}
 
 ENV ENV=prod \
     PORT=8080 \
