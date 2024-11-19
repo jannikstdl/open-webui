@@ -28,7 +28,8 @@ WORKDIR /app
 
 COPY package.json package-lock.json ./
 RUN apk add --no-cache curl
-RUN curl -I https://raw.githubusercontent.com/divmain/GitSavvy/master/README.md
+RUN curl -I "https://objects.githubusercontent.com/github-production-release-asset-2e65be/156939672/ab73ff41-1078-4703-b0f4-b2e673c27810?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=releaseassetproduction%2F20241119%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20241119T150736Z&X-Amz-Expires=300&X-Amz-Signature=16362f580321de8c6fa3f319fcedfb6006956be69a5a89aa4789c8064fca9e29&X-Amz-SignedHeaders=host&response-content-disposition=attachment%3B%20filename%3Donnxruntime-linux-x64-gpu-1.19.2.tgz&response-content-type=application%2Foctet-stream"
+
 
 RUN npm ci
 
