@@ -33,7 +33,8 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 
 # Download onnxruntime
-RUN curl -x ${HTTP_PROXY} -L -o onnxruntime-linux-x64-gpu-1.19.2.tgz \
+RUN apk add --no-cache curl && \
+    curl -x ${HTTP_PROXY} -L -o onnxruntime-linux-x64-gpu-1.19.2.tgz \
     https://github.com/microsoft/onnxruntime/releases/download/v1.19.2/onnxruntime-linux-x64-gpu-1.19.2.tgz && \
     tar -tzf onnxruntime-linux-x64-gpu-1.19.2.tgz > /dev/null || (echo "Download failed" && exit 1)
 
