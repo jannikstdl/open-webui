@@ -39,9 +39,15 @@ RUN apk add --no-cache curl && \
     tar -tzf onnxruntime-linux-x64-gpu-1.19.2.tgz > /dev/null || (echo "Download failed" && exit 1)
 
 # Install npm dependencies
-RUN npm config set proxy "${HTTP_PROXY}" && \
+RUN if [ ! -z "${HTTP_PROXY}" ]; then \
+    npm config set proxy "${HTTP_PROXY}" && \
     npm config set https-proxy "${HTTP_PROXY}" && \
-    npm config set strict-ssl false && \
+    npm config set strict-ssl false; \
+    fi && \
+    npm config set registry https://registry.npmjs.org/ && \
+    npm config set fetch-retry-maxtimeout 600000 && \
+    npm config set fetch-retry-mintimeout 10000 && \
+    npm config set fetch-retries 5 && \
     npm ci --verbose
 
 COPY . .
