@@ -34,9 +34,9 @@ COPY package.json package-lock.json ./
 
 # Download onnxruntime
 RUN apk add --no-cache curl && \
-    curl -x "${HTTP_PROXY}" -L -o onnxruntime-linux-x64-gpu-1.19.2.tgz \
+    curl -x "${HTTP_PROXY}" -L -o /tmp/onnxruntime-linux-x64-gpu-1.19.2.tgz \
     https://github.com/microsoft/onnxruntime/releases/download/v1.19.2/onnxruntime-linux-x64-gpu-1.19.2.tgz && \
-    tar -tzf onnxruntime-linux-x64-gpu-1.19.2.tgz > /dev/null || (echo "Download failed" && exit 1)
+    tar -tzf /tmp/onnxruntime-linux-x64-gpu-1.19.2.tgz > /dev/null || (echo "Download failed" && exit 1)
 
 # Install npm dependencies
 RUN if [ ! -z "${HTTP_PROXY}" ]; then \
@@ -45,9 +45,8 @@ RUN if [ ! -z "${HTTP_PROXY}" ]; then \
     npm config set strict-ssl false; \
     fi && \
     npm config set registry https://registry.npmjs.org/ && \
-    npm config set fetch-retry-maxtimeout 600000 && \
-    npm config set fetch-retry-mintimeout 10000 && \
-    npm config set fetch-retries 5 && \
+    # Set environment variable to skip ONNX download during npm install
+    ONNXRUNTIME_DIST_PATH=/tmp/onnxruntime-linux-x64-gpu-1.19.2.tgz \
     npm ci --verbose
 
 COPY . .
