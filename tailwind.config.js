@@ -1,9 +1,21 @@
+import typography from '@tailwindcss/typography';
+
 /** @type {import('tailwindcss').Config} */
 export default {
 	darkMode: 'class',
 	content: ['./src/**/*.{html,js,svelte,ts}'],
 	theme: {
 		extend: {
+			keyframes: {
+				animatedgradient: {
+					'0%': { backgroundPosition: '0% 50%' },
+					'50%': { backgroundPosition: '100% 50%' },
+					'100%': { backgroundPosition: '0% 50%' }
+				}
+			},
+			animation: {
+				gradient: 'animatedgradient 6s ease infinite'
+			},
 			colors: {
 				gray: {
 					50: '#f9f9f9',
@@ -14,11 +26,12 @@ export default {
 					500: '#9b9b9b',
 					600: '#676767',
 					700: '#4e4e4e',
-					800: 'var(--color-gray-800, #333)',
-					850: 'var(--color-gray-850, #262626)',
+					800: '#333',
+					850: '#262626',
 					900: 'var(--color-gray-900, #171717)',
 					950: 'var(--color-gray-950, #0d0d0d)'
-				}
+				},
+				'fits-blue': '#304b6a'
 			},
 			typography: {
 				DEFAULT: {
@@ -30,11 +43,8 @@ export default {
 						'code::after': false
 					}
 				}
-			},
-			padding: {
-				'safe-bottom': 'env(safe-area-inset-bottom)'
 			}
 		}
 	},
-	plugins: [require('@tailwindcss/typography')]
+	plugins: [typography]
 };
