@@ -8,7 +8,6 @@
 	import { toast } from 'svelte-sonner';
 	import { page } from '$app/stores';
 
-	import Tooltip from '$lib/components/common/Tooltip.svelte';
 	import Hero from '$lib/components/fi-ts_landingpage/Hero.svelte';
 	import FAQ from '$lib/components/fi-ts_landingpage/FAQ.svelte';
 	import Features from '$lib/components/fi-ts_landingpage/Features.svelte';
@@ -99,9 +98,7 @@
 </script>
 
 <svelte:head>
-	<title>
-		{$WEBUI_NAME}
-	</title>
+	<title>{$WEBUI_NAME}</title>
 </svelte:head>
 
 {#if loaded}
@@ -128,12 +125,9 @@
 		</div>
 
 		<div class="overflow-y-auto h-screen">
-			<div
-				class="bg-white dark:bg-gray-950 min-h-screen w-full flex justify-center items-center font-mona"
-			>
+			<div class="bg-white dark:bg-gray-950 min-h-screen w-full flex justify-center items-center font-mona">
 				<div class="w-full sm:max-w-md px-10 flex flex-col text-center">
 					{#if ($config?.features.auth_trusted_header ?? false) || $config?.features.auth === false}
-						<!-- Falls Auth über Header gesetzt oder Auth deaktiviert ist -->
 						<div class="my-auto pb-10 w-full">
 							<div
 								class="flex items-center justify-center gap-3 text-2xl sm:text-2xl text-center font-medium dark:text-gray-200"
@@ -150,20 +144,13 @@
 							</div>
 						</div>
 					{:else}
-						<!-- Auth ist aktiv, normale Anzeige -->
-
-						<!-- Überschrift immer auf der ersten Seite -->
 						{#if !showAdminForm}
-							<div class="mb-6">
+							<div class="mb-9">
 								<div class="font-bold text-left text-3xl text-gray-700 dark:text-gray-300">
-									<div
-										class={showAdminForm === null ? 'animate-slide-in-1' : 'animate-slide-in-left'}
-									>
+									<div class={showAdminForm === null ? 'animate-slide-in-1' : 'animate-slide-in-left'}>
 										Anmelden
 									</div>
-									<div
-										class={showAdminForm === null ? 'animate-slide-in-2' : 'animate-slide-in-left'}
-									>
+									<div class={showAdminForm === null ? 'animate-slide-in-2' : 'animate-slide-in-left'}>
 										<div
 											class="font-bold text-left text-4xl bg-gradient-to-r from-fits-blue via-gray-600 to-gray-700 text-transparent bg-clip-text bg-[length:400%_400%] animate-gradient"
 										>
@@ -176,15 +163,11 @@
 
 						<div class="my-auto pb-10 w-full dark:text-gray-100">
 							{#if !showAdminForm}
-								<!-- Startseite mit Oauth -->
 								<div class={showAdminForm === null ? 'animate-fade-in' : 'animate-slide-in-left'}>
 									<div class="flex flex-col space-y-2">
-										<Tooltip
-											content="IZ-Nummer (oder E-Mail) & aktuelles OfficeLAN-Passwort"
-											placement="left"
-										>
+										<div class="relative">
 											<button
-												class="oauth-button flex items-center px-6 duration-300 w-full rounded-2xl text-sm py-3 transition justify-center"
+												class="oauth-button flex items-center px-6 duration-300 w-full rounded-2xl text-sm py-3 transition justify-center group relative"
 												on:click={handleOAuthClick}
 												disabled={!$config?.oauth?.providers?.oidc}
 											>
@@ -204,24 +187,30 @@
 														d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z"
 													/>
 												</svg>
-												<span
-													class={!$config?.oauth?.providers?.oidc
-														? 'text-red-500 dark:text-red-400'
-														: ''}
-												>
-													{#if $config?.oauth?.providers?.oidc}
+												{#if $config?.oauth?.providers?.oidc}
+													<!-- Normaler Text -->
+													<span
+														class="transition-opacity duration-200 group-hover:opacity-0"
+													>
 														{$i18n.t('Continue with {{provider}}', {
 															provider: $config?.oauth?.providers?.oidc ?? 'SSO'
 														})}
-													{:else}
+													</span>
+													<!-- Hinweistext bei Hover -->
+													<span
+														class="absolute inset-0 flex items-center justify-center text-xs text-gray-600 dark:text-gray-400 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+													>
+														IZ-Nr. & OfficeLAN-Passwort
+													</span>
+												{:else}
+													<span class="text-red-500 dark:text-red-400">
 														OAuth nicht konfiguriert
-													{/if}
-												</span>
+													</span>
+												{/if}
 											</button>
-										</Tooltip>
+										</div>
 									</div>
 
-									<!-- "oder" Trennstrich -->
 									<div class="relative w-full">
 										<hr class="w-64 h-px my-8 bg-gray-200 border-0 dark:bg-gray-700 mx-auto" />
 										<div
@@ -231,7 +220,6 @@
 										</div>
 									</div>
 
-									<!-- Administrativer Login Button -->
 									<button
 										class="text-sm rounded-2xl border border-gray-300 dark:border-gray-700 py-2 px-4 text-gray-600 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition"
 										on:click={() => (showAdminForm = true)}
@@ -240,9 +228,7 @@
 									</button>
 								</div>
 							{:else}
-								<!-- Admin Login -->
 								<div class="animate-slide-in-left">
-									<!-- Back Button -->
 									<div class="flex items-center justify-start mb-4">
 										<button
 											class="rounded-full border border-gray-300 dark:border-gray-700 p-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition"
@@ -265,7 +251,6 @@
 										</button>
 									</div>
 
-									<!-- Administrativer Login Formular -->
 									<form
 										class="flex flex-col justify-center"
 										on:submit|preventDefault={() => {
@@ -346,7 +331,7 @@
 			system-ui,
 			'Segoe UI',
 			Roboto,
-			Ubuntu,
+			'Ubuntu',
 			Cantarell,
 			'Noto Sans',
 			sans-serif,
@@ -383,11 +368,6 @@
 		text-transform: uppercase;
 		letter-spacing: 0.5px;
 		font-weight: 500;
-		/*
-			Keine Transition auf die Textfarbe,
-			damit der Wechsel sofort passiert.
-			Transition nur auf Hintergrund, Border, Box-Shadow.
-		*/
 		transition:
 			background 0.4s linear,
 			border 0.4s linear,
@@ -400,18 +380,14 @@
 		border: 2px solid rgba(255, 255, 255, 0.2);
 	}
 
-	/* Hover-Effekte nur, wenn der Button nicht disabled ist */
 	.oauth-button:not(:disabled):hover {
 		color: #fff;
-		background: linear-gradient(90deg, #7e7a7a, #ad2525, #2a2a2a, #304b6a, #7e7a7a);
+		background: linear-gradient(90deg, #888, #666);
 		background-size: 400% 100%;
-		border: 2px solid rgba(255, 255, 255, 0.4);
-		box-shadow:
-			0 0 15px rgba(2, 4, 24, 0.7),
-			0 0 25px rgba(173, 37, 37, 0.3),
-			0 0 35px rgba(48, 75, 106, 0.3);
+		border: 2px solid rgba(255, 255, 255, 0.3);
+		box-shadow: 0 0 10px rgba(0, 0, 0, 0.15);
 		animation: gradientMove 4s linear infinite;
-		text-shadow: 0 0 4px rgba(0, 0, 0, 0.5);
+		text-shadow: 0 0 2px rgba(0, 0, 0, 0.3);
 	}
 
 	@keyframes gradientMove {
@@ -431,19 +407,17 @@
 		bottom: -1px;
 		left: -1px;
 		background: inherit;
-		filter: blur(20px);
+		filter: blur(10px);
 		opacity: 0;
 		transition: 0.4s ease-out;
 	}
 
-	/* Glow-Effekt auch nur, wenn nicht disabled */
 	.oauth-button:not(:disabled):hover::before {
-		opacity: 0.6;
+		opacity: 0.3;
 		z-index: -1;
 	}
 
 	.oauth-button:disabled {
-		/* Falls gewünscht, kann man hier eine optische Anpassung für disabled vornehmen */
 		opacity: 0.6;
 		cursor: not-allowed;
 	}
