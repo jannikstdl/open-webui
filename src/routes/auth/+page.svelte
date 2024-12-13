@@ -136,8 +136,14 @@
 					{#if !showAdminForm}
 						<div class="mb-6">
 							<div class="font-bold text-left text-3xl text-gray-700 dark:text-gray-300">
-								<div class="animate-slide-in-1">Anmelden</div>
-								<div class="animate-slide-in-2">
+								<div
+									class={showAdminForm === null ? 'animate-slide-in-1' : 'animate-slide-in-left'}
+								>
+									Anmelden
+								</div>
+								<div
+									class={showAdminForm === null ? 'animate-slide-in-2' : 'animate-slide-in-left'}
+								>
 									<div
 										class="font-bold text-left text-4xl bg-gradient-to-r from-fits-blue via-gray-600 to-red-600 text-transparent bg-clip-text bg-[length:400%_400%] animate-gradient"
 									>
@@ -410,14 +416,14 @@
 	.animate-slide-in-1 {
 		opacity: 0;
 		transform: translateX(-20px);
-		animation: slideIn 0.5s ease forwards;
+		animation: slideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 	}
 
 	.animate-slide-in-2 {
 		opacity: 0;
 		transform: translateX(-20px);
-		animation: slideIn 0.5s ease forwards;
-		animation-delay: 0.3s;
+		animation: slideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+		animation-delay: 0.25s;
 	}
 
 	@keyframes slideIn {
@@ -434,8 +440,8 @@
 	.animate-fade-in {
 		opacity: 0;
 		transform: translateY(10px);
-		animation: fadeInUp 0.3s ease forwards;
-		animation-delay: 0.8s;
+		animation: fadeInUp 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+		animation-delay: 0.6s;
 	}
 
 	@keyframes fadeInUp {
