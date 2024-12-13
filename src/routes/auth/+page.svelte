@@ -375,7 +375,6 @@
 		max-height: 30px;
 	}
 
-	/* Oauth Button verbessertes Design */
 	.oauth-button {
 		position: relative;
 		color: #1a1a1a;
@@ -386,7 +385,6 @@
 		font-weight: 500;
 	}
 
-	/* Dunkelmodus Anpassung */
 	:global(.dark) .oauth-button {
 		color: #ffffff;
 		background: rgba(255, 255, 255, 0.1);
@@ -394,23 +392,26 @@
 	}
 
 	/* Nur aktivieren wenn der Button nicht disabled ist */
-	.oauth-button:not([disabled]):hover {
+	.oauth-button:hover {
 		z-index: 1;
-		background: linear-gradient(90deg, #bfbfbf, #dd0e0e, #2a2a2a, #2f4a63, #bfbfbf);
-		background-size: 400%;
+		background: linear-gradient(90deg, #7e7a7a, #ad2525, #2a2a2a, #304b6a, #7e7a7a);
+		background-size: 400% 100%; /* Erhöht für smootheren Übergang */
 		border: 2px solid rgba(255, 255, 255, 0.4);
-		box-shadow: 0 0 10px rgba(2, 4, 24, 0.7);
-		animation: glow 8s linear forwards;
+		box-shadow:
+			0 0 15px rgba(2, 4, 24, 0.7),
+			0 0 25px rgba(173, 37, 37, 0.3),
+			/* Rötlicher Glow */ 0 0 35px rgba(48, 75, 106, 0.3); /* Bläulicher Glow */
+		animation: gradientMove 4s linear infinite; /* Schneller & nahtloser Loop */
 		color: white;
 		text-shadow: 0 0 4px rgba(0, 0, 0, 0.5);
 	}
 
-	@keyframes glow {
-		from {
-			background-position: 0%;
+	@keyframes gradientMove {
+		0% {
+			background-position: 0% 50%;
 		}
-		to {
-			background-position: 400%;
+		100% {
+			background-position: 100% 50%;
 		}
 	}
 
