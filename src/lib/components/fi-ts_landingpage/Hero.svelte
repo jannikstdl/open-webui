@@ -8,9 +8,9 @@
 				FI-TS AI Chat
 			</h1>
 			<p class="mt-6 text-lg leading-8 text-gray-600 dark:text-gray-300">
-				Ein GenAI Chatbot, die zu 100% in den Rechenzentren der FI-TS läuft. Verwende
-				Open-Source-Sprachmodelle, um Fragen zu stellen, Dokumente zusammenzufassen, Bilder zu
-				beschreiben, Code zu generieren und vieles mehr.
+				Ein KI-Chatbot, der zu 100% in den Rechenzentren der FI-TS betrieben wird. Nutze
+				Open-Source-Sprachmodelle für Fragen, Dokumentenzusammenfassungen, Code-Generierung und
+				vieles mehr.
 			</p>
 		</div>
 		<div
