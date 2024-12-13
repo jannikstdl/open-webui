@@ -10,17 +10,17 @@
 				<dt
 					class="text-base font-semibold leading-7 text-gray-900 lg:col-span-5 dark:text-gray-200"
 				>
-					Ich habe mein Passwort vergessen
+					Ich habe Fragen / Verbesserungswünsche, wo kann ich mich melden?
 				</dt>
 				<dd class="mt-4 lg:col-span-7 lg:mt-0">
 					<p class="text-base leading-7 text-gray-600 dark:text-gray-300">
-						Zur Zeit ist es noch nicht möglich, das Passwort selbst zurückzusetzen. Wenn du dein
+						Wende dich bei Angelegenkeiten bitte an
 						Passwort vergessen hast, <a
 							class=" font-semibold underline"
-							href="mailto:jannik.streidl@f-i-ts.de;christian.koenig@f-i-ts.de;patrick.wilhelm@f-i-ts.de"
+							href="mailto:ZZG-FITS-AI-Services@f-i-ts.de"
 							target="_blank"
 						>
-							wende dich bitte an einen Administrator.</a
+							unser Gruppenpostfach.</a
 						>
 					</p>
 				</dd>
