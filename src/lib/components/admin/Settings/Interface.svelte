@@ -29,13 +29,14 @@
 		SEARCH_QUERY_GENERATION_PROMPT_TEMPLATE: ''
 	};
 
-	let promptSuggestions = [];
+	let promptSuggestions: Array<{ content: string; title: [string, string] }> = [];
 	let banners: Banner[] = [];
 
 	const updateInterfaceHandler = async () => {
 		taskConfig = await updateTaskConfig(localStorage.token, taskConfig);
 
-		promptSuggestions = await setDefaultPromptSuggestions(localStorage.token, promptSuggestions);
+		promptSuggestions =
+			(await setDefaultPromptSuggestions(localStorage.token, promptSuggestions)) ?? [];
 		await updateBanners();
 
 		await config.set(await getBackendConfig());
@@ -44,6 +45,7 @@
 	onMount(async () => {
 		taskConfig = await getTaskConfig(localStorage.token);
 
+		// Fallback bei undefined
 		promptSuggestions = $config?.default_prompt_suggestions ?? [];
 		banners = (await getBanners(localStorage.token)) ?? [];
 	});
@@ -95,7 +97,7 @@
 						placeholder={$i18n.t('Select a model')}
 					>
 						<option value="" selected>{$i18n.t('Current Model')}</option>
-						{#each $models.filter((m) => m.owned_by === 'ollama') as model}
+						{#each $models?.filter((m) => m.owned_by === 'ollama') ?? [] as model}
 							<option value={model.id} class="bg-gray-100 dark:bg-gray-700">
 								{model.name}
 							</option>
@@ -111,7 +113,7 @@
 						placeholder={$i18n.t('Select a model')}
 					>
 						<option value="" selected>{$i18n.t('Current Model')}</option>
-						{#each $models as model}
+						{#each $models ?? [] as model}
 							<option value={model.id} class="bg-gray-100 dark:bg-gray-700">
 								{model.name}
 							</option>
@@ -189,7 +191,8 @@
 					class="p-1 px-3 text-xs flex rounded transition"
 					type="button"
 					on:click={() => {
-						if (banners.length === 0 || banners.at(-1).content !== '') {
+						// Sicherstellen, dass auf content nur zugegriffen wird, wenn ein letztes Element vorhanden ist
+						if (banners.length === 0 || (banners.length > 0 && banners.at(-1)?.content !== '')) {
 							banners = [
 								...banners,
 								{
@@ -283,7 +286,11 @@
 						class="p-1 px-3 text-xs flex rounded transition"
 						type="button"
 						on:click={() => {
-							if (promptSuggestions.length === 0 || promptSuggestions.at(-1).content !== '') {
+							// Auch hier vorher prüfen, ob letztes Element leer ist
+							if (
+								promptSuggestions.length === 0 ||
+								(promptSuggestions.length > 0 && promptSuggestions.at(-1)?.content !== '')
+							) {
 								promptSuggestions = [...promptSuggestions, { content: '', title: ['', ''] }];
 							}
 						}}
