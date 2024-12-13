@@ -20,6 +20,7 @@
 	let password = '';
 	let isFocused = false;
 	let isLoading = false;
+	let isOAuthLoading = false;
 
 	let showAdminForm = null;
 
@@ -79,12 +80,22 @@
 		if ($user !== undefined) {
 			await goto('/');
 		}
+		if ($page.url.hash) {
+			isOAuthLoading = true;
+		}
 		await checkOauthCallback();
 		loaded = true;
 		if (($config?.features.auth_trusted_header ?? false) || $config?.features.auth === false) {
 			await signInHandler();
 		}
 	});
+
+	const handleOAuthClick = () => {
+		isOAuthLoading = true;
+		if ($config?.oauth?.providers?.oidc) {
+			window.location.href = `${WEBUI_BASE_URL}/oauth/oidc/login`;
+		}
+	};
 </script>
 
 <svelte:head>
@@ -94,227 +105,235 @@
 </svelte:head>
 
 {#if loaded}
-	<div class="fixed m-10 z-50">
-		<div class="flex space-x-2">
-			<div class="self-center">
-				<img
-					crossorigin="anonymous"
-					src="{WEBUI_BASE_URL}/static/logo.png"
-					class="w-8 rounded-md"
-					alt="logo"
-				/>
+	{#if isOAuthLoading}
+		<!-- OAuth Loading Screen -->
+		<div class="fixed inset-0 bg-white dark:bg-gray-950 z-50 flex items-center justify-center">
+			<div class="text-center">
+				<Spinner size="lg" />
+				<div class="mt-4 text-gray-600 dark:text-gray-300">Anmeldung läuft...</div>
 			</div>
 		</div>
-	</div>
+	{:else}
+		<div class="fixed m-10 z-50">
+			<div class="flex space-x-2">
+				<div class="self-center">
+					<img
+						crossorigin="anonymous"
+						src="{WEBUI_BASE_URL}/static/logo.png"
+						class="w-8 rounded-md"
+						alt="logo"
+					/>
+				</div>
+			</div>
+		</div>
 
-	<div class="overflow-y-auto h-screen">
-		<div
-			class="bg-white dark:bg-gray-950 min-h-screen w-full flex justify-center items-center font-mona"
-		>
-			<div class="w-full sm:max-w-md px-10 flex flex-col text-center">
-				{#if ($config?.features.auth_trusted_header ?? false) || $config?.features.auth === false}
-					<!-- Falls Auth über Header gesetzt oder Auth deaktiviert ist -->
-					<div class="my-auto pb-10 w-full">
-						<div
-							class="flex items-center justify-center gap-3 text-2xl sm:text-2xl text-center font-medium dark:text-gray-200"
-						>
+		<div class="overflow-y-auto h-screen">
+			<div
+				class="bg-white dark:bg-gray-950 min-h-screen w-full flex justify-center items-center font-mona"
+			>
+				<div class="w-full sm:max-w-md px-10 flex flex-col text-center">
+					{#if ($config?.features.auth_trusted_header ?? false) || $config?.features.auth === false}
+						<!-- Falls Auth über Header gesetzt oder Auth deaktiviert ist -->
+						<div class="my-auto pb-10 w-full">
 							<div
-								class="font-bold text-2xl bg-gradient-to-r from-fits-blue via-gray-500 to-red-500 text-transparent bg-clip-text bg-[length:400%_400%] animate-gradient"
+								class="flex items-center justify-center gap-3 text-2xl sm:text-2xl text-center font-medium dark:text-gray-200"
 							>
-								{$i18n.t('Signing in')}
-								{$WEBUI_NAME}
-							</div>
-							<div>
-								<Spinner />
+								<div
+									class="font-bold text-2xl bg-gradient-to-r from-fits-blue via-gray-500 to-red-500 text-transparent bg-clip-text bg-[length:400%_400%] animate-gradient"
+								>
+									{$i18n.t('Signing in')}
+									{$WEBUI_NAME}
+								</div>
+								<div>
+									<Spinner />
+								</div>
 							</div>
 						</div>
-					</div>
-				{:else}
-					<!-- Auth ist aktiv, normale Anzeige -->
+					{:else}
+						<!-- Auth ist aktiv, normale Anzeige -->
 
-					<!-- Überschrift immer auf der ersten Seite -->
-					{#if !showAdminForm}
-						<div class="mb-6">
-							<div class="font-bold text-left text-3xl text-gray-700 dark:text-gray-300">
-								<div
-									class={showAdminForm === null ? 'animate-slide-in-1' : 'animate-slide-in-left'}
-								>
-									Anmelden
-								</div>
-								<div
-									class={showAdminForm === null ? 'animate-slide-in-2' : 'animate-slide-in-left'}
-								>
+						<!-- Überschrift immer auf der ersten Seite -->
+						{#if !showAdminForm}
+							<div class="mb-6">
+								<div class="font-bold text-left text-3xl text-gray-700 dark:text-gray-300">
 									<div
-										class="font-bold text-left text-4xl bg-gradient-to-r from-fits-blue via-gray-600 to-red-600 text-transparent bg-clip-text bg-[length:400%_400%] animate-gradient"
+										class={showAdminForm === null ? 'animate-slide-in-1' : 'animate-slide-in-left'}
 									>
-										{$WEBUI_NAME}
+										Anmelden
+									</div>
+									<div
+										class={showAdminForm === null ? 'animate-slide-in-2' : 'animate-slide-in-left'}
+									>
+										<div
+											class="font-bold text-left text-4xl bg-gradient-to-r from-fits-blue via-gray-600 to-red-600 text-transparent bg-clip-text bg-[length:400%_400%] animate-gradient"
+										>
+											{$WEBUI_NAME}
+										</div>
 									</div>
 								</div>
 							</div>
-						</div>
-					{/if}
+						{/if}
 
-					<div class="my-auto pb-10 w-full dark:text-gray-100">
-						{#if !showAdminForm}
-							<!-- Startseite mit Oauth -->
-							<div class={showAdminForm === null ? 'animate-fade-in' : 'animate-slide-in-left'}>
-								<div class="flex flex-col space-y-2">
-									<Tooltip
-										content="IZ-Nummer (oder E-Mail) & aktuelles OfficeLAN-Passwort"
-										placement="left"
+						<div class="my-auto pb-10 w-full dark:text-gray-100">
+							{#if !showAdminForm}
+								<!-- Startseite mit Oauth -->
+								<div class={showAdminForm === null ? 'animate-fade-in' : 'animate-slide-in-left'}>
+									<div class="flex flex-col space-y-2">
+										<Tooltip
+											content="IZ-Nummer (oder E-Mail) & aktuelles OfficeLAN-Passwort"
+											placement="left"
+										>
+											<button
+												class="oauth-button flex items-center px-6 duration-300 w-full rounded-2xl text-sm py-3 transition justify-center"
+												on:click={handleOAuthClick}
+												disabled={!$config?.oauth?.providers?.oidc}
+											>
+												<svg
+													xmlns="http://www.w3.org/2000/svg"
+													fill="none"
+													viewBox="0 0 24 24"
+													stroke-width="1.5"
+													stroke="currentColor"
+													class="size-6 mr-3 {!$config?.oauth?.providers?.oidc
+														? 'text-red-500 dark:text-red-400'
+														: ''}"
+												>
+													<path
+														stroke-linecap="round"
+														stroke-linejoin="round"
+														d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z"
+													/>
+												</svg>
+												<span
+													class={!$config?.oauth?.providers?.oidc
+														? 'text-red-500 dark:text-red-400'
+														: ''}
+												>
+													{#if $config?.oauth?.providers?.oidc}
+														{$i18n.t('Continue with {{provider}}', {
+															provider: $config?.oauth?.providers?.oidc ?? 'SSO'
+														})}
+													{:else}
+														OAuth nicht konfiguriert
+													{/if}
+												</span>
+											</button>
+										</Tooltip>
+									</div>
+
+									<!-- "oder" Trennstrich -->
+									<div class="relative w-full">
+										<hr class="w-64 h-px my-8 bg-gray-200 border-0 dark:bg-gray-700 mx-auto" />
+										<div
+											class="absolute px-3 font-medium text-gray-900 bg-white left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 dark:text-white dark:bg-gray-950"
+										>
+											{$i18n.t('or')}
+										</div>
+									</div>
+
+									<!-- Administrativer Login Button -->
+									<button
+										class="text-sm rounded-2xl border border-gray-300 dark:border-gray-700 py-2 px-4 text-gray-600 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+										on:click={() => (showAdminForm = true)}
 									>
+										Administrativer Login
+									</button>
+								</div>
+							{:else}
+								<!-- Admin Login -->
+								<div class="animate-slide-in-left">
+									<!-- Back Button -->
+									<div class="flex items-center justify-start mb-4">
 										<button
-											class="oauth-button flex items-center px-6 duration-300 w-full rounded-2xl text-sm py-3 transition justify-center"
-											on:click={() => {
-												if ($config?.oauth?.providers?.oidc) {
-													window.location.href = `${WEBUI_BASE_URL}/oauth/oidc/login`;
-												}
-											}}
-											disabled={!$config?.oauth?.providers?.oidc}
+											class="rounded-full border border-gray-300 dark:border-gray-700 p-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+											on:click={() => (showAdminForm = false)}
 										>
 											<svg
 												xmlns="http://www.w3.org/2000/svg"
+												class="w-5 h-5 text-gray-600 dark:text-gray-300"
 												fill="none"
 												viewBox="0 0 24 24"
-												stroke-width="1.5"
 												stroke="currentColor"
-												class="size-6 mr-3 {!$config?.oauth?.providers?.oidc
-													? 'text-red-500 dark:text-red-400'
-													: ''}"
 											>
 												<path
 													stroke-linecap="round"
 													stroke-linejoin="round"
-													d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z"
+													stroke-width="2"
+													d="M15 19l-7-7 7-7"
 												/>
 											</svg>
-											<span
-												class={!$config?.oauth?.providers?.oidc
-													? 'text-red-500 dark:text-red-400'
-													: ''}
-											>
-												{#if $config?.oauth?.providers?.oidc}
-													{$i18n.t('Continue with {{provider}}', {
-														provider: $config?.oauth?.providers?.oidc ?? 'SSO'
-													})}
-												{:else}
-													OAuth nicht konfiguriert
-												{/if}
-											</span>
 										</button>
-									</Tooltip>
-								</div>
-
-								<!-- "oder" Trennstrich -->
-								<div class="relative w-full">
-									<hr class="w-64 h-px my-8 bg-gray-200 border-0 dark:bg-gray-700 mx-auto" />
-									<div
-										class="absolute px-3 font-medium text-gray-900 bg-white left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 dark:text-white dark:bg-gray-950"
-									>
-										{$i18n.t('or')}
 									</div>
-								</div>
 
-								<!-- Administrativer Login Button -->
-								<button
-									class="text-sm rounded-2xl border border-gray-300 dark:border-gray-700 py-2 px-4 text-gray-600 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition"
-									on:click={() => (showAdminForm = true)}
-								>
-									Administrativer Login
-								</button>
-							</div>
-						{:else}
-							<!-- Admin Login -->
-							<div class="animate-slide-in-left">
-								<!-- Back Button -->
-								<div class="flex items-center justify-start mb-4">
-									<button
-										class="rounded-full border border-gray-300 dark:border-gray-700 p-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition"
-										on:click={() => (showAdminForm = false)}
+									<!-- Administrativer Login Formular -->
+									<form
+										class="flex flex-col justify-center"
+										on:submit|preventDefault={() => {
+											submitHandler();
+										}}
 									>
-										<svg
-											xmlns="http://www.w3.org/2000/svg"
-											class="w-5 h-5 text-gray-600 dark:text-gray-300"
-											fill="none"
-											viewBox="0 0 24 24"
-											stroke="currentColor"
-										>
-											<path
-												stroke-linecap="round"
-												stroke-linejoin="round"
-												stroke-width="2"
-												d="M15 19l-7-7 7-7"
-											/>
-										</svg>
-									</button>
-								</div>
+										<div class="mb-1">
+											<div class="flex flex-col mt-4">
+												<div class="mb-2">
+													<div class="text-sm font-medium text-left mb-1">{$i18n.t('Email')}</div>
+													<input
+														bind:value={email}
+														type="email"
+														class="px-5 py-3 rounded-2xl w-full text-sm outline-none border dark:border-none dark:bg-gray-900 focus:border-gray-300 focus:ring-1 focus:ring-gray-300"
+														autocomplete="email"
+														placeholder={$i18n.t('Enter Your Email')}
+														required
+													/>
+												</div>
 
-								<!-- Administrativer Login Formular -->
-								<form
-									class="flex flex-col justify-center"
-									on:submit|preventDefault={() => {
-										submitHandler();
-									}}
-								>
-									<div class="mb-1">
-										<div class="flex flex-col mt-4">
-											<div class="mb-2">
-												<div class="text-sm font-medium text-left mb-1">{$i18n.t('Email')}</div>
-												<input
-													bind:value={email}
-													type="email"
-													class="px-5 py-3 rounded-2xl w-full text-sm outline-none border dark:border-none dark:bg-gray-900 focus:border-gray-300 focus:ring-1 focus:ring-gray-300"
-													autocomplete="email"
-													placeholder={$i18n.t('Enter Your Email')}
-													required
-												/>
+												<div>
+													<div class="text-sm font-medium text-left mb-1">
+														{$i18n.t('Password')}
+													</div>
+
+													<input
+														bind:value={password}
+														type="password"
+														class="px-5 py-3 rounded-2xl w-full text-sm outline-none border dark:border-none dark:bg-gray-900 focus:border-gray-300 focus:ring-1 focus:ring-gray-300"
+														placeholder={$i18n.t('Enter Your Password')}
+														autocomplete="current-password"
+														required
+														on:focus={() => (isFocused = true)}
+														on:blur={() => (isFocused = false)}
+													/>
+												</div>
 											</div>
 
-											<div>
-												<div class="text-sm font-medium text-left mb-1">{$i18n.t('Password')}</div>
-
-												<input
-													bind:value={password}
-													type="password"
-													class="px-5 py-3 rounded-2xl w-full text-sm outline-none border dark:border-none dark:bg-gray-900 focus:border-gray-300 focus:ring-1 focus:ring-gray-300"
-													placeholder={$i18n.t('Enter Your Password')}
-													autocomplete="current-password"
-													required
-													on:focus={() => (isFocused = true)}
-													on:blur={() => (isFocused = false)}
-												/>
+											<div class="mt-5">
+												<button
+													class="bg-gray-900 hover:bg-gray-800 w-full rounded-2xl text-white font-medium text-sm py-3 transition flex items-center justify-center"
+													type="submit"
+													disabled={isLoading}
+												>
+													{#if isLoading}
+														<Spinner />
+														<span class="ml-2">{$i18n.t('Sign in')}</span>
+													{:else}
+														{$i18n.t('Sign in')}
+													{/if}
+												</button>
 											</div>
 										</div>
-
-										<div class="mt-5">
-											<button
-												class="bg-gray-900 hover:bg-gray-800 w-full rounded-2xl text-white font-medium text-sm py-3 transition flex items-center justify-center"
-												type="submit"
-												disabled={isLoading}
-											>
-												{#if isLoading}
-													<Spinner />
-													<span class="ml-2">{$i18n.t('Sign in')}</span>
-												{:else}
-													{$i18n.t('Sign in')}
-												{/if}
-											</button>
-										</div>
-									</div>
-								</form>
-							</div>
-						{/if}
-					</div>
-				{/if}
+									</form>
+								</div>
+							{/if}
+						</div>
+					{/if}
+				</div>
 			</div>
-		</div>
 
-		<div class="relative mt-[-30vh]">
-			<Hero />
+			<div class="relative mt-[-30vh]">
+				<Hero />
+			</div>
+			<Features />
+			<FAQ />
 		</div>
-		<Features />
-		<FAQ />
-	</div>
+	{/if}
 {/if}
 
 <style>
