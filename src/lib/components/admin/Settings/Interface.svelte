@@ -1,201 +1,56 @@
 <script lang="ts">
-	import { getBackendConfig } from '$lib/apis';
+	import { v4 as uuidv4 } from 'uuid';
+	import { toast } from 'svelte-sonner';
+
+	import { getBackendConfig, getTaskConfig, updateTaskConfig } from '$lib/apis';
 	import { setDefaultPromptSuggestions } from '$lib/apis/configs';
 	import { config, models, settings, user } from '$lib/stores';
 	import { createEventDispatcher, onMount, getContext } from 'svelte';
-	import { toast } from 'svelte-sonner';
+
+	import { banners as _banners } from '$lib/stores';
+	import type { Banner } from '$lib/types';
+
+	import { getBanners, setBanners } from '$lib/apis/configs';
+
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
-	import { updateUserInfo } from '$lib/apis/users';
-	import { getUserPosition } from '$lib/utils';
+	import Switch from '$lib/components/common/Switch.svelte';
+	import Textarea from '$lib/components/common/Textarea.svelte';
+
 	const dispatch = createEventDispatcher();
 
 	const i18n = getContext('i18n');
 
-	export let saveSettings: Function;
-
-	let backgroundImageUrl = null;
-	let inputFiles = null;
-	let filesInputElement;
-
-	// Addons
-	let titleAutoGenerate = true;
-	let autoTags = true;
-
-	let responseAutoCopy = false;
-	let widescreenMode = false;
-	let splitLargeChunks = false;
-	let scrollOnBranchChange = true;
-	let userLocation = false;
-
-	// Interface
-	let defaultModelId = '';
-	let showUsername = false;
-	let richTextInput = true;
-
-	let landingPageMode = '';
-	let chatBubble = true;
-	let chatDirection: 'LTR' | 'RTL' = 'LTR';
-	let showUpdateToast = false; // FI-TS_custom 08.11.2024
-
-	let showEmojiInCall = false;
-	let voiceInterruption = false;
-	let hapticFeedback = false;
-
-	const toggleSplitLargeChunks = async () => {
-		splitLargeChunks = !splitLargeChunks;
-		saveSettings({ splitLargeChunks: splitLargeChunks });
+	let taskConfig = {
+		TASK_MODEL: '',
+		TASK_MODEL_EXTERNAL: '',
+		TITLE_GENERATION_PROMPT_TEMPLATE: '',
+		TAGS_GENERATION_PROMPT_TEMPLATE: '',
+		ENABLE_SEARCH_QUERY: true,
+		SEARCH_QUERY_GENERATION_PROMPT_TEMPLATE: ''
 	};
 
-	const togglesScrollOnBranchChange = async () => {
-		scrollOnBranchChange = !scrollOnBranchChange;
-		saveSettings({ scrollOnBranchChange: scrollOnBranchChange });
-	};
-
-	const toggleWidescreenMode = async () => {
-		widescreenMode = !widescreenMode;
-		saveSettings({ widescreenMode: widescreenMode });
-	};
-
-	const toggleChatBubble = async () => {
-		chatBubble = !chatBubble;
-		saveSettings({ chatBubble: chatBubble });
-	};
-
-	const toggleLandingPageMode = async () => {
-		landingPageMode = landingPageMode === '' ? 'chat' : '';
-		saveSettings({ landingPageMode: landingPageMode });
-	};
-
-	const toggleShowUpdateToast = async () => {
-		showUpdateToast = !showUpdateToast;
-		saveSettings({ showUpdateToast: showUpdateToast });
-	};
-
-	const toggleShowUsername = async () => {
-		showUsername = !showUsername;
-		saveSettings({ showUsername: showUsername });
-	};
-
-	const toggleEmojiInCall = async () => {
-		showEmojiInCall = !showEmojiInCall;
-		saveSettings({ showEmojiInCall: showEmojiInCall });
-	};
-
-	const toggleVoiceInterruption = async () => {
-		voiceInterruption = !voiceInterruption;
-		saveSettings({ voiceInterruption: voiceInterruption });
-	};
-
-	const toggleHapticFeedback = async () => {
-		hapticFeedback = !hapticFeedback;
-		saveSettings({ hapticFeedback: hapticFeedback });
-	};
-
-	const toggleUserLocation = async () => {
-		userLocation = !userLocation;
-
-		if (userLocation) {
-			const position = await getUserPosition().catch((error) => {
-				toast.error(error.message);
-				return null;
-			});
-
-			if (position) {
-				await updateUserInfo(localStorage.token, { location: position });
-				toast.success($i18n.t('User location successfully retrieved.'));
-			} else {
-				userLocation = false;
-			}
-		}
-
-		saveSettings({ userLocation });
-	};
-
-	const toggleTitleAutoGenerate = async () => {
-		titleAutoGenerate = !titleAutoGenerate;
-		saveSettings({
-			title: {
-				...$settings.title,
-				auto: titleAutoGenerate
-			}
-		});
-	};
-
-	const toggleAutoTags = async () => {
-		autoTags = !autoTags;
-		saveSettings({ autoTags });
-	};
-
-	const toggleRichTextInput = async () => {
-		richTextInput = !richTextInput;
-		saveSettings({ richTextInput });
-	};
-
-	const toggleResponseAutoCopy = async () => {
-		const permission = await navigator.clipboard
-			.readText()
-			.then(() => {
-				return 'granted';
-			})
-			.catch(() => {
-				return '';
-			});
-
-		console.log(permission);
-
-		if (permission === 'granted') {
-			responseAutoCopy = !responseAutoCopy;
-			saveSettings({ responseAutoCopy: responseAutoCopy });
-		} else {
-			toast.error(
-				$i18n.t(
-					'Clipboard write permission denied. Please check your browser settings to grant the necessary access.'
-				)
-			);
-		}
-	};
-
-	const toggleChangeChatDirection = async () => {
-		chatDirection = chatDirection === 'LTR' ? 'RTL' : 'LTR';
-		saveSettings({ chatDirection });
-	};
+	let promptSuggestions = [];
+	let banners: Banner[] = [];
 
 	const updateInterfaceHandler = async () => {
-		saveSettings({
-			models: [defaultModelId]
-		});
+		taskConfig = await updateTaskConfig(localStorage.token, taskConfig);
+
+		promptSuggestions = await setDefaultPromptSuggestions(localStorage.token, promptSuggestions);
+		await updateBanners();
+
+		await config.set(await getBackendConfig());
 	};
 
 	onMount(async () => {
-		titleAutoGenerate = $settings?.title?.auto ?? true;
-		autoTags = $settings.autoTags ?? true;
+		taskConfig = await getTaskConfig(localStorage.token);
 
-		responseAutoCopy = $settings.responseAutoCopy ?? false;
-
-		showUsername = $settings.showUsername ?? false;
-		showUpdateToast = $settings.showUpdateToast ?? false; // FI-TS_custom 08.11.2024
-
-		showEmojiInCall = $settings.showEmojiInCall ?? false;
-		voiceInterruption = $settings.voiceInterruption ?? false;
-
-		richTextInput = $settings.richTextInput ?? true;
-		landingPageMode = $settings.landingPageMode ?? '';
-		chatBubble = $settings.chatBubble ?? true;
-		widescreenMode = $settings.widescreenMode ?? false;
-		splitLargeChunks = $settings.splitLargeChunks ?? false;
-		scrollOnBranchChange = $settings.scrollOnBranchChange ?? true;
-		chatDirection = $settings.chatDirection ?? 'LTR';
-		userLocation = $settings.userLocation ?? false;
-
-		hapticFeedback = $settings.hapticFeedback ?? false;
-
-		defaultModelId = $settings?.models?.at(0) ?? '';
-		if ($config?.default_models) {
-			defaultModelId = $config.default_models.split(',')[0];
-		}
-
-		backgroundImageUrl = $settings.backgroundImageUrl ?? null;
+		promptSuggestions = $config?.default_prompt_suggestions;
+		banners = await getBanners(localStorage.token);
 	});
+
+	const updateBanners = async () => {
+		_banners.set(await setBanners(localStorage.token, banners));
+	};
 </script>
 
 <form
@@ -205,425 +60,303 @@
 		dispatch('save');
 	}}
 >
-	<input
-		bind:this={filesInputElement}
-		bind:files={inputFiles}
-		type="file"
-		hidden
-		accept="image/*"
-		on:change={() => {
-			if (!inputFiles || inputFiles.length === 0) {
-				return;
-			}
+	<div class="  overflow-y-scroll scrollbar-hidden h-full pr-1.5">
+		<div>
+			<div class=" mb-2.5 text-sm font-medium flex items-center">
+				<div class=" mr-1">{$i18n.t('Set Task Model')}</div>
+				<Tooltip
+					content={$i18n.t(
+						'A task model is used when performing tasks such as generating titles for chats and web search queries'
+					)}
+				>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke-width="1.5"
+						stroke="currentColor"
+						class="size-3.5"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z"
+						/>
+					</svg>
+				</Tooltip>
+			</div>
+			<div class="flex w-full gap-2">
+				<div class="flex-1">
+					<div class=" text-xs mb-1">{$i18n.t('Local Models')}</div>
+					<select
+						class="w-full rounded-lg py-2 px-4 text-sm bg-gray-50 dark:text-gray-300 dark:bg-gray-850 outline-none"
+						bind:value={taskConfig.TASK_MODEL}
+						placeholder={$i18n.t('Select a model')}
+					>
+						<option value="" selected>{$i18n.t('Current Model')}</option>
+						{#each $models.filter((m) => m.owned_by === 'ollama') as model}
+							<option value={model.id} class="bg-gray-100 dark:bg-gray-700">
+								{model.name}
+							</option>
+						{/each}
+					</select>
+				</div>
 
-			const file = inputFiles[0];
-			if (!['image/gif', 'image/webp', 'image/jpeg', 'image/png'].includes(file.type)) {
-				console.log(`Unsupported File Type '${file.type}'.`);
-				inputFiles = null;
-				return;
-			}
-
-			let reader = new FileReader();
-			reader.onload = (event) => {
-				let originalImageUrl = `${event.target.result}`;
-				backgroundImageUrl = originalImageUrl;
-				saveSettings({ backgroundImageUrl });
-			};
-			reader.readAsDataURL(file);
-		}}
-	/>
-
-	<div class=" space-y-3 pr-1.5 overflow-y-scroll max-h-[25rem] scrollbar-hidden">
-		<div class=" space-y-1 mb-3">
-			<div class="mb-2">
-				<div class="flex justify-between items-center text-xs">
-					<div class=" text-sm font-medium">{$i18n.t('Default Model')}</div>
+				<div class="flex-1">
+					<div class=" text-xs mb-1">{$i18n.t('External Models')}</div>
+					<select
+						class="w-full rounded-lg py-2 px-4 text-sm bg-gray-50 dark:text-gray-300 dark:bg-gray-850 outline-none"
+						bind:value={taskConfig.TASK_MODEL_EXTERNAL}
+						placeholder={$i18n.t('Select a model')}
+					>
+						<option value="" selected>{$i18n.t('Current Model')}</option>
+						{#each $models as model}
+							<option value={model.id} class="bg-gray-100 dark:bg-gray-700">
+								{model.name}
+							</option>
+						{/each}
+					</select>
 				</div>
 			</div>
 
-			<div class="flex-1 mr-2">
-				<select
-					class="w-full rounded-lg py-2 px-4 text-sm dark:text-gray-300 dark:bg-gray-850 outline-none"
-					bind:value={defaultModelId}
-					placeholder="Select a model"
+			<div class="mt-3">
+				<div class=" mb-2.5 text-xs font-medium">{$i18n.t('Title Generation Prompt')}</div>
+
+				<Tooltip
+					content={$i18n.t('Leave empty to use the default prompt, or enter a custom prompt')}
+					placement="top-start"
 				>
-					<option value="" disabled selected>{$i18n.t('Select a model')}</option>
-					{#each $models.filter((model) => model.id) as model}
-						<option value={model.id} class="bg-gray-100 dark:bg-gray-700">{model.name}</option>
-					{/each}
-				</select>
+					<Textarea
+						bind:value={taskConfig.TITLE_GENERATION_PROMPT_TEMPLATE}
+						placeholder={$i18n.t('Leave empty to use the default prompt, or enter a custom prompt')}
+					/>
+				</Tooltip>
+			</div>
+
+			<div class="mt-3">
+				<div class=" mb-2.5 text-xs font-medium">{$i18n.t('Tags Generation Prompt')}</div>
+
+				<Tooltip
+					content={$i18n.t('Leave empty to use the default prompt, or enter a custom prompt')}
+					placement="top-start"
+				>
+					<Textarea
+						bind:value={taskConfig.TAGS_GENERATION_PROMPT_TEMPLATE}
+						placeholder={$i18n.t('Leave empty to use the default prompt, or enter a custom prompt')}
+					/>
+				</Tooltip>
+			</div>
+
+			<hr class=" dark:border-gray-850 my-3" />
+
+			<div class="my-3 flex w-full items-center justify-between">
+				<div class=" self-center text-xs font-medium">
+					{$i18n.t('Enable Web Search Query Generation')}
+				</div>
+
+				<Switch bind:state={taskConfig.ENABLE_SEARCH_QUERY} />
+			</div>
+
+			{#if taskConfig.ENABLE_SEARCH_QUERY}
+				<div class="">
+					<div class=" mb-2.5 text-xs font-medium">{$i18n.t('Search Query Generation Prompt')}</div>
+
+					<Tooltip
+						content={$i18n.t('Leave empty to use the default prompt, or enter a custom prompt')}
+						placement="top-start"
+					>
+						<Textarea
+							bind:value={taskConfig.SEARCH_QUERY_GENERATION_PROMPT_TEMPLATE}
+							placeholder={$i18n.t(
+								'Leave empty to use the default prompt, or enter a custom prompt'
+							)}
+						/>
+					</Tooltip>
+				</div>
+			{/if}
+		</div>
+
+		<hr class=" dark:border-gray-850 my-3" />
+
+		<div class=" space-y-3 {banners.length > 0 ? ' mb-3' : ''}">
+			<div class="flex w-full justify-between">
+				<div class=" self-center text-sm font-semibold">
+					{$i18n.t('Banners')}
+				</div>
+
+				<button
+					class="p-1 px-3 text-xs flex rounded transition"
+					type="button"
+					on:click={() => {
+						if (banners.length === 0 || banners.at(-1).content !== '') {
+							banners = [
+								...banners,
+								{
+									id: uuidv4(),
+									type: '',
+									title: '',
+									content: '',
+									dismissible: true,
+									timestamp: Math.floor(Date.now() / 1000)
+								}
+							];
+						}
+					}}
+				>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						viewBox="0 0 20 20"
+						fill="currentColor"
+						class="w-4 h-4"
+					>
+						<path
+							d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z"
+						/>
+					</svg>
+				</button>
+			</div>
+			<div class="flex flex-col space-y-1">
+				{#each banners as banner, bannerIdx}
+					<div class=" flex justify-between">
+						<div class="flex flex-row flex-1 border rounded-xl dark:border-gray-800">
+							<select
+								class="w-fit capitalize rounded-xl py-2 px-4 text-xs bg-transparent outline-none"
+								bind:value={banner.type}
+								required
+							>
+								{#if banner.type == ''}
+									<option value="" selected disabled class="text-gray-900">{$i18n.t('Type')}</option
+									>
+								{/if}
+								<option value="info" class="text-gray-900">{$i18n.t('Info')}</option>
+								<option value="warning" class="text-gray-900">{$i18n.t('Warning')}</option>
+								<option value="error" class="text-gray-900">{$i18n.t('Error')}</option>
+								<option value="success" class="text-gray-900">{$i18n.t('Success')}</option>
+							</select>
+
+							<input
+								class="pr-5 py-1.5 text-xs w-full bg-transparent outline-none"
+								placeholder={$i18n.t('Content')}
+								bind:value={banner.content}
+							/>
+
+							<div class="relative top-1.5 -left-2">
+								<Tooltip content={$i18n.t('Dismissible')} className="flex h-fit items-center">
+									<Switch bind:state={banner.dismissible} />
+								</Tooltip>
+							</div>
+						</div>
+
+						<button
+							class="px-2"
+							type="button"
+							on:click={() => {
+								banners.splice(bannerIdx, 1);
+								banners = banners;
+							}}
+						>
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								viewBox="0 0 20 20"
+								fill="currentColor"
+								class="w-4 h-4"
+							>
+								<path
+									d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z"
+								/>
+							</svg>
+						</button>
+					</div>
+				{/each}
 			</div>
 		</div>
-		<hr class=" dark:border-gray-850" />
 
-		<div>
-			<div class=" mb-1.5 text-sm font-medium">{$i18n.t('UI')}</div>
-
-			<div>
-				<div class=" py-0.5 flex w-full justify-between">
-					<div class=" self-center text-xs">{$i18n.t('Landing Page Mode')}</div>
-
-					<button
-						class="p-1 px-3 text-xs flex rounded transition"
-						on:click={() => {
-							toggleLandingPageMode();
-						}}
-						type="button"
-					>
-						{#if landingPageMode === ''}
-							<span class="ml-2 self-center">{$i18n.t('Default')}</span>
-						{:else}
-							<span class="ml-2 self-center">{$i18n.t('Chat')}</span>
-						{/if}
-					</button>
-				</div>
-			</div>
-
-			<div>
-				<div class=" py-0.5 flex w-full justify-between">
-					<div class=" self-center text-xs">{$i18n.t('Chat Bubble UI')}</div>
-
-					<button
-						class="p-1 px-3 text-xs flex rounded transition"
-						on:click={() => {
-							toggleChatBubble();
-						}}
-						type="button"
-					>
-						{#if chatBubble === true}
-							<span class="ml-2 self-center">{$i18n.t('On')}</span>
-						{:else}
-							<span class="ml-2 self-center">{$i18n.t('Off')}</span>
-						{/if}
-					</button>
-				</div>
-			</div>
-
-			{#if !$settings.chatBubble}
-				<div>
-					<div class=" py-0.5 flex w-full justify-between">
-						<div class=" self-center text-xs">
-							{$i18n.t('Display the username instead of You in the Chat')}
-						</div>
-
-						<button
-							class="p-1 px-3 text-xs flex rounded transition"
-							on:click={() => {
-								toggleShowUsername();
-							}}
-							type="button"
-						>
-							{#if showUsername === true}
-								<span class="ml-2 self-center">{$i18n.t('On')}</span>
-							{:else}
-								<span class="ml-2 self-center">{$i18n.t('Off')}</span>
-							{/if}
-						</button>
-					</div>
-				</div>
-			{/if}
-
-			<div>
-				<div class=" py-0.5 flex w-full justify-between">
-					<div class=" self-center text-xs">{$i18n.t('Widescreen Mode')}</div>
-
-					<button
-						class="p-1 px-3 text-xs flex rounded transition"
-						on:click={() => {
-							toggleWidescreenMode();
-						}}
-						type="button"
-					>
-						{#if widescreenMode === true}
-							<span class="ml-2 self-center">{$i18n.t('On')}</span>
-						{:else}
-							<span class="ml-2 self-center">{$i18n.t('Off')}</span>
-						{/if}
-					</button>
-				</div>
-			</div>
-
-			<div>
-				<div class=" py-0.5 flex w-full justify-between">
-					<div class=" self-center text-xs">{$i18n.t('Chat direction')}</div>
-
-					<button
-						class="p-1 px-3 text-xs flex rounded transition"
-						on:click={toggleChangeChatDirection}
-						type="button"
-					>
-						{#if chatDirection === 'LTR'}
-							<span class="ml-2 self-center">{$i18n.t('LTR')}</span>
-						{:else}
-							<span class="ml-2 self-center">{$i18n.t('RTL')}</span>
-						{/if}
-					</button>
-				</div>
-			</div>
-
-			{#if $user.role === 'admin'}
-				<div>
-					<div class=" py-0.5 flex w-full justify-between">
-						<div class=" self-center text-xs">
-							{$i18n.t('Toast notifications for new updates')}
-						</div>
-
-						<button
-							class="p-1 px-3 text-xs flex rounded transition"
-							on:click={() => {
-								toggleShowUpdateToast();
-							}}
-							type="button"
-						>
-							{#if showUpdateToast === true}
-								<span class="ml-2 self-center">{$i18n.t('On')}</span>
-							{:else}
-								<span class="ml-2 self-center">{$i18n.t('Off')}</span>
-							{/if}
-						</button>
-					</div>
-				</div>
-			{/if}
-
-			<div>
-				<div class=" py-0.5 flex w-full justify-between">
-					<div class=" self-center text-xs">
-						{$i18n.t('Fluidly stream large external response chunks')}
+		{#if $user.role === 'admin'}
+			<div class=" space-y-3">
+				<div class="flex w-full justify-between mb-2">
+					<div class=" self-center text-sm font-semibold">
+						{$i18n.t('Default Prompt Suggestions')}
 					</div>
 
 					<button
 						class="p-1 px-3 text-xs flex rounded transition"
-						on:click={() => {
-							toggleSplitLargeChunks();
-						}}
 						type="button"
-					>
-						{#if splitLargeChunks === true}
-							<span class="ml-2 self-center">{$i18n.t('On')}</span>
-						{:else}
-							<span class="ml-2 self-center">{$i18n.t('Off')}</span>
-						{/if}
-					</button>
-				</div>
-			</div>
-
-			<div>
-				<div class=" py-0.5 flex w-full justify-between">
-					<div class=" self-center text-xs">
-						{$i18n.t('Scroll to bottom when switching between branches')}
-					</div>
-
-					<button
-						class="p-1 px-3 text-xs flex rounded transition"
 						on:click={() => {
-							togglesScrollOnBranchChange();
-						}}
-						type="button"
-					>
-						{#if scrollOnBranchChange === true}
-							<span class="ml-2 self-center">{$i18n.t('On')}</span>
-						{:else}
-							<span class="ml-2 self-center">{$i18n.t('Off')}</span>
-						{/if}
-					</button>
-				</div>
-			</div>
-
-			<div>
-				<div class=" py-0.5 flex w-full justify-between">
-					<div class=" self-center text-xs">
-						{$i18n.t('Rich Text Input for Chat')}
-					</div>
-
-					<button
-						class="p-1 px-3 text-xs flex rounded transition"
-						on:click={() => {
-							toggleRichTextInput();
-						}}
-						type="button"
-					>
-						{#if richTextInput === true}
-							<span class="ml-2 self-center">{$i18n.t('On')}</span>
-						{:else}
-							<span class="ml-2 self-center">{$i18n.t('Off')}</span>
-						{/if}
-					</button>
-				</div>
-			</div>
-
-			<div>
-				<div class=" py-0.5 flex w-full justify-between">
-					<div class=" self-center text-xs">
-						{$i18n.t('Chat Background Image')}
-					</div>
-
-					<button
-						class="p-1 px-3 text-xs flex rounded transition"
-						on:click={() => {
-							if (backgroundImageUrl !== null) {
-								backgroundImageUrl = null;
-								saveSettings({ backgroundImageUrl });
-							} else {
-								filesInputElement.click();
+							if (promptSuggestions.length === 0 || promptSuggestions.at(-1).content !== '') {
+								promptSuggestions = [...promptSuggestions, { content: '', title: ['', ''] }];
 							}
 						}}
-						type="button"
 					>
-						{#if backgroundImageUrl !== null}
-							<span class="ml-2 self-center">{$i18n.t('Reset')}</span>
-						{:else}
-							<span class="ml-2 self-center">{$i18n.t('Upload')}</span>
-						{/if}
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							viewBox="0 0 20 20"
+							fill="currentColor"
+							class="w-4 h-4"
+						>
+							<path
+								d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z"
+							/>
+						</svg>
 					</button>
 				</div>
-			</div>
+				<div class="grid lg:grid-cols-2 flex-col gap-1.5">
+					{#each promptSuggestions as prompt, promptIdx}
+						<div
+							class=" flex border border-gray-100 dark:border-none dark:bg-gray-850 rounded-xl py-1.5"
+						>
+							<div class="flex flex-col flex-1 pl-1">
+								<div class="flex border-b border-gray-100 dark:border-gray-800 w-full">
+									<input
+										class="px-3 py-1.5 text-xs w-full bg-transparent outline-none border-r border-gray-100 dark:border-gray-800"
+										placeholder={$i18n.t('Title (e.g. Tell me a fun fact)')}
+										bind:value={prompt.title[0]}
+									/>
 
-			<div class=" my-1.5 text-sm font-medium">{$i18n.t('Chat')}</div>
+									<input
+										class="px-3 py-1.5 text-xs w-full bg-transparent outline-none border-r border-gray-100 dark:border-gray-800"
+										placeholder={$i18n.t('Subtitle (e.g. about the Roman Empire)')}
+										bind:value={prompt.title[1]}
+									/>
+								</div>
 
-			<div>
-				<div class=" py-0.5 flex w-full justify-between">
-					<div class=" self-center text-xs">{$i18n.t('Title Auto-Generation')}</div>
+								<textarea
+									class="px-3 py-1.5 text-xs w-full bg-transparent outline-none border-r border-gray-100 dark:border-gray-800 resize-none"
+									placeholder={$i18n.t('Prompt (e.g. Tell me a fun fact about the Roman Empire)')}
+									rows="3"
+									bind:value={prompt.content}
+								/>
+							</div>
 
-					<button
-						class="p-1 px-3 text-xs flex rounded transition"
-						on:click={() => {
-							toggleTitleAutoGenerate();
-						}}
-						type="button"
-					>
-						{#if titleAutoGenerate === true}
-							<span class="ml-2 self-center">{$i18n.t('On')}</span>
-						{:else}
-							<span class="ml-2 self-center">{$i18n.t('Off')}</span>
-						{/if}
-					</button>
+							<button
+								class="px-3"
+								type="button"
+								on:click={() => {
+									promptSuggestions.splice(promptIdx, 1);
+									promptSuggestions = promptSuggestions;
+								}}
+							>
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									viewBox="0 0 20 20"
+									fill="currentColor"
+									class="w-4 h-4"
+								>
+									<path
+										d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z"
+									/>
+								</svg>
+							</button>
+						</div>
+					{/each}
 				</div>
-			</div>
 
-			<div>
-				<div class=" py-0.5 flex w-full justify-between">
-					<div class=" self-center text-xs">{$i18n.t('Chat Tags Auto-Generation')}</div>
-
-					<button
-						class="p-1 px-3 text-xs flex rounded transition"
-						on:click={() => {
-							toggleAutoTags();
-						}}
-						type="button"
-					>
-						{#if autoTags === true}
-							<span class="ml-2 self-center">{$i18n.t('On')}</span>
-						{:else}
-							<span class="ml-2 self-center">{$i18n.t('Off')}</span>
-						{/if}
-					</button>
-				</div>
-			</div>
-
-			<div>
-				<div class=" py-0.5 flex w-full justify-between">
-					<div class=" self-center text-xs">
-						{$i18n.t('Response AutoCopy to Clipboard')}
+				{#if promptSuggestions.length > 0}
+					<div class="text-xs text-left w-full mt-2">
+						{$i18n.t('Adjusting these settings will apply changes universally to all users.')}
 					</div>
-
-					<button
-						class="p-1 px-3 text-xs flex rounded transition"
-						on:click={() => {
-							toggleResponseAutoCopy();
-						}}
-						type="button"
-					>
-						{#if responseAutoCopy === true}
-							<span class="ml-2 self-center">{$i18n.t('On')}</span>
-						{:else}
-							<span class="ml-2 self-center">{$i18n.t('Off')}</span>
-						{/if}
-					</button>
-				</div>
+				{/if}
 			</div>
-
-			<div>
-				<div class=" py-0.5 flex w-full justify-between">
-					<div class=" self-center text-xs">{$i18n.t('Allow User Location')}</div>
-
-					<button
-						class="p-1 px-3 text-xs flex rounded transition"
-						on:click={() => {
-							toggleUserLocation();
-						}}
-						type="button"
-					>
-						{#if userLocation === true}
-							<span class="ml-2 self-center">{$i18n.t('On')}</span>
-						{:else}
-							<span class="ml-2 self-center">{$i18n.t('Off')}</span>
-						{/if}
-					</button>
-				</div>
-			</div>
-
-			<div>
-				<div class=" py-0.5 flex w-full justify-between">
-					<div class=" self-center text-xs">{$i18n.t('Haptic Feedback')}</div>
-
-					<button
-						class="p-1 px-3 text-xs flex rounded transition"
-						on:click={() => {
-							toggleHapticFeedback();
-						}}
-						type="button"
-					>
-						{#if hapticFeedback === true}
-							<span class="ml-2 self-center">{$i18n.t('On')}</span>
-						{:else}
-							<span class="ml-2 self-center">{$i18n.t('Off')}</span>
-						{/if}
-					</button>
-				</div>
-			</div>
-
-			<div class=" my-1.5 text-sm font-medium">{$i18n.t('Voice')}</div>
-
-			<div>
-				<div class=" py-0.5 flex w-full justify-between">
-					<div class=" self-center text-xs">{$i18n.t('Allow Voice Interruption in Call')}</div>
-
-					<button
-						class="p-1 px-3 text-xs flex rounded transition"
-						on:click={() => {
-							toggleVoiceInterruption();
-						}}
-						type="button"
-					>
-						{#if voiceInterruption === true}
-							<span class="ml-2 self-center">{$i18n.t('On')}</span>
-						{:else}
-							<span class="ml-2 self-center">{$i18n.t('Off')}</span>
-						{/if}
-					</button>
-				</div>
-			</div>
-
-			<div>
-				<div class=" py-0.5 flex w-full justify-between">
-					<div class=" self-center text-xs">{$i18n.t('Display Emoji in Call')}</div>
-
-					<button
-						class="p-1 px-3 text-xs flex rounded transition"
-						on:click={() => {
-							toggleEmojiInCall();
-						}}
-						type="button"
-					>
-						{#if showEmojiInCall === true}
-							<span class="ml-2 self-center">{$i18n.t('On')}</span>
-						{:else}
-							<span class="ml-2 self-center">{$i18n.t('Off')}</span>
-						{/if}
-					</button>
-				</div>
-			</div>
-		</div>
+		{/if}
 	</div>
 
 	<div class="flex justify-end text-sm font-medium">
