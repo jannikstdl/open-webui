@@ -383,6 +383,15 @@
 		text-transform: uppercase;
 		letter-spacing: 0.5px;
 		font-weight: 500;
+		/*
+			Keine Transition auf die Textfarbe,
+			damit der Wechsel sofort passiert.
+			Transition nur auf Hintergrund, Border, Box-Shadow.
+		*/
+		transition:
+			background 0.4s linear,
+			border 0.4s linear,
+			box-shadow 0.4s linear;
 	}
 
 	:global(.dark) .oauth-button {
@@ -391,18 +400,17 @@
 		border: 2px solid rgba(255, 255, 255, 0.2);
 	}
 
-	/* Nur aktivieren wenn der Button nicht disabled ist */
-	.oauth-button:hover {
-		z-index: 1;
+	/* Hover-Effekte nur, wenn der Button nicht disabled ist */
+	.oauth-button:not(:disabled):hover {
+		color: #fff;
 		background: linear-gradient(90deg, #7e7a7a, #ad2525, #2a2a2a, #304b6a, #7e7a7a);
-		background-size: 400% 100%; /* Erhöht für smootheren Übergang */
+		background-size: 400% 100%;
 		border: 2px solid rgba(255, 255, 255, 0.4);
 		box-shadow:
 			0 0 15px rgba(2, 4, 24, 0.7),
 			0 0 25px rgba(173, 37, 37, 0.3),
-			/* Rötlicher Glow */ 0 0 35px rgba(48, 75, 106, 0.3); /* Bläulicher Glow */
-		animation: gradientMove 4s linear infinite; /* Schneller & nahtloser Loop */
-		color: white;
+			0 0 35px rgba(48, 75, 106, 0.3);
+		animation: gradientMove 4s linear infinite;
 		text-shadow: 0 0 4px rgba(0, 0, 0, 0.5);
 	}
 
@@ -428,9 +436,16 @@
 		transition: 0.4s ease-out;
 	}
 
-	.oauth-button:hover::before {
+	/* Glow-Effekt auch nur, wenn nicht disabled */
+	.oauth-button:not(:disabled):hover::before {
 		opacity: 0.6;
 		z-index: -1;
+	}
+
+	.oauth-button:disabled {
+		/* Falls gewünscht, kann man hier eine optische Anpassung für disabled vornehmen */
+		opacity: 0.6;
+		cursor: not-allowed;
 	}
 
 	.animate-slide-in-1 {
