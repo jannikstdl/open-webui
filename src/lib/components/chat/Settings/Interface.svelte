@@ -212,24 +212,24 @@
 		hidden
 		accept="image/*"
 		on:change={() => {
+			if (!inputFiles || inputFiles.length === 0) {
+				return;
+			}
+
+			const file = inputFiles[0];
+			if (!['image/gif', 'image/webp', 'image/jpeg', 'image/png'].includes(file.type)) {
+				console.log(`Unsupported File Type '${file.type}'.`);
+				inputFiles = null;
+				return;
+			}
+
 			let reader = new FileReader();
 			reader.onload = (event) => {
 				let originalImageUrl = `${event.target.result}`;
-
 				backgroundImageUrl = originalImageUrl;
 				saveSettings({ backgroundImageUrl });
 			};
-
-			if (
-				inputFiles &&
-				inputFiles.length > 0 &&
-				['image/gif', 'image/webp', 'image/jpeg', 'image/png'].includes(inputFiles[0]['type'])
-			) {
-				reader.readAsDataURL(inputFiles[0]);
-			} else {
-				console.log(`Unsupported File Type '${inputFiles[0]['type']}'.`);
-				inputFiles = null;
-			}
+			reader.readAsDataURL(file);
 		}}
 	/>
 
