@@ -139,7 +139,7 @@
 								class="flex items-center justify-center gap-3 text-2xl sm:text-2xl text-center font-medium dark:text-gray-200"
 							>
 								<div
-									class="font-bold text-2xl bg-gradient-to-r from-fits-blue via-gray-500 to-red-500 text-transparent bg-clip-text bg-[length:400%_400%] animate-gradient"
+									class="font-bold text-2xl bg-gradient-to-r from-fits-blue via-gray-500 to-gray-700 text-transparent bg-clip-text bg-[length:400%_400%] animate-gradient"
 								>
 									{$i18n.t('Signing in')}
 									{$WEBUI_NAME}
@@ -165,7 +165,7 @@
 										class={showAdminForm === null ? 'animate-slide-in-2' : 'animate-slide-in-left'}
 									>
 										<div
-											class="font-bold text-left text-4xl bg-gradient-to-r from-fits-blue via-gray-600 to-red-600 text-transparent bg-clip-text bg-[length:400%_400%] animate-gradient"
+											class="font-bold text-left text-4xl bg-gradient-to-r from-fits-blue via-gray-600 to-gray-700 text-transparent bg-clip-text bg-[length:400%_400%] animate-gradient"
 										>
 											{$WEBUI_NAME}
 										</div>
