@@ -155,7 +155,7 @@
 								<div class="flex flex-col space-y-2">
 									{#if $config?.oauth?.providers?.google}
 										<button
-											class="flex items-center px-6 border-2 dark:border-gray-800 duration-300 dark:bg-gray-900 hover:bg-gray-100 dark:hover:bg-gray-800 w-full rounded-2xl dark:text-white text-sm py-3 transition justify-center"
+											class="oauth-button flex items-center px-6 border-2 dark:border-gray-800 duration-300 dark:bg-gray-900 w-full rounded-2xl dark:text-white text-sm py-3 transition justify-center"
 											on:click={() => {
 												window.location.href = `${WEBUI_BASE_URL}/oauth/google/login`;
 											}}
@@ -185,7 +185,7 @@
 
 									{#if $config?.oauth?.providers?.microsoft}
 										<button
-											class="flex items-center px-6 border-2 dark:border-gray-800 duration-300 dark:bg-gray-900 hover:bg-gray-100 dark:hover:bg-gray-800 w-full rounded-2xl dark:text-white text-sm py-3 transition justify-center"
+											class="oauth-button flex items-center px-6 border-2 dark:border-gray-800 duration-300 dark:bg-gray-900 w-full rounded-2xl dark:text-white text-sm py-3 transition justify-center"
 											on:click={() => {
 												window.location.href = `${WEBUI_BASE_URL}/oauth/microsoft/login`;
 											}}
@@ -220,7 +220,7 @@
 											placement="left"
 										>
 											<button
-												class="flex items-center px-6 border-2 dark:border-gray-800 duration-300 dark:bg-gray-900 hover:bg-gray-100 dark:hover:bg-gray-800 w-full rounded-2xl dark:text-white text-sm py-3 transition justify-center"
+												class="oauth-button flex items-center px-6 border-2 dark:border-gray-800 duration-300 dark:bg-gray-900 w-full rounded-2xl dark:text-white text-sm py-3 transition justify-center"
 												on:click={() => {
 													window.location.href = `${WEBUI_BASE_URL}/oauth/oidc/login`;
 												}}
@@ -399,5 +399,56 @@
 		opacity: 1;
 		transform: translateY(0px);
 		max-height: 30px;
+	}
+
+	/* Oauth Button Glow-Effekt */
+	.oauth-button {
+		position: relative;
+		border: 3px solid rgba(255, 255, 255, .2);
+		background: rgba(255, 255, 255, .1);
+		transition: .4s;
+	}
+
+	.oauth-button:hover {
+		z-index: 1;
+		border-color: transparent;
+		background: linear-gradient(
+			90deg,
+			#d3d3d3,
+			#ff0000,
+			#333333,
+			#304b6a,
+			#d3d3d3
+		);
+		background-size: 400%;
+		box-shadow: 0 0 15px rgb(2, 4, 24);
+		animation: glow 12s linear forwards;
+	}
+
+	@keyframes glow {
+		from {
+			background-position: 0%;
+		}
+		to {
+			background-position: 400%;
+		}
+	}
+
+	.oauth-button::before {
+		content: '';
+		position: absolute;
+		top: -1px;
+		right: -1px;
+		bottom: -1px;
+		left: -1px;
+		background: inherit;
+		filter: blur(36px);
+		opacity: 0;
+		transition: .4s ease-out;
+	}
+
+	.oauth-button:hover::before {
+		opacity: 1;
+		z-index: -1;
 	}
 </style>
