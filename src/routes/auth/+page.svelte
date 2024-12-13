@@ -21,7 +21,7 @@
 	let isFocused = false;
 	let isLoading = false;
 
-	let showAdminForm = false;
+	let showAdminForm = null;
 
 	const setSessionUser = async (sessionUser) => {
 		if (sessionUser) {
@@ -151,155 +151,159 @@
 					<div class="my-auto pb-10 w-full dark:text-gray-100">
 						{#if !showAdminForm}
 							<!-- Startseite mit Oauth -->
-							<div class="flex flex-col space-y-2 animate-fade-in">
-								<Tooltip
-									content="IZ-Nummer (oder E-Mail) & aktuelles OfficeLAN-Passwort"
-									placement="left"
+							<div class={showAdminForm === null ? 'animate-fade-in' : 'animate-slide-in-left'}>
+								<div class="flex flex-col space-y-2">
+									<Tooltip
+										content="IZ-Nummer (oder E-Mail) & aktuelles OfficeLAN-Passwort"
+										placement="left"
+									>
+										<button
+											class="oauth-button flex items-center px-6 duration-300 w-full rounded-2xl text-sm py-3 transition justify-center"
+											on:click={() => {
+												if ($config?.oauth?.providers?.oidc) {
+													window.location.href = `${WEBUI_BASE_URL}/oauth/oidc/login`;
+												}
+											}}
+											disabled={!$config?.oauth?.providers?.oidc}
+										>
+											<svg
+												xmlns="http://www.w3.org/2000/svg"
+												fill="none"
+												viewBox="0 0 24 24"
+												stroke-width="1.5"
+												stroke="currentColor"
+												class="size-6 mr-3 {!$config?.oauth?.providers?.oidc
+													? 'text-red-500 dark:text-red-400'
+													: ''}"
+											>
+												<path
+													stroke-linecap="round"
+													stroke-linejoin="round"
+													d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z"
+												/>
+											</svg>
+											<span
+												class={!$config?.oauth?.providers?.oidc
+													? 'text-red-500 dark:text-red-400'
+													: ''}
+											>
+												{#if $config?.oauth?.providers?.oidc}
+													{$i18n.t('Continue with {{provider}}', {
+														provider: $config?.oauth?.providers?.oidc ?? 'SSO'
+													})}
+												{:else}
+													OAuth nicht konfiguriert
+												{/if}
+											</span>
+										</button>
+									</Tooltip>
+								</div>
+
+								<!-- "oder" Trennstrich -->
+								<div class="relative w-full">
+									<hr class="w-64 h-px my-8 bg-gray-200 border-0 dark:bg-gray-700 mx-auto" />
+									<div
+										class="absolute px-3 font-medium text-gray-900 bg-white left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 dark:text-white dark:bg-gray-950"
+									>
+										{$i18n.t('or')}
+									</div>
+								</div>
+
+								<!-- Administrativer Login Button -->
+								<button
+									class="text-sm rounded-2xl border border-gray-300 dark:border-gray-700 py-2 px-4 text-gray-600 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+									on:click={() => (showAdminForm = true)}
 								>
+									Administrativer Login
+								</button>
+							</div>
+						{:else}
+							<!-- Admin Login -->
+							<div class="animate-slide-in-left">
+								<!-- Back Button -->
+								<div class="flex items-center justify-start mb-4">
 									<button
-										class="oauth-button flex items-center px-6 duration-300 w-full rounded-2xl text-sm py-3 transition justify-center"
-										on:click={() => {
-											if ($config?.oauth?.providers?.oidc) {
-												window.location.href = `${WEBUI_BASE_URL}/oauth/oidc/login`;
-											}
-										}}
-										disabled={!$config?.oauth?.providers?.oidc}
+										class="rounded-full border border-gray-300 dark:border-gray-700 p-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+										on:click={() => (showAdminForm = false)}
 									>
 										<svg
 											xmlns="http://www.w3.org/2000/svg"
+											class="w-5 h-5 text-gray-600 dark:text-gray-300"
 											fill="none"
 											viewBox="0 0 24 24"
-											stroke-width="1.5"
 											stroke="currentColor"
-											class="size-6 mr-3 {!$config?.oauth?.providers?.oidc
-												? 'text-red-500 dark:text-red-400'
-												: ''}"
 										>
 											<path
 												stroke-linecap="round"
 												stroke-linejoin="round"
-												d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z"
+												stroke-width="2"
+												d="M15 19l-7-7 7-7"
 											/>
 										</svg>
-										<span
-											class={!$config?.oauth?.providers?.oidc
-												? 'text-red-500 dark:text-red-400'
-												: ''}
-										>
-											{#if $config?.oauth?.providers?.oidc}
-												{$i18n.t('Continue with {{provider}}', {
-													provider: $config?.oauth?.providers?.oidc ?? 'SSO'
-												})}
-											{:else}
-												OAuth nicht konfiguriert
-											{/if}
-										</span>
 									</button>
-								</Tooltip>
-							</div>
-
-							<!-- "oder" Trennstrich -->
-							<div class="relative w-full animate-fade-in">
-								<hr class="w-64 h-px my-8 bg-gray-200 border-0 dark:bg-gray-700 mx-auto" />
-								<div
-									class="absolute px-3 font-medium text-gray-900 bg-white left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 dark:text-white dark:bg-gray-950"
-								>
-									{$i18n.t('or')}
 								</div>
-							</div>
 
-							<!-- Administrativer Login Button -->
-							<button
-								class="text-sm rounded-2xl border border-gray-300 dark:border-gray-700 py-2 px-4 text-gray-600 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition animate-fade-in"
-								on:click={() => (showAdminForm = true)}
-							>
-								Administrativer Login
-							</button>
-						{:else}
-							<!-- Admin Login -->
-							<!-- Back Button -->
-							<div class="flex items-center justify-start mb-4">
-								<button
-									class="rounded-full border border-gray-300 dark:border-gray-700 p-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition"
-									on:click={() => (showAdminForm = false)}
+								<!-- Administrativer Login Formular -->
+								<form
+									class="flex flex-col justify-center"
+									on:submit|preventDefault={() => {
+										submitHandler();
+									}}
 								>
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										class="w-5 h-5 text-gray-600 dark:text-gray-300"
-										fill="none"
-										viewBox="0 0 24 24"
-										stroke="currentColor"
-									>
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											stroke-width="2"
-											d="M15 19l-7-7 7-7"
-										/>
-									</svg>
-								</button>
-							</div>
+									<div class="mb-1">
+										<div class="flex flex-col mt-4">
+											<div class="mb-2">
+												<div class="text-sm font-medium text-left mb-1">{$i18n.t('Email')}</div>
+												<input
+													bind:value={email}
+													type="email"
+													class="px-5 py-3 rounded-2xl w-full text-sm outline-none border dark:border-none dark:bg-gray-900 focus:border-gray-300 focus:ring-1 focus:ring-gray-300"
+													autocomplete="email"
+													placeholder={$i18n.t('Enter Your Email')}
+													required
+												/>
+											</div>
 
-							<!-- Administrativer Login Formular -->
-							<form
-								class="flex flex-col justify-center"
-								on:submit|preventDefault={() => {
-									submitHandler();
-								}}
-							>
-								<div class="mb-1">
-									<div class="flex flex-col mt-4">
-										<div class="mb-2">
-											<div class="text-sm font-medium text-left mb-1">{$i18n.t('Email')}</div>
-											<input
-												bind:value={email}
-												type="email"
-												class="px-5 py-3 rounded-2xl w-full text-sm outline-none border dark:border-none dark:bg-gray-900 focus:border-gray-300 focus:ring-1 focus:ring-gray-300"
-												autocomplete="email"
-												placeholder={$i18n.t('Enter Your Email')}
-												required
-											/>
+											<div>
+												<div class="text-sm font-medium text-left mb-1">{$i18n.t('Password')}</div>
+
+												<input
+													bind:value={password}
+													type="password"
+													class="px-5 py-3 rounded-2xl w-full text-sm outline-none border dark:border-none dark:bg-gray-900 focus:border-gray-300 focus:ring-1 focus:ring-gray-300"
+													placeholder={$i18n.t('Enter Your Password')}
+													autocomplete="current-password"
+													required
+													on:focus={() => (isFocused = true)}
+													on:blur={() => (isFocused = false)}
+												/>
+											</div>
 										</div>
 
-										<div>
-											<div class="text-sm font-medium text-left mb-1">{$i18n.t('Password')}</div>
-
-											<input
-												bind:value={password}
-												type="password"
-												class="px-5 py-3 rounded-2xl w-full text-sm outline-none border dark:border-none dark:bg-gray-900 focus:border-gray-300 focus:ring-1 focus:ring-gray-300"
-												placeholder={$i18n.t('Enter Your Password')}
-												autocomplete="current-password"
-												required
-												on:focus={() => (isFocused = true)}
-												on:blur={() => (isFocused = false)}
-											/>
+										<div class="mt-5">
+											<button
+												class="bg-gray-900 hover:bg-gray-800 w-full rounded-2xl text-white font-medium text-sm py-3 transition flex items-center justify-center"
+												type="submit"
+												disabled={isLoading}
+											>
+												{#if isLoading}
+													<Spinner />
+													<span class="ml-2">{$i18n.t('Sign in')}</span>
+												{:else}
+													{$i18n.t('Sign in')}
+												{/if}
+											</button>
 										</div>
 									</div>
-
-									<div class="mt-5">
-										<button
-											class="bg-gray-900 hover:bg-gray-800 w-full rounded-2xl text-white font-medium text-sm py-3 transition flex items-center justify-center"
-											type="submit"
-											disabled={isLoading}
-										>
-											{#if isLoading}
-												<Spinner />
-												<span class="ml-2">{$i18n.t('Sign in')}</span>
-											{:else}
-												{$i18n.t('Sign in')}
-											{/if}
-										</button>
-									</div>
-								</div>
-							</form>
+								</form>
+							</div>
 						{/if}
 					</div>
 				{/if}
 			</div>
 		</div>
 
-		<div class="relative mt-[-25vh]">
+		<div class="relative mt-[-30vh]">
 			<Hero />
 		</div>
 		<Features />
@@ -431,7 +435,7 @@
 		opacity: 0;
 		transform: translateY(10px);
 		animation: fadeInUp 0.3s ease forwards;
-		animation-delay: 0.8s; /* Startet nach den Slide-in Animationen */
+		animation-delay: 0.8s;
 	}
 
 	@keyframes fadeInUp {
@@ -442,6 +446,36 @@
 		to {
 			opacity: 1;
 			transform: translateY(0);
+		}
+	}
+
+	.animate-slide-in-left {
+		animation: slideInLeft 0.2s ease forwards;
+	}
+
+	.animate-slide-out-right {
+		animation: slideOutRight 0.2s ease forwards !important;
+	}
+
+	@keyframes slideInLeft {
+		from {
+			opacity: 0;
+			transform: translateX(-20px);
+		}
+		to {
+			opacity: 1;
+			transform: translateX(0);
+		}
+	}
+
+	@keyframes slideOutRight {
+		from {
+			opacity: 1;
+			transform: translateX(0);
+		}
+		to {
+			opacity: 0;
+			transform: translateX(20px);
 		}
 	}
 </style>
