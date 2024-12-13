@@ -136,12 +136,13 @@
 					{#if !showAdminForm}
 						<div class="mb-6">
 							<div class="font-bold text-left text-3xl text-gray-700 dark:text-gray-300">
-								Anmelden
-								<br />
-								<div
-									class="font-bold text-left text-4xl bg-gradient-to-r from-fits-blue via-gray-600 to-red-600 text-transparent bg-clip-text bg-[length:400%_400%] animate-gradient"
-								>
-									{$WEBUI_NAME}
+								<div class="animate-slide-in-1">Anmelden</div>
+								<div class="animate-slide-in-2">
+									<div
+										class="font-bold text-left text-4xl bg-gradient-to-r from-fits-blue via-gray-600 to-red-600 text-transparent bg-clip-text bg-[length:400%_400%] animate-gradient"
+									>
+										{$WEBUI_NAME}
+									</div>
 								</div>
 							</div>
 						</div>
@@ -150,7 +151,7 @@
 					<div class="my-auto pb-10 w-full dark:text-gray-100">
 						{#if !showAdminForm}
 							<!-- Startseite mit Oauth -->
-							<div class="flex flex-col space-y-2">
+							<div class="flex flex-col space-y-2 animate-fade-in">
 								<Tooltip
 									content="IZ-Nummer (oder E-Mail) & aktuelles OfficeLAN-Passwort"
 									placement="left"
@@ -198,7 +199,7 @@
 							</div>
 
 							<!-- "oder" Trennstrich -->
-							<div class="relative w-full">
+							<div class="relative w-full animate-fade-in">
 								<hr class="w-64 h-px my-8 bg-gray-200 border-0 dark:bg-gray-700 mx-auto" />
 								<div
 									class="absolute px-3 font-medium text-gray-900 bg-white left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 dark:text-white dark:bg-gray-950"
@@ -209,7 +210,7 @@
 
 							<!-- Administrativer Login Button -->
 							<button
-								class="text-sm rounded-2xl border border-gray-300 dark:border-gray-700 py-2 px-4 text-gray-600 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+								class="text-sm rounded-2xl border border-gray-300 dark:border-gray-700 py-2 px-4 text-gray-600 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition animate-fade-in"
 								on:click={() => (showAdminForm = true)}
 							>
 								Administrativer Login
@@ -400,5 +401,47 @@
 	.oauth-button:hover::before {
 		opacity: 0.6;
 		z-index: -1;
+	}
+
+	.animate-slide-in-1 {
+		opacity: 0;
+		transform: translateX(-20px);
+		animation: slideIn 0.5s ease forwards;
+	}
+
+	.animate-slide-in-2 {
+		opacity: 0;
+		transform: translateX(-20px);
+		animation: slideIn 0.5s ease forwards;
+		animation-delay: 0.3s;
+	}
+
+	@keyframes slideIn {
+		from {
+			opacity: 0;
+			transform: translateX(-20px);
+		}
+		to {
+			opacity: 1;
+			transform: translateX(0);
+		}
+	}
+
+	.animate-fade-in {
+		opacity: 0;
+		transform: translateY(10px);
+		animation: fadeInUp 0.3s ease forwards;
+		animation-delay: 0.8s; /* Startet nach den Slide-in Animationen */
+	}
+
+	@keyframes fadeInUp {
+		from {
+			opacity: 0;
+			transform: translateY(10px);
+		}
+		to {
+			opacity: 1;
+			transform: translateY(0);
+		}
 	}
 </style>
