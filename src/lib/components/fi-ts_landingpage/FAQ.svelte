@@ -10,17 +10,16 @@
 				<dt
 					class="text-base font-semibold leading-7 text-gray-900 lg:col-span-5 dark:text-gray-200"
 				>
-					Ich habe Fragen / Verbesserungswünsche, wo kann ich mich melden?
+					Wie kann ich Feedback oder Verbesserungsvorschläge einreichen?
 				</dt>
 				<dd class="mt-4 lg:col-span-7 lg:mt-0">
 					<p class="text-base leading-7 text-gray-600 dark:text-gray-300">
-						Wende dich bei Angelegenkeiten bitte an
-						Passwort vergessen hast, <a
+						Bei Fragen oder Anregungen erreichst du uns unter<a
 							class=" font-semibold underline"
 							href="mailto:ZZG-FITS-AI-Services@f-i-ts.de"
 							target="_blank"
 						>
-							unser Gruppenpostfach.</a
+							ZZG-FITS-AI-Services@f-i-ts.de</a
 						>
 					</p>
 				</dd>
@@ -33,8 +32,8 @@
 				</dt>
 				<dd class="mt-4 lg:col-span-7 lg:mt-0">
 					<p class="text-base leading-7 text-gray-600 dark:text-gray-300">
-						Wir verwenden ausschließlich Open Source Modelle die auf unseren Rechenzentren in
-						einem Cluster mit GPUs laufen.
+						Wir verwenden ausschließlich Open Source Modelle die auf unseren Rechenzentren in einem
+						Cluster mit GPUs laufen.
 					</p>
 				</dd>
 			</div>
