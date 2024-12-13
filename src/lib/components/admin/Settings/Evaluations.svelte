@@ -1,158 +1,126 @@
 <script lang="ts">
-	import { toast } from 'svelte-sonner';
-	import { models, user } from '$lib/stores';
-	import { createEventDispatcher, onMount, getContext, tick } from 'svelte';
+	import { onMount, getContext } from 'svelte';
 
-	const dispatch = createEventDispatcher();
-	import { getModels } from '$lib/apis';
-
-	import Switch from '$lib/components/common/Switch.svelte';
-	import Spinner from '$lib/components/common/Spinner.svelte';
-	import Tooltip from '$lib/components/common/Tooltip.svelte';
-	import Plus from '$lib/components/icons/Plus.svelte';
-	import Model from './Evaluations/Model.svelte';
-	import ModelModal from './Evaluations/ModelModal.svelte';
-	import { getConfig, updateConfig } from '$lib/apis/evaluations';
-
+	import { models } from '$lib/stores';
 	const i18n = getContext('i18n');
 
-	let config = null;
-	let showAddModel = false;
+	let rankedModels = [];
+	let loaded = false;
 
-	const submitHandler = async () => {
-		config = await updateConfig(localStorage.token, config).catch((err) => {
-			toast.error(err);
-			return null;
-		});
+	onMount(() => {
+		loaded = true;
 
-		if (config) {
-			toast.success('Settings saved successfully');
-		}
-	};
+		rankedModels = $models
+			.filter((m) => m?.owned_by !== 'arena' && (m?.info?.meta?.hidden ?? false) !== true)
+			.map((model) => {
+				return {
+					...model,
+					rating: '-',
+					stats: {
+						won: '-',
+						draw: '-',
+						lost: '-'
+					}
+				};
+			})
+			.sort((a, b) => {
+				// Handle sorting by rating ('-' goes to the end)
+				if (a.rating === '-' && b.rating !== '-') return 1;
+				if (b.rating === '-' && a.rating !== '-') return -1;
 
-	const addModelHandler = async (model) => {
-		config.EVALUATION_ARENA_MODELS.push(model);
-		config.EVALUATION_ARENA_MODELS = [...config.EVALUATION_ARENA_MODELS];
+				// If both have ratings (non '-'), sort by rating numerically (descending)
+				if (a.rating !== '-' && b.rating !== '-') return b.rating - a.rating;
 
-		await submitHandler();
-		models.set(await getModels(localStorage.token));
-	};
-
-	const editModelHandler = async (model, modelIdx) => {
-		config.EVALUATION_ARENA_MODELS[modelIdx] = model;
-		config.EVALUATION_ARENA_MODELS = [...config.EVALUATION_ARENA_MODELS];
-
-		await submitHandler();
-		models.set(await getModels(localStorage.token));
-	};
-
-	const deleteModelHandler = async (modelIdx) => {
-		config.EVALUATION_ARENA_MODELS = config.EVALUATION_ARENA_MODELS.filter(
-			(m, mIdx) => mIdx !== modelIdx
-		);
-
-		await submitHandler();
-		models.set(await getModels(localStorage.token));
-	};
-
-	onMount(async () => {
-		if ($user.role === 'admin') {
-			config = await getConfig(localStorage.token).catch((err) => {
-				toast.error(err);
-				return null;
+				// If both ratings are '-', sort alphabetically (by 'name')
+				return a.name.localeCompare(b.name);
 			});
-		}
 	});
 </script>
 
-<ModelModal
-	bind:show={showAddModel}
-	on:submit={async (e) => {
-		addModelHandler(e.detail);
-	}}
-/>
+{#if loaded}
+	<div class="mt-0.5 mb-3 gap-1 flex flex-col md:flex-row justify-between">
+		<div class="flex md:self-center text-lg font-medium px-0.5">
+			{$i18n.t('Leaderboard')}
 
-<form
-	class="flex flex-col h-full justify-between text-sm"
-	on:submit|preventDefault={() => {
-		submitHandler();
-		dispatch('save');
-	}}
->
-	<div class="overflow-y-scroll scrollbar-hidden h-full">
-		{#if config !== null}
-			<div class="">
-				<div class="text-sm font-medium mb-2">{$i18n.t('General Settings')}</div>
+			<div class="flex self-center w-[1px] h-6 mx-2.5 bg-gray-50 dark:bg-gray-850" />
 
-				<div class=" mb-2">
-					<div class="flex justify-between items-center text-xs">
-						<div class=" text-xs font-medium">{$i18n.t('Arena Models')}</div>
-
-						<Tooltip content={$i18n.t(`Message rating should be enabled to use this feature`)}>
-							<Switch bind:state={config.ENABLE_EVALUATION_ARENA_MODELS} />
-						</Tooltip>
-					</div>
-				</div>
-
-				{#if config.ENABLE_EVALUATION_ARENA_MODELS}
-					<hr class=" border-gray-50 dark:border-gray-700/10 my-2" />
-
-					<div class="flex justify-between items-center mb-2">
-						<div class="text-sm font-medium">{$i18n.t('Manage Arena Models')}</div>
-
-						<div>
-							<Tooltip content={$i18n.t('Add Arena Model')}>
-								<button
-									class="p-1"
-									type="button"
-									on:click={() => {
-										showAddModel = true;
-									}}
-								>
-									<Plus />
-								</button>
-							</Tooltip>
-						</div>
-					</div>
-
-					<div class="flex flex-col gap-2">
-						{#if (config?.EVALUATION_ARENA_MODELS ?? []).length > 0}
-							{#each config.EVALUATION_ARENA_MODELS as model, index}
-								<Model
-									{model}
-									on:edit={(e) => {
-										editModelHandler(e.detail, index);
-									}}
-									on:delete={(e) => {
-										deleteModelHandler(index);
-									}}
-								/>
-							{/each}
-						{:else}
-							<div class=" text-center text-xs text-gray-500">
-								{$i18n.t(
-									`Using the default arena model with all models. Click the plus button to add custom models.`
-								)}
-							</div>
-						{/if}
-					</div>
-				{/if}
-			</div>
-		{:else}
-			<div class="flex h-full justify-center">
-				<div class="my-auto">
-					<Spinner className="size-6" />
-				</div>
-			</div>
-		{/if}
+			<span class="text-lg font-medium text-gray-500 dark:text-gray-300">{rankedModels.length}</span
+			>
+		</div>
 	</div>
 
-	<div class="flex justify-end pt-3 text-sm font-medium">
-		<button
-			class="px-3.5 py-1.5 text-sm font-medium bg-black hover:bg-gray-900 text-white dark:bg-white dark:text-black dark:hover:bg-gray-100 transition rounded-full"
-			type="submit"
+	<div
+		class="scrollbar-hidden relative whitespace-nowrap overflow-x-auto max-w-full rounded pt-0.5"
+	>
+		<table
+			class="w-full text-sm text-left text-gray-500 dark:text-gray-400 table-auto max-w-full rounded"
 		>
-			{$i18n.t('Save')}
-		</button>
+			<thead
+				class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-850 dark:text-gray-400 -translate-y-0.5"
+			>
+				<tr class="">
+					<th scope="col" class="px-3 py-1.5 cursor-pointer select-none">
+						{$i18n.t('Model')}
+					</th>
+					<th scope="col" class="px-3 py-1.5 text-right cursor-pointer select-none">
+						{$i18n.t('Rating')}
+					</th>
+					<th scope="col" class="px-3 py-1.5 text-right cursor-pointer select-none w-fit">
+						{$i18n.t('Won')}
+					</th>
+
+					<th scope="col" class="px-3 py-1.5 text-right cursor-pointer select-none w-fit">
+						{$i18n.t('Draw')}
+					</th>
+					<th scope="col" class="px-3 py-1.5 text-right cursor-pointer select-none w-fit">
+						{$i18n.t('Lost')}
+					</th>
+				</tr>
+			</thead>
+			<tbody class="">
+				{#each rankedModels as model (model.id)}
+					<tr class="bg-white dark:bg-gray-900 dark:border-gray-850 text-xs">
+						<td class="px-3 py-1 flex flex-col justify-center">
+							<div class="flex items-center gap-2">
+								<div class="flex-shrink-0">
+									<img
+										src={model?.info?.meta?.profile_image_url ?? '/favicon.png'}
+										alt={model.name}
+										class="size-6 rounded-full object-cover shrink-0"
+									/>
+								</div>
+
+								<div class="font-medium text-gray-600 dark:text-gray-400 pr-4">
+									{model.name}
+								</div>
+							</div>
+						</td>
+						<td class="px-3 py-1 text-right font-medium text-gray-900 dark:text-white w-max">
+							{model.rating}
+						</td>
+
+						<td class=" px-3 py-1 text-right font-semibold text-green-500"> {model.stats.won} </td>
+
+						<td class=" px-3 py-1 text-right font-semibold">
+							{model.stats.draw}
+						</td>
+
+						<td class="px-3 py-1 text-right font-semibold text-red-500">
+							{model.stats.lost}
+						</td>
+					</tr>
+				{/each}
+			</tbody>
+		</table>
 	</div>
-</form>
+
+	<div class="pb-4"></div>
+
+	<div class="mt-0.5 mb-3 gap-1 flex flex-col md:flex-row justify-between">
+		<div class="flex md:self-center text-lg font-medium px-0.5">
+			{$i18n.t('Rating History')}
+		</div>
+	</div>
+
+	<div class="pb-8"></div>
+{/if}
