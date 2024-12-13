@@ -153,8 +153,8 @@
 
 						<!-- Überschrift immer auf der ersten Seite -->
 						{#if !showAdminForm}
-							<div class="mb-7">
-								<div class="font-bold text-left text-3xl text-gray-700 dark:text-gray-300">
+							<div class="mb-9">
+								<div class="font-bold text-left text-3xl text-gray-400 dark:text-gray-600">
 									<div
 										class={showAdminForm === null ? 'animate-slide-in-1' : 'animate-slide-in-left'}
 									>
@@ -163,9 +163,7 @@
 									<div
 										class={showAdminForm === null ? 'animate-slide-in-2' : 'animate-slide-in-left'}
 									>
-										<div
-											class="font-bold text-left text-4xl bg-gradient-to-r from-fits-blue via-gray-600 to-gray-700 text-transparent bg-clip-text bg-[length:400%_400%] animate-gradient"
-										>
+										<div class="font-bold text-left text-4xl text-gray-600 dark:text-gray-400">
 											{$WEBUI_NAME}
 										</div>
 									</div>
@@ -180,40 +178,38 @@
 									<div class="flex flex-col space-y-2">
 										<div class="relative">
 											<button
-												class="oauth-button flex items-center px-6 duration-300 w-full rounded-2xl text-sm py-3 transition justify-center group relative"
+												class="oauth-button flex items-center px-6 duration-300 w-full rounded-full text-sm py-3 transition justify-center group text-black dark:text-white"
 												on:click={handleOAuthClick}
-												disabled={!$config?.oauth?.providers?.oidc}
 											>
-												{#if $config?.oauth?.providers?.oidc}
-													<!-- Normalzustand (mit Schlüssel) -->
-													<span
-														class="transition-opacity duration-200 group-hover:opacity-0 flex items-center"
+												<div
+													class="relative overflow-hidden min-w-[300px] flex items-center justify-center"
+												>
+													<!-- First view with key icon -->
+													<div
+														class="flex items-center justify-center w-full transition-all duration-300 group-hover:-translate-y-full group-hover:opacity-0"
 													>
-														<!-- Schlüssel SVG -->
 														<svg
 															xmlns="http://www.w3.org/2000/svg"
 															fill="none"
 															viewBox="0 0 24 24"
 															stroke-width="1.5"
 															stroke="currentColor"
-															class="w-6 h-6 mr-3"
+															class="size-6 mr-3"
 														>
 															<path
 																stroke-linecap="round"
 																stroke-linejoin="round"
-																d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 
-					5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1
-					.43-1.563A6 6 0 1 1 21.75 8.25Z"
+																d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z"
 															/>
 														</svg>
 														{$i18n.t('Continue with {{provider}}', {
 															provider: $config?.oauth?.providers?.oidc ?? 'SSO'
 														})}
-													</span>
+													</div>
 
-													<!-- Hoverzustand (mit Pfeil) -->
-													<span
-														class="absolute inset-0 flex items-center justify-center text-xs text-gray-600 dark:text-gray-400 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+													<!-- Second view with arrow icon -->
+													<div
+														class="absolute left-0 w-full flex items-center justify-center transition-all duration-300 translate-y-full opacity-0 group-hover:translate-y-0 group-hover:opacity-100"
 													>
 														<svg
 															xmlns="http://www.w3.org/2000/svg"
@@ -221,30 +217,26 @@
 															viewBox="0 0 24 24"
 															stroke-width="1.5"
 															stroke="currentColor"
-															class="w-4 h-4 mr-1"
+															class="size-6 mr-3 -translate-x-[100px] transition-transform duration-500 group-hover:translate-x-0"
 														>
 															<path
 																stroke-linecap="round"
 																stroke-linejoin="round"
-																d="M8.25 4.5l7.5 7.5-7.5 7.5"
+																d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"
 															/>
 														</svg>
-														IZ-Nr. & OfficeLAN-Passwort
-													</span>
-												{:else}
-													<span class="text-red-500 dark:text-red-400">
-														OAuth nicht konfiguriert
-													</span>
-												{/if}
+														IZ-Nr. und OfficeLAN Passwort
+													</div>
+												</div>
 											</button>
 										</div>
 									</div>
 
 									<!-- "oder" Trennstrich -->
-									<div class="relative w-full">
+									<div class="relative w-full z-0">
 										<hr class="w-64 h-px my-8 bg-gray-200 border-0 dark:bg-gray-700 mx-auto" />
 										<div
-											class="absolute px-3 font-medium text-gray-900 bg-white left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 dark:text-white dark:bg-gray-950"
+											class="absolute px-3 font-medium text-gray-500 left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 dark:text-white bg-white dark:bg-gray-950"
 										>
 											{$i18n.t('or')}
 										</div>
@@ -252,7 +244,7 @@
 
 									<!-- Administrativer Login Button -->
 									<button
-										class="text-sm rounded-2xl border border-gray-300 dark:border-gray-700 py-2 px-4 text-gray-600 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+										class="text-sm rounded-full border border-gray-300 dark:border-gray-700 py-2 px-4 text-gray-600 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition"
 										on:click={() => (showAdminForm = true)}
 									>
 										Administrativer Login
@@ -388,25 +380,14 @@
 		overflow: hidden;
 	}
 
-	.fade-in-up.show {
-		opacity: 1;
-		transform: translateY(0px);
-		max-height: 30px;
-	}
-
 	.oauth-button {
 		position: relative;
-		color: #1a1a1a;
-		background: rgba(255, 255, 255, 0.8);
-		border: 2px solid rgba(0, 0, 0, 0.1);
-		text-transform: uppercase;
+		color: #ffffff;
+		background: #29425e;
+		border: 2px solid rgba(255, 255, 255, 0.2);
 		letter-spacing: 0.5px;
 		font-weight: 500;
-		/*
-			Keine Transition auf die Textfarbe,
-			damit der Wechsel sofort passiert.
-			Transition nur auf Hintergrund, Border, Box-Shadow.
-		*/
+		z-index: 1;
 		transition:
 			background 0.4s linear,
 			border 0.4s linear,
@@ -415,7 +396,7 @@
 
 	:global(.dark) .oauth-button {
 		color: #ffffff;
-		background: rgba(255, 255, 255, 0.1);
+		background: #29425e;
 		border: 2px solid rgba(255, 255, 255, 0.2);
 	}
 
