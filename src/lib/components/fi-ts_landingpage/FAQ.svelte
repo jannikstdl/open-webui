@@ -14,7 +14,7 @@
 				</dt>
 				<dd class="mt-4 lg:col-span-7 lg:mt-0">
 					<p class="text-base leading-7 text-gray-600 dark:text-gray-300">
-						Bei Fragen oder Anregungen erreichst du uns unter<a
+						Bei Fragen oder Anregungen erreichst du uns unter <a
 							class=" font-semibold underline"
 							href="mailto:ZZG-FITS-AI-Services@f-i-ts.de"
 							target="_blank"
