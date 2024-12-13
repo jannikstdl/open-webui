@@ -150,118 +150,62 @@
 					<div class="my-auto pb-10 w-full dark:text-gray-100">
 						{#if !showAdminForm}
 							<!-- Startseite mit Oauth -->
-							{#if Object.keys($config?.oauth?.providers ?? {}).length > 0}
-								<!-- Oauth Buttons -->
-								<div class="flex flex-col space-y-2">
-									{#if $config?.oauth?.providers?.google}
-										<button
-											class="oauth-button flex items-center px-6 border-2 dark:border-gray-800 duration-300 dark:bg-gray-900 w-full rounded-2xl dark:text-white text-sm py-3 transition justify-center"
-											on:click={() => {
-												window.location.href = `${WEBUI_BASE_URL}/oauth/google/login`;
-											}}
+							<div class="flex flex-col space-y-2">
+								<Tooltip
+									content="IZ-Nummer (oder E-Mail) & aktuelles OfficeLAN-Passwort"
+									placement="left"
+								>
+									<button
+										class="oauth-button flex items-center px-6 duration-300 w-full rounded-2xl text-sm py-3 transition justify-center"
+										on:click={() => {
+											if ($config?.oauth?.providers?.oidc) {
+												window.location.href = `${WEBUI_BASE_URL}/oauth/oidc/login`;
+											}
+										}}
+										disabled={!$config?.oauth?.providers?.oidc}
+									>
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											fill="none"
+											viewBox="0 0 24 24"
+											stroke-width="1.5"
+											stroke="currentColor"
+											class="size-6 mr-3 {!$config?.oauth?.providers?.oidc
+												? 'text-red-500 dark:text-red-400'
+												: ''}"
 										>
-											<svg
-												xmlns="http://www.w3.org/2000/svg"
-												viewBox="0 0 48 48"
-												class="size-6 mr-3"
-											>
-												<path
-													fill="#EA4335"
-													d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"
-												/><path
-													fill="#4285F4"
-													d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"
-												/><path
-													fill="#FBBC05"
-													d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"
-												/><path
-													fill="#34A853"
-													d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"
-												/><path fill="none" d="M0 0h48v48H0z" />
-											</svg>
-											<span>{$i18n.t('Continue with {{provider}}', { provider: 'Google' })}</span>
-										</button>
-									{/if}
-
-									{#if $config?.oauth?.providers?.microsoft}
-										<button
-											class="oauth-button flex items-center px-6 border-2 dark:border-gray-800 duration-300 dark:bg-gray-900 w-full rounded-2xl dark:text-white text-sm py-3 transition justify-center"
-											on:click={() => {
-												window.location.href = `${WEBUI_BASE_URL}/oauth/microsoft/login`;
-											}}
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z"
+											/>
+										</svg>
+										<span
+											class={!$config?.oauth?.providers?.oidc
+												? 'text-red-500 dark:text-red-400'
+												: ''}
 										>
-											<svg
-												xmlns="http://www.w3.org/2000/svg"
-												viewBox="0 0 21 21"
-												class="size-6 mr-3"
-											>
-												<rect x="1" y="1" width="9" height="9" fill="#f25022" /><rect
-													x="1"
-													y="11"
-													width="9"
-													height="9"
-													fill="#00a4ef"
-												/><rect x="11" y="1" width="9" height="9" fill="#7fba00" /><rect
-													x="11"
-													y="11"
-													width="9"
-													height="9"
-													fill="#ffb900"
-												/>
-											</svg>
-											<span>{$i18n.t('Continue with {{provider}}', { provider: 'Microsoft' })}</span
-											>
-										</button>
-									{/if}
-
-									{#if $config?.oauth?.providers?.oidc}
-										<Tooltip
-											content="IZ-Nummer (oder E-Mail) und aktuelles OfficeLAN Passwort"
-											placement="left"
-										>
-											<button
-												class="oauth-button flex items-center px-6 border-2 dark:border-gray-800 duration-300 dark:bg-gray-900 w-full rounded-2xl dark:text-white text-sm py-3 transition justify-center"
-												on:click={() => {
-													window.location.href = `${WEBUI_BASE_URL}/oauth/oidc/login`;
-												}}
-											>
-												<svg
-													xmlns="http://www.w3.org/2000/svg"
-													fill="none"
-													viewBox="0 0 24 24"
-													stroke-width="1.5"
-													stroke="currentColor"
-													class="size-6 mr-3"
-												>
-													<path
-														stroke-linecap="round"
-														stroke-linejoin="round"
-														d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z"
-													/>
-												</svg>
-
-												<span
-													>{$i18n.t('Continue with {{provider}}', {
-														provider: $config?.oauth?.providers?.oidc ?? 'SSO'
-													})}</span
-												>
-											</button>
-										</Tooltip>
-									{/if}
-								</div>
-							{/if}
+											{#if $config?.oauth?.providers?.oidc}
+												{$i18n.t('Continue with {{provider}}', {
+													provider: $config?.oauth?.providers?.oidc ?? 'SSO'
+												})}
+											{:else}
+												OAuth nicht konfiguriert
+											{/if}
+										</span>
+									</button>
+								</Tooltip>
+							</div>
 
 							<!-- "oder" Trennstrich -->
-							{#if Object.keys($config?.oauth?.providers ?? {}).length > 0}
-								<div class="relative w-full">
-									<hr class="w-64 h-px my-8 bg-gray-200 border-0 dark:bg-gray-700 mx-auto" />
-									<div
-										class="absolute px-3 font-medium text-gray-900 bg-white left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 dark:text-white dark:bg-gray-950"
-									>
-										{$i18n.t('or')}
-									</div>
+							<div class="relative w-full">
+								<hr class="w-64 h-px my-8 bg-gray-200 border-0 dark:bg-gray-700 mx-auto" />
+								<div
+									class="absolute px-3 font-medium text-gray-900 bg-white left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 dark:text-white dark:bg-gray-950"
+								>
+									{$i18n.t('or')}
 								</div>
-							{/if}
+							</div>
 
 							<!-- Administrativer Login Button -->
 							<button
@@ -401,28 +345,34 @@
 		max-height: 30px;
 	}
 
-	/* Oauth Button Glow-Effekt */
+	/* Oauth Button verbessertes Design */
 	.oauth-button {
 		position: relative;
-		border: 3px solid rgba(255, 255, 255, .2);
-		background: rgba(255, 255, 255, .1);
-		transition: .4s;
+		color: #1a1a1a;
+		background: rgba(255, 255, 255, 0.8);
+		border: 2px solid rgba(0, 0, 0, 0.1);
+		text-transform: uppercase;
+		letter-spacing: 0.5px;
+		font-weight: 500;
 	}
 
-	.oauth-button:hover {
+	/* Dunkelmodus Anpassung */
+	:global(.dark) .oauth-button {
+		color: #ffffff;
+		background: rgba(255, 255, 255, 0.1);
+		border: 2px solid rgba(255, 255, 255, 0.2);
+	}
+
+	/* Nur aktivieren wenn der Button nicht disabled ist */
+	.oauth-button:not([disabled]):hover {
 		z-index: 1;
-		border-color: transparent;
-		background: linear-gradient(
-			90deg,
-			#d3d3d3,
-			#ff0000,
-			#333333,
-			#304b6a,
-			#d3d3d3
-		);
+		background: linear-gradient(90deg, #bfbfbf, #dd0e0e, #2a2a2a, #2f4a63, #bfbfbf);
 		background-size: 400%;
-		box-shadow: 0 0 15px rgb(2, 4, 24);
-		animation: glow 12s linear forwards;
+		border: 2px solid rgba(255, 255, 255, 0.4);
+		box-shadow: 0 0 10px rgba(2, 4, 24, 0.7);
+		animation: glow 8s linear forwards;
+		color: white;
+		text-shadow: 0 0 4px rgba(0, 0, 0, 0.5);
 	}
 
 	@keyframes glow {
@@ -442,13 +392,13 @@
 		bottom: -1px;
 		left: -1px;
 		background: inherit;
-		filter: blur(36px);
+		filter: blur(20px);
 		opacity: 0;
-		transition: .4s ease-out;
+		transition: 0.4s ease-out;
 	}
 
 	.oauth-button:hover::before {
-		opacity: 1;
+		opacity: 0.6;
 		z-index: -1;
 	}
 </style>
