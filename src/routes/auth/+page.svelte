@@ -217,7 +217,7 @@
 									{#if $config?.oauth?.providers?.oidc}
 										<Tooltip
 											content="IZ-Nummer (oder E-Mail) und aktuelles OfficeLAN Passwort"
-											placement="eft"
+											placement="left"
 										>
 											<button
 												class="flex items-center px-6 border-2 dark:border-gray-800 duration-300 dark:bg-gray-900 hover:bg-gray-100 dark:hover:bg-gray-800 w-full rounded-2xl dark:text-white text-sm py-3 transition justify-center"
