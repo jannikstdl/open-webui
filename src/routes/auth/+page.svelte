@@ -7,8 +7,6 @@
 	import Spinner from '$lib/components/common/Spinner.svelte';
 	import { WEBUI_API_BASE_URL, WEBUI_BASE_URL } from '$lib/constants';
 	import { WEBUI_NAME, config, user, socket } from '$lib/stores';
-	import { onMount, getContext } from 'svelte';
-	import { toast } from 'svelte-sonner';
 	import { page } from '$app/stores';
 
 	import Hero from '$lib/components/fi-ts_landingpage/Hero.svelte';

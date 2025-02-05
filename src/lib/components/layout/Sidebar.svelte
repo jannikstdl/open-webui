@@ -575,6 +575,39 @@
 			</div>
 		{/if}
 
+		<!-- FI-TS_custom 05.02.2025 - Feedback Link -->
+		{#if $user?.role === 'user'}
+			<div class="mt-2 mb-3 mx-1.5 flex justify-center">
+				<a
+					class="flex-grow flex space-x-3 rounded-xl px-3.5 py-2 hover:bg-gray-200 dark:hover:bg-gray-900 transition"
+					href="https://intranet.officelan.izb/Services/Innovationsmanagment/Lists/AI%20Services/NewForm.aspx?Source=https%3A%2F%2Fintranet%2Eofficelan%2Eizb%2FServices%2FInnovationsmanagment%2FLists%2FAI%2520Services%2Foverview%2Easpx"
+					target="_blank"
+					rel="noopener noreferrer"
+				>
+					<div class="self-center text-gray-700 dark:text-gray-300">
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke-width="1.5"
+							stroke="currentColor"
+							class="size-4"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								d="M12 20.25c4.97 0 9-3.694 9-8.25s-4.03-8.25-9-8.25S3 7.444 3 12c0 2.104.859 4.023 2.273 5.48.432.447.74 1.04.586 1.641a4.483 4.483 0 0 1-.923 1.785A5.969 5.969 0 0 0 6 21c1.282 0 2.47-.402 3.445-1.087.81.22 1.668.337 2.555.337Z"
+							/>
+						</svg>
+					</div>
+
+					<div class="flex self-center">
+						<div class="text-gray-700 dark:text-gray-300 self-center text-sm">Feedback</div>
+					</div>
+				</a>
+			</div>
+		{/if}
+
 		<div class="relative {$temporaryChatEnabled ? 'opacity-20' : ''}">
 			{#if $temporaryChatEnabled}
 				<div class="absolute z-40 w-full h-full flex justify-center"></div>

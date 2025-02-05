@@ -13,9 +13,9 @@
 	let loaded = false;
 	let feedbacks = [];
 
-	let loaded = false;
 	onMount(async () => {
 		feedbacks = await getAllFeedbacks(localStorage.token);
+		loaded = true;
 
 		const containerElement = document.getElementById('users-tabs-container');
 

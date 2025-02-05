@@ -81,7 +81,7 @@
 </script>
 
 <div class="px-1 mb-1 flex justify-center space-x-2 relative z-10" id="search-container">
-	<div class="flex w-full rounded-xl" id="chat-search">
+	<div class="flex w-full rounded-xl mx-1 bg-gray-100 dark:bg-gray-900" id="chat-search">
 		<div class="self-center pl-3 py-2 rounded-l-xl bg-transparent">
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
