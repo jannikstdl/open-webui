@@ -1,5 +1,18 @@
 <script lang="ts">
-	import { onMount, getContext } from 'svelte';
+	import { toast } from 'svelte-sonner';
+	import { models, user } from '$lib/stores';
+	import { createEventDispatcher, onMount, getContext, tick } from 'svelte';
+
+	const dispatch = createEventDispatcher();
+	import { getModels } from '$lib/apis';
+	import { getConfig, updateConfig } from '$lib/apis/evaluations';
+
+	import Switch from '$lib/components/common/Switch.svelte';
+	import Spinner from '$lib/components/common/Spinner.svelte';
+	import Tooltip from '$lib/components/common/Tooltip.svelte';
+	import Plus from '$lib/components/icons/Plus.svelte';
+	import Model from './Evaluations/Model.svelte';
+	import ArenaModelModal from './Evaluations/ArenaModelModal.svelte';
 
 	import { models } from '$lib/stores';
 	const i18n = getContext('i18n');
@@ -10,23 +23,11 @@
 	onMount(() => {
 		loaded = true;
 
-		rankedModels = $models
-			.filter((m) => m?.owned_by !== 'arena' && (m?.info?.meta?.hidden ?? false) !== true)
-			.map((model) => {
-				return {
-					...model,
-					rating: '-',
-					stats: {
-						won: '-',
-						draw: '-',
-						lost: '-'
-					}
-				};
-			})
-			.sort((a, b) => {
-				// Handle sorting by rating ('-' goes to the end)
-				if (a.rating === '-' && b.rating !== '-') return 1;
-				if (b.rating === '-' && a.rating !== '-') return -1;
+		if (config) {
+			toast.success('Settings saved successfully');
+			models.set(await getModels(localStorage.token));
+		}
+	};
 
 				// If both have ratings (non '-'), sort by rating numerically (descending)
 				if (a.rating !== '-' && b.rating !== '-') return b.rating - a.rating;
@@ -37,10 +38,12 @@
 	});
 </script>
 
-{#if loaded}
-	<div class="mt-0.5 mb-3 gap-1 flex flex-col md:flex-row justify-between">
-		<div class="flex md:self-center text-lg font-medium px-0.5">
-			{$i18n.t('Leaderboard')}
+<ArenaModelModal
+	bind:show={showAddModel}
+	on:submit={async (e) => {
+		addModelHandler(e.detail);
+	}}
+/>
 
 			<div class="flex self-center w-[1px] h-6 mx-2.5 bg-gray-50 dark:bg-gray-850" />
 

@@ -39,7 +39,7 @@
 			}, 100);
 		} else {
 			const res = await _getVoices(localStorage.token).catch((e) => {
-				toast.error(e);
+				toast.error(`${e}`);
 			});
 
 			if (res) {
@@ -98,7 +98,7 @@
 		dispatch('save');
 	}}
 >
-	<div class=" space-y-3 pr-1.5 overflow-y-scroll max-h-[25rem]">
+	<div class=" space-y-3 overflow-y-scroll max-h-[28rem] lg:max-h-full">
 		<div>
 			<div class=" mb-1 text-sm font-medium">{$i18n.t('STT Settings')}</div>
 

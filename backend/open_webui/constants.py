@@ -62,6 +62,7 @@ class ERROR_MESSAGES(str, Enum):
     NOT_FOUND = "Wir konnten nicht finden, wonach du suchst :/"
     USER_NOT_FOUND = "Wir konnten nicht finden, wonach du suchst :/"
     API_KEY_NOT_FOUND = "Es sieht aus, als gäbe es ein Problem. Der API-Schlüssel fehlt. Bitte stelle sicher, dass du einen gültigen API-Schlüssel bereitstellst, um auf diese Funktion zuzugreifen."
+    API_KEY_NOT_ALLOWED = "Der API-Schlüssel ist nicht erlaubt. Bitte kontaktiere deinen Administrator für Unterstützung."
 
     MALICIOUS = "Ungewöhnliche Aktivitäten erkannt, bitte versuche es in ein paar Minuten erneut."
 
@@ -75,6 +76,8 @@ class ERROR_MESSAGES(str, Enum):
     OPENAI_NOT_FOUND = lambda name="": "OpenAI API wurde nicht gefunden"
     OLLAMA_NOT_FOUND = "WebUI konnte keine Verbindung zu Ollama herstellen"
     CREATE_API_KEY_ERROR = "Etwas ist schief gelaufen beim Erstellen deines API-Schlüssels. Bitte versuche es später erneut. Wenn das Problem weiterhin besteht, kontaktiere den Support für Unterstützung."
+    API_KEY_CREATION_NOT_ALLOWED = "Die API-Schlüssel-Erstellung ist nicht erlaubt in der Umgebung."
+    
 
     EMPTY_CONTENT = "Der bereitgestellte Inhalt ist leer. Bitte stelle sicher, dass Text oder Daten vorhanden sind, bevor du fortfährst."
 
@@ -111,5 +114,7 @@ class TASKS(str, Enum):
     TAGS_GENERATION = "tags_generation"
     EMOJI_GENERATION = "emoji_generation"
     QUERY_GENERATION = "query_generation"
+    IMAGE_PROMPT_GENERATION = "image_prompt_generation"
+    AUTOCOMPLETE_GENERATION = "autocomplete_generation"
     FUNCTION_CALLING = "function_calling"
     MOA_RESPONSE_GENERATION = "moa_response_generation"

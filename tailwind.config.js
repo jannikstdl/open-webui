@@ -1,4 +1,5 @@
 import typography from '@tailwindcss/typography';
+import containerQuries from '@tailwindcss/container-queries';
 
 /** @type {import('tailwindcss').Config} */
 export default {
@@ -46,5 +47,5 @@ export default {
 			}
 		}
 	},
-	plugins: [typography]
+	plugins: [typography, containerQuries]
 };

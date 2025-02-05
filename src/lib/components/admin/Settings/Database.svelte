@@ -40,7 +40,7 @@
 			})
 			.map((user) => user.email)
 			.join(',');
-		
+
 		if (filteredEmails === '') {
 			toast.error('Keine Benutzer mit valider E-Mail-Adresse gefunden');
 			return;
@@ -78,7 +78,7 @@
 					reader.onload = async (e) => {
 						const res = await importConfig(localStorage.token, JSON.parse(e.target.result)).catch(
 							(error) => {
-								toast.error(error);
+								toast.error(`${error}`);
 							}
 						);
 
@@ -163,7 +163,7 @@
 							// exportAllUserChats();
 
 							downloadDatabase(localStorage.token).catch((error) => {
-								toast.error(error);
+								toast.error(`${error}`);
 							});
 						}}
 					>
@@ -217,29 +217,29 @@
 
 			<!-- FI-TS_custom 08.11.2024 -->
 			<button
-			class="flex rounded-md py-1.5 px-3 w-full hover:bg-gray-200 dark:hover:bg-gray-800 transition"
-			type="button"
-			on:click={openEmail}
-		>
-			<div class="self-center mr-3">
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					viewBox="0 0 16 16"
-					fill="currentColor"
-					class="w-4 h-4"
-				>
-					<path
-						d="M2.5 3A1.5 1.5 0 0 0 1 4.5v.793c.026.009.051.02.076.032L7.674 8.51c.206.1.446.1.652 0l6.598-3.185A.755.755 0 0 1 15 5.293V4.5A1.5 1.5 0 0 0 13.5 3h-11Z"
-					/>
-					<path
-						d="M15 6.954 8.978 9.86a2.25 2.25 0 0 1-1.956 0L1 6.954V11.5A1.5 1.5 0 0 0 2.5 13h11a1.5 1.5 0 0 0 1.5-1.5V6.954Z"
-						clip-rule="evenodd"
-						fill-rule="evenodd"
-					/>
-				</svg>
-			</div>
-			<div class="self-center text-sm font-medium">Mail an alle User</div>
-		</button>
+				class="flex rounded-md py-1.5 px-3 w-full hover:bg-gray-200 dark:hover:bg-gray-800 transition"
+				type="button"
+				on:click={openEmail}
+			>
+				<div class="self-center mr-3">
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						viewBox="0 0 16 16"
+						fill="currentColor"
+						class="w-4 h-4"
+					>
+						<path
+							d="M2.5 3A1.5 1.5 0 0 0 1 4.5v.793c.026.009.051.02.076.032L7.674 8.51c.206.1.446.1.652 0l6.598-3.185A.755.755 0 0 1 15 5.293V4.5A1.5 1.5 0 0 0 13.5 3h-11Z"
+						/>
+						<path
+							d="M15 6.954 8.978 9.86a2.25 2.25 0 0 1-1.956 0L1 6.954V11.5A1.5 1.5 0 0 0 2.5 13h11a1.5 1.5 0 0 0 1.5-1.5V6.954Z"
+							clip-rule="evenodd"
+							fill-rule="evenodd"
+						/>
+					</svg>
+				</div>
+				<div class="self-center text-sm font-medium">Mail an alle User</div>
+			</button>
 
 			<hr class=" dark:border-gray-850 my-1" />
 

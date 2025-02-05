@@ -1,4 +1,7 @@
 <script>
+	import { toast } from 'svelte-sonner';
+
+	import { onMount, getContext } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { getSessionUser, userSignIn } from '$lib/apis/auths';
 	import Spinner from '$lib/components/common/Spinner.svelte';
@@ -23,6 +26,8 @@
 
 	let showAdminForm = null;
 
+	let ldapUsername = '';
+
 	const setSessionUser = async (sessionUser) => {
 		if (sessionUser) {
 			console.log(sessionUser);
@@ -40,10 +45,18 @@
 	const signInHandler = async () => {
 		isLoading = true;
 		const sessionUser = await userSignIn(email, password).catch((error) => {
-			toast.error(error);
+			toast.error(`${error}`);
 			return null;
 		});
 		isLoading = false;
+		await setSessionUser(sessionUser);
+	};
+
+	const ldapSignInHandler = async () => {
+		const sessionUser = await ldapUserSignIn(ldapUsername, password).catch((error) => {
+			toast.error(`${error}`);
+			return null;
+		});
 		await setSessionUser(sessionUser);
 	};
 
@@ -65,7 +78,7 @@
 			return;
 		}
 		const sessionUser = await getSessionUser(token).catch((error) => {
-			toast.error(error);
+			toast.error(`${error}`);
 			return null;
 		});
 		if (!sessionUser) {
@@ -75,6 +88,8 @@
 		await setSessionUser(sessionUser);
 	};
 
+	let onboarding = false;
+
 	onMount(async () => {
 		if ($user !== undefined) {
 			await goto('/');
@@ -83,9 +98,12 @@
 			isOAuthLoading = true;
 		}
 		await checkOauthCallback();
+
 		loaded = true;
 		if (($config?.features.auth_trusted_header ?? false) || $config?.features.auth === false) {
 			await signInHandler();
+		} else {
+			onboarding = $config?.onboarding ?? false;
 		}
 	});
 
