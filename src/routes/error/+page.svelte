@@ -29,7 +29,7 @@
 						{$i18n.t(
 							"Oops! You're using an unsupported method (frontend only). Please serve the WebUI from the backend."
 						)}
-
+						<!-- FITS_custom 11.02.2025
 						<br class=" " />
 						<br class=" " />
 						<a
@@ -41,6 +41,7 @@
 						<a class=" font-semibold underline" href="https://discord.gg/5rJgQTnV4s" target="_blank"
 							>{$i18n.t('join our Discord for help.')}</a
 						>
+						-->
 					</div>
 
 					<div class=" mt-6 mx-auto relative group w-fit">
