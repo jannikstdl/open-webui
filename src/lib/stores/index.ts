@@ -64,7 +64,7 @@ export const showSidebar = writable(false);
 export const showSettings = writable(false);
 export const showArchivedChats = writable(false);
 export const showChangelog = writable(false);
-
+export const showAcknowledgements = writable(false);
 export const showControls = writable(false);
 export const showOverview = writable(false);
 export const showArtifacts = writable(false);
@@ -76,6 +76,53 @@ export const currentChatPage = writable(1);
 
 export const isLastActiveTab = writable(true);
 export const playingNotificationSound = writable(false);
+
+export const acknowledgementsContent = writable(`
+### Open Source Bibliotheken und Anwendungen
+
+FI-TS AI basiert auf einer Vielzahl von Open-Source-Bibliotheken und -Anwendungen, darunter (aber nicht beschränkt auf):
+- OpenWebUI
+- FastAPI, Flask, Flask-Cors, Uvicorn, Pydantic, python-multipart
+- python-socketio, python-jose, passlib, bcrypt
+- requests, aiohttp, aiocache, aiofiles
+- SQLAlchemy, Alembic, Peewee, Peewee-Migrate, pgvector, PyMySQL
+- MongoDB, Redis, Boto3
+- Argon2-CFFI, APScheduler
+- OpenAI, Anthropic, Google Generative AI, tiktoken
+- LangChain, LangChain-Community
+- fake-useragent, chromadb, pymilvus, qdrant-client, opensearch-py
+- Transformers, Sentence Transformers, ColBERT-AI, einops
+- ftfy, pypdf, fpdf2, pymdown-extensions, docx2txt, python-pptx, unstructured, nltk, Markdown, pypandoc, pandas, openpyxl, pyxlsb, xlrd, validators, psutil, sentencepiece, soundfile
+- opencv-python-headless, rapidocr-onnxruntime, rank-bm25, faster-whisper
+- PyJWT, Authlib
+- Black, langfuse, youtube-transcript-api, pytube
+- extract_msg, pydub, duckduckgo-search
+- google-api-python-client, google-auth-httplib2, google-auth-oauthlib
+- Docker, Pytest, pytest-docker
+- googleapis-common-protos, google-cloud-storage
+- ldap3
+- … sowie weitere Bibliotheken, Anwendungen und Tools für den Betrieb, die Infrastruktur und für Tests.
+
+Bitte beachten Sie, dass nicht alle oben genannten Komponenten in jeder Installation verwendet werden. FI-TS AI umfasst außerdem verschiedene Open-Source-Lösungen für Infrastruktur und Betrieb, läuft auf einem Kubernetes-Cluster der FCN (FI-TS Finance Cloud Native) in unserem eigenen Rechenzentrum und nutzt GPU-Ressourcen zur Beschleunigung.
+
+### Übergeordnete Lizenzarten
+
+Die verwendeten Open-Source-Komponenten unterliegen einer Reihe bekannter Lizenzarten, unter anderem (aber nicht ausschließlich):
+- MIT License
+- Apache License 2.0
+- BSD (verschiedene Varianten)
+- GNU General Public License (GPL) & GNU Lesser General Public License (LGPL)
+- Mozilla Public License (MPL)
+- Public Domain / Unlicense
+
+Diese Lizenzen unterscheiden sich hinsichtlich der Bedingungen für Weitergabe, Modifikation und Einhaltung von Copyleft-Bestimmungen. Wir empfehlen allen Nutzern, sich vor Verwendung mit den jeweiligen Lizenzbestimmungen vertraut zu machen.
+
+### Hinweise zur Lizenzierung und Kontakt
+
+Die spezifischen Lizenztexte und -bedingungen liegen den entsprechenden Projekten bei und gelten uneingeschränkt. Bei Fragen zu den verwendeten Open-Source-Bibliotheken, Versionen oder Lizenzen können Sie sich gerne an uns wenden.
+
+Finanz Informatik Technologie Service GmbH & Co. KG
+`);
 
 export type Model = OpenAIModel | OllamaModel;
 
