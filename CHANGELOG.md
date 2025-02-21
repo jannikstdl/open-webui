@@ -5,7 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0] - 24.02.2025
+
+### Added
+
+- **✨ Neuer Look**: Ein neuer Look and Feel für die Chat-Oberfläche.
+- **💡 AI Prompt Vorschläge**: KI-gestützte Vorschläge für Prompts.
+- **🔔 Chat Notifications**: Benachrichtigungen für Chats.
+- **🔄 Verbessertes Streaming**: Die Antworten werden jetzt auch weiterhin gestreamt, wenn der Chat gewechselt wird, um eine reibungslose Benutzererfahrung zu gewährleisten.
+
+### Fixed
+
+- **🔧 Bug Fixes**: Mehrere Bugfixes, um eine reibungslose Benutzererfahrung zu ermöglichen.
+
 ## [1.0] - 07.02.2025
+
+### Added
+
+- **🚀 Offizieller Release**: Dies ist der erste offizielle Release von FI-TS AI Chat.
 
 ## [0.4] - 07.07.2024
 

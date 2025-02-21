@@ -92,6 +92,7 @@ log_sources = [
     "RAG",
     "WEBHOOK",
     "SOCKET",
+    "OAUTH",
 ]
 
 SRC_LOG_LEVELS = {}
@@ -113,6 +114,7 @@ WEBUI_NAME = os.environ.get("WEBUI_NAME", "FI-TS AI Chat")
 
 WEBUI_FAVICON_URL = "{WEBUI_BASE_URL}/static/favicon.ico" # FI-TS_custom 08.11.2024
 
+TRUSTED_SIGNATURE_KEY = os.environ.get("TRUSTED_SIGNATURE_KEY", "")
 
 ####################################
 # ENV (dev,test,prod)
