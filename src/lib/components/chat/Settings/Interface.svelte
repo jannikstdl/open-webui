@@ -45,7 +45,7 @@
 	};
 
 	// Admin - Show Update Available Toast
-	let showUpdateToast = true;
+	let showUpdateToast = false;
 	let showChangelog = true;
 
 	let showEmojiInCall = false;
@@ -212,7 +212,7 @@
 		responseAutoCopy = $settings.responseAutoCopy ?? false;
 
 		showUsername = $settings.showUsername ?? false;
-		showUpdateToast = $settings.showUpdateToast ?? false; // FI-TS_custom 08.11.2024
+		showUpdateToast = $settings.showUpdateToast ?? false;
 		showChangelog = $settings.showChangelog ?? true;
 
 		showEmojiInCall = $settings.showEmojiInCall ?? false;

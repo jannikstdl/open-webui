@@ -393,7 +393,7 @@
 					{/if}
 				</div>
 
-				<div class="mt-7 w-full relative">
+				<div class="w-full relative">
 					{#if atSelectedModel !== undefined || selectedToolIds.length > 0 || webSearchEnabled || ($settings?.webSearch ?? false) === 'always' || imageGenerationEnabled || codeInterpreterEnabled}
 						<div
 							class="px-7 pb-0.5 pt-1.5 text-left w-full flex flex-col absolute bottom-0 left-0 right-0 bg-gradient-to-t from-white dark:from-gray-900 z-10"
@@ -1174,7 +1174,7 @@
 													</Tooltip>
 												{/if}
 
-												{#if $_user.role === 'admin' || $_user?.permissions?.features?.code_interpreter}
+												{#if /* FI-TS_custom - also deactivate for admin users $_user.role === 'admin' ||*/ $_user?.permissions?.features?.code_interpreter}
 													<Tooltip content={$i18n.t('Execute code for analysis')} placement="top">
 														<button
 															on:click|preventDefault={() =>
