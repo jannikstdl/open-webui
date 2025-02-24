@@ -58,6 +58,9 @@
 	import ChannelItem from './Sidebar/ChannelItem.svelte';
 	import PencilSquare from '../icons/PencilSquare.svelte';
 	import Home from '../icons/Home.svelte';
+	import Dropdown from '../common/Dropdown.svelte';
+	import { DropdownMenu } from 'bits-ui';
+	import { flyAndScale } from '$lib/utils/transitions';
 
 	const BREAKPOINT = 768;
 
@@ -604,34 +607,100 @@
 
 		<!-- FI-TS_custom 05.02.2025 - Feedback Link -->
 		{#if $user?.role === 'user'}
-			<div class="mt-2 mb-3 mx-1.5 flex justify-center">
-				<a
-					class="flex-grow flex space-x-3 rounded-xl px-3.5 py-2 hover:bg-gray-200 dark:hover:bg-gray-900 transition"
-					href="https://intranet.officelan.izb/Services/Innovationsmanagment/Lists/AI%20Services/NewForm.aspx?Source=https%3A%2F%2Fintranet%2Eofficelan%2Eizb%2FServices%2FInnovationsmanagment%2FLists%2FAI%2520Services%2Foverview%2Easpx"
-					target="_blank"
-					rel="noopener noreferrer"
+			<div class="mt-2 mb-3 mx-1.5">
+				<Dropdown
+					on:change={(e) => {
+						if (e.detail === false) {
+							// Optional: Handle dropdown close
+						}
+					}}
 				>
-					<div class="self-center text-gray-700 dark:text-gray-300">
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke-width="2"
-							stroke="currentColor"
-							class="size-4"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								d="M12 20.25c4.97 0 9-3.694 9-8.25s-4.03-8.25-9-8.25S3 7.444 3 12c0 2.104.859 4.023 2.273 5.48.432.447.74 1.04.586 1.641a4.483 4.483 0 0 1-.923 1.785A5.969 5.969 0 0 0 6 21c1.282 0 2.47-.402 3.445-1.087.81.22 1.668.337 2.555.337Z"
-							/>
-						</svg>
-					</div>
+					<button
+						class="w-full flex space-x-3 rounded-xl px-3.5 py-2 hover:bg-gray-200 dark:hover:bg-gray-900 transition"
+					>
+						<div class="self-center text-gray-700 dark:text-gray-300">
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke-width="2"
+								stroke="currentColor"
+								class="size-4"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									d="M12 20.25c4.97 0 9-3.694 9-8.25s-4.03-8.25-9-8.25S3 7.444 3 12c0 2.104.859 4.023 2.273 5.48.432.447.74 1.04.586 1.641a4.483 4.483 0 0 1-.923 1.785A5.969 5.969 0 0 0 6 21c1.282 0 2.47-.402 3.445-1.087.81.22 1.668.337 2.555.337Z"
+								/>
+							</svg>
+						</div>
 
-					<div class="flex self-center">
-						<div class="text-gray-700 dark:text-gray-300 self-center text-sm">Feedback</div>
+						<div class="flex self-center">
+							<div class="text-gray-700 dark:text-gray-300 self-center text-sm">Feedback</div>
+						</div>
+					</button>
+
+					<div slot="content">
+						<DropdownMenu.Content
+							class="w-full max-w-[230px] rounded-xl px-1 py-1.5 border border-gray-300/30 dark:border-gray-700/50 z-50 bg-white dark:bg-gray-850 dark:text-white shadow-lg"
+							sideOffset={4}
+							side="right"
+							align="start"
+							transition={flyAndScale}
+						>
+							<DropdownMenu.Item
+								class="flex gap-2 items-center px-3 py-2 text-sm cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 rounded-md"
+							>
+								<a
+									href="mailto:ZZG-FITS-AI-Services@f-i-ts.de"
+									class="flex gap-2 items-center w-full"
+								>
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke-width="2"
+										stroke="currentColor"
+										class="size-5"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"
+										/>
+									</svg>
+									<div class="flex items-center">Mail</div>
+								</a>
+							</DropdownMenu.Item>
+
+							<DropdownMenu.Item
+								class="flex gap-2 items-center px-3 py-2 text-sm cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 rounded-md"
+								on:click={() => {
+									window.open(
+										'https://intranet.officelan.izb/Services/Innovationsmanagment/Lists/AI%20Services/NewForm.aspx?Source=https%3A%2F%2Fintranet%2Eofficelan%2Eizb%2FServices%2FInnovationsmanagment%2FLists%2FAI%2520Services%2Foverview%2Easpx',
+										'_blank'
+									);
+								}}
+							>
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke-width="2"
+									stroke="currentColor"
+									class="size-5"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"
+									/>
+								</svg>
+								<div class="flex items-center">Formular</div>
+							</DropdownMenu.Item>
+						</DropdownMenu.Content>
 					</div>
-				</a>
+				</Dropdown>
 			</div>
 		{/if}
 
