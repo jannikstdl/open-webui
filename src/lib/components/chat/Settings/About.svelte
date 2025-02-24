@@ -62,7 +62,7 @@
 				</div>
 			</div>
 		</div>
-		<hr class="dark:border-gray-850" />
+		<hr class="border-gray-100 dark:border-gray-850 my-4" />
 		<div>
 			<div class="mb-2.5 text-sm font-medium">Frontend Version</div>
 			<div class="flex w-full">
@@ -72,7 +72,7 @@
 			</div>
 		</div>
 
-		<hr class="dark:border-gray-850" />
+		<hr class="border-gray-100 dark:border-gray-850 my-4" />
 
 		<button
 			class="underline flex items-center space-x-1 text-xs text-gray-500 dark:text-gray-500"
@@ -98,7 +98,7 @@
 		{/if}
 		-->
 
-		<hr class="dark:border-gray-850" />
+		<hr class="border-gray-100 dark:border-gray-850 my-4" />
 
 		<div class="mt-2 text-gray-400 dark:text-gray-500">
 			{#if !$WEBUI_NAME.includes('Open WebUI')}
