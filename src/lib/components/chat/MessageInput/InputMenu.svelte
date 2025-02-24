@@ -149,7 +149,7 @@
 				content={!fileUploadEnabled
 					? $i18n.t('You do not have permission to upload files')
 					: !enableCaptureFeature
-						? 'Bildverarbeitung ist derzeit nicht möglich. Funktionalität wird eventuell bald mit dem Deployment eines Vision Modells erweitert.'
+						? 'Bildverarbeitung derzeit nicht verfügbar. Eine zukünftige Erweiterung ist möglich'
 						: ''}
 				className="w-full"
 			>
