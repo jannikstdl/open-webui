@@ -2024,7 +2024,7 @@
 							/>
 
 							<div
-								class="absolute bottom-1 text-xs text-gray-500 text-center line-clamp-1 right-0 left-0"
+								class="absolute bottom-1 text-xs text-gray-300 dark:text-gray-600 text-center line-clamp-1 right-0 left-0"
 							>
 								Antworten basieren auf generativer KI. Bitte prüfen Sie deren Richtigkeit. Keine
 								Eingabe personenbezogener Daten erlaubt.

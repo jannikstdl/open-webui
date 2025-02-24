@@ -208,6 +208,10 @@
 						dispatch('submit', e.detail);
 					}}
 				/>
+				<div class="text-xs text-gray-300 dark:text-gray-600 text-center line-clamp-1 mb-2">
+					Antworten basieren auf generativer KI. Bitte prüfen Sie deren Richtigkeit. Keine Eingabe
+					personenbezogener Daten erlaubt.
+				</div>
 			</div>
 		</div>
 	</div>

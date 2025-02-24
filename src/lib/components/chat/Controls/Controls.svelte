@@ -46,8 +46,6 @@
 								size={file?.size}
 								dismissible={true}
 								on:dismiss={() => {
-									// Remove the file from the chatFiles array
-
 									chatFiles.splice(fileIdx, 1);
 									chatFiles = chatFiles;
 								}}
@@ -62,14 +60,6 @@
 				<hr class="my-2 border-gray-50 dark:border-gray-700/10" />
 			{/if}
 
-			<Collapsible bind:open={showValves} title={$i18n.t('Valves')} buttonClassName="w-full">
-				<div class="text-sm" slot="content">
-					<Valves show={showValves} />
-				</div>
-			</Collapsible>
-
-			<hr class="my-2 border-gray-50 dark:border-gray-700/10" />
-
 			<Collapsible title={$i18n.t('System Prompt')} open={true} buttonClassName="w-full">
 				<div class="" slot="content">
 					<textarea
@@ -83,13 +73,33 @@
 
 			<hr class="my-2 border-gray-50 dark:border-gray-700/10" />
 
-			<Collapsible title={$i18n.t('Advanced Params')} open={true} buttonClassName="w-full">
-				<div class="text-sm mt-1.5" slot="content">
-					<div>
-						<AdvancedParams admin={$user?.role === 'admin'} bind:params />
+			{#if $user.role === 'admin'}
+				<Collapsible
+					bind:open={showValves}
+					title="{$i18n.t('Valves')} (nur Admins)"
+					buttonClassName="w-full"
+				>
+					<div class="text-sm" slot="content">
+						<Valves show={showValves} />
 					</div>
-				</div>
-			</Collapsible>
+				</Collapsible>
+			{/if}
+
+			<hr class="my-2 border-gray-50 dark:border-gray-700/10" />
+
+			{#if $user.role === 'admin'}
+				<Collapsible
+					title="{$i18n.t('Advanced Params')} (nur Admins)"
+					open={true}
+					buttonClassName="w-full"
+				>
+					<div class="text-sm mt-1.5" slot="content">
+						<div>
+							<AdvancedParams admin={$user?.role === 'admin'} bind:params />
+						</div>
+					</div>
+				</Collapsible>
+			{/if}
 		</div>
 	{:else}
 		<div class="text-sm dark:text-gray-300 text-center py-2 px-10">
