@@ -2026,7 +2026,8 @@
 							<div
 								class="absolute bottom-1 text-xs text-gray-500 text-center line-clamp-1 right-0 left-0"
 							>
-								<!-- {$i18n.t('LLMs can make mistakes. Verify important information.')} -->
+								Antworten basieren auf generativer KI. Bitte prüfen Sie deren Richtigkeit. Keine
+								Eingabe personenbezogener Daten erlaubt.
 							</div>
 						</div>
 					{:else}

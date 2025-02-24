@@ -3,7 +3,10 @@
 
 	import { onMount, getContext } from 'svelte';
 	import { goto } from '$app/navigation';
+
+	import { getBackendConfig } from '$lib/apis';
 	import { getSessionUser, userSignIn } from '$lib/apis/auths';
+
 	import Spinner from '$lib/components/common/Spinner.svelte';
 	import { WEBUI_API_BASE_URL, WEBUI_BASE_URL } from '$lib/constants';
 	import { WEBUI_NAME, config, user, socket } from '$lib/stores';
