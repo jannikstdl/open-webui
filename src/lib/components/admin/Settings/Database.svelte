@@ -4,7 +4,7 @@
 
 	import { MAIL_DOMAIN } from '$lib/constants';
 
-	import { downloadDatabase, downloadLiteLLMConfig } from '$lib/apis/utils';
+	import { downloadDatabase } from '$lib/apis/utils';
 	import { onMount, getContext } from 'svelte';
 	import { config, user } from '$lib/stores';
 	import { toast } from 'svelte-sonner';
@@ -16,7 +16,9 @@
 
 	export let saveHandler: Function;
 
-	let users = [];
+	let users: any[] = [];
+	let debugInfo = '';
+	let emailsCount = 0;
 
 	const exportAllUserChats = async () => {
 		let blob = new Blob([JSON.stringify(await getAllUserChats(localStorage.token))], {
@@ -25,34 +27,177 @@
 		saveAs(blob, `all-chats-export-${Date.now()}.json`);
 	};
 
-	function openEmail() {
-		const filteredEmails = users
+	/**
+	 * Get all valid email addresses based on criteria
+	 */
+	function getValidEmails(): string[] {
+		if (!users || users.length === 0) {
+			toast.error('Keine Benutzer gefunden');
+			return [];
+		}
+
+		// Filter valid emails
+		const validEmails = users
 			.filter((user) => {
 				const email = user.email;
-				const atIndex = email.indexOf('@');
-				const domain = email.substring(atIndex + 1);
-				return (
-					atIndex > 0 &&
-					email.substring(0, atIndex).includes('.') &&
-					domain === MAIL_DOMAIN &&
-					email !== $user.email
-				);
-			})
-			.map((user) => user.email)
-			.join(',');
+				if (!email) return false;
 
-		if (filteredEmails === '') {
-			toast.error('Keine Benutzer mit valider E-Mail-Adresse gefunden');
-			return;
-		} else {
-			const mailtoLink = `mailto:?bcc=${filteredEmails}`;
-			window.open(mailtoLink, '_blank');
+				const atIndex = email.indexOf('@');
+				if (atIndex <= 0) return false;
+
+				const domain = email.substring(atIndex + 1);
+				const localPart = email.substring(0, atIndex);
+
+				return localPart.includes('.') && domain === MAIL_DOMAIN && email !== $user?.email;
+			})
+			.map((user) => user.email);
+
+		return validEmails;
+	}
+
+	/**
+	 * Copy all email addresses to clipboard
+	 */
+	function copyEmailsToClipboard() {
+		try {
+			const validEmails = getValidEmails();
+
+			// Update count for UI
+			emailsCount = validEmails.length;
+
+			if (validEmails.length === 0) {
+				toast.error('Keine Benutzer mit valider E-Mail-Adresse gefunden');
+				return;
+			}
+
+			// Create formatted text and copy to clipboard
+			const emailText = validEmails.join(', ');
+			navigator.clipboard
+				.writeText(emailText)
+				.then(() => {
+					toast.success(`${validEmails.length} E-Mail-Adressen in die Zwischenablage kopiert`);
+				})
+				.catch((err) => {
+					console.error('Fehler beim Kopieren in die Zwischenablage:', err);
+					toast.error('Fehler beim Kopieren in die Zwischenablage');
+
+					// Fallback method: create a textarea element
+					fallbackCopyToClipboard(emailText);
+				});
+		} catch (error: any) {
+			toast.error(`Fehler: ${error?.message || 'Unbekannter Fehler'}`);
+			console.error(error);
+		}
+	}
+
+	/**
+	 * Fallback method to copy text to clipboard
+	 */
+	function fallbackCopyToClipboard(text: string) {
+		try {
+			const textArea = document.createElement('textarea');
+			textArea.value = text;
+			textArea.style.position = 'fixed'; // Avoid scrolling to bottom
+			document.body.appendChild(textArea);
+			textArea.focus();
+			textArea.select();
+
+			const successful = document.execCommand('copy');
+			document.body.removeChild(textArea);
+
+			if (successful) {
+				toast.success(`E-Mail-Adressen in die Zwischenablage kopiert`);
+			} else {
+				toast.error('Fehler beim Kopieren');
+			}
+		} catch (err) {
+			toast.error('Fehler beim Kopieren in die Zwischenablage');
+		}
+	}
+
+	/**
+	 * Generate email list and download as text file
+	 */
+	function handleEmailAction() {
+		try {
+			const validEmails = getValidEmails();
+
+			// Update count for UI
+			emailsCount = validEmails.length;
+
+			if (validEmails.length === 0) {
+				toast.error('Keine Benutzer mit valider E-Mail-Adresse gefunden');
+				return;
+			}
+
+			// Create download file with emails
+			const emailText = validEmails.join('\n');
+			const blob = new Blob([emailText], { type: 'text/plain;charset=utf-8' });
+			saveAs(blob, `email-list-${Date.now()}.txt`);
+
+			toast.success(`Liste mit ${validEmails.length} E-Mail-Adressen heruntergeladen`);
+		} catch (error: any) {
+			toast.error(`Fehler: ${error?.message || 'Unbekannter Fehler'}`);
+			console.error(error);
+		}
+	}
+
+	/**
+	 * Open email client with all users as BCC
+	 */
+	function openEmail() {
+		try {
+			const validEmails = getValidEmails();
+
+			// Update count for UI
+			emailsCount = validEmails.length;
+
+			if (validEmails.length === 0) {
+				toast.error('Keine Benutzer mit valider E-Mail-Adresse gefunden');
+				return;
+			}
+
+			// Create mailto link with all emails
+			const emailList = validEmails.join(',');
+			const mailtoLink = `mailto:?bcc=${encodeURIComponent(emailList)}`;
+
+			// Create and click a temporary link
+			const link = document.createElement('a');
+			link.href = mailtoLink;
+			link.style.display = 'none';
+			document.body.appendChild(link);
+			link.click();
+			document.body.removeChild(link);
+
+			toast.success(`E-Mail an ${validEmails.length} Benutzer vorbereitet`);
+		} catch (error: any) {
+			toast.error(`Fehler: ${error?.message || 'Unbekannter Fehler'}`);
+			console.error(error);
 		}
 	}
 
 	onMount(async () => {
-		// permissions = await getUserPermissions(localStorage.token);
-		users = await getUsers(localStorage.token);
+		try {
+			users = await getUsers(localStorage.token);
+			const validEmails = users.filter((user) => {
+				const email = user.email;
+				if (!email) return false;
+
+				const atIndex = email.indexOf('@');
+				if (atIndex <= 0) return false;
+
+				const domain = email.substring(atIndex + 1);
+				const localPart = email.substring(0, atIndex);
+
+				return localPart.includes('.') && domain === MAIL_DOMAIN && email !== $user?.email;
+			});
+
+			emailsCount = validEmails.length;
+			console.log(`Loaded ${users.length} users, ${emailsCount} with valid emails`);
+		} catch (error) {
+			console.error('Error loading users:', error);
+			toast.error('Fehler beim Laden der Benutzer');
+		}
 	});
 </script>
 
@@ -213,64 +358,96 @@
 				</button>
 			{/if}
 
-			<hr class=" dark:border-gray-850 my-1" />
+			<hr class="border-gray-100 dark:border-gray-850 my-1" />
 
 			<!-- FI-TS_custom 08.11.2024 -->
-			<button
-				class="flex rounded-md py-1.5 px-3 w-full hover:bg-gray-200 dark:hover:bg-gray-800 transition"
-				type="button"
-				on:click={openEmail}
-			>
-				<div class="self-center mr-3">
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						viewBox="0 0 16 16"
-						fill="currentColor"
-						class="w-4 h-4"
-					>
-						<path
-							d="M2.5 3A1.5 1.5 0 0 0 1 4.5v.793c.026.009.051.02.076.032L7.674 8.51c.206.1.446.1.652 0l6.598-3.185A.755.755 0 0 1 15 5.293V4.5A1.5 1.5 0 0 0 13.5 3h-11Z"
-						/>
-						<path
-							d="M15 6.954 8.978 9.86a2.25 2.25 0 0 1-1.956 0L1 6.954V11.5A1.5 1.5 0 0 0 2.5 13h11a1.5 1.5 0 0 0 1.5-1.5V6.954Z"
-							clip-rule="evenodd"
-							fill-rule="evenodd"
-						/>
-					</svg>
-				</div>
-				<div class="self-center text-sm font-medium">Mail an alle User</div>
-			</button>
+			<div class="flex flex-col gap-2">
+				<button
+					class="flex rounded-md py-1.5 px-3 w-full hover:bg-gray-200 dark:hover:bg-gray-800 transition"
+					type="button"
+					on:click={copyEmailsToClipboard}
+				>
+					<div class="self-center mr-3">
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							viewBox="0 0 16 16"
+							fill="currentColor"
+							class="w-4 h-4"
+						>
+							<path
+								fill-rule="evenodd"
+								d="M3.75 2A1.75 1.75 0 0 0 2 3.75v5.5c0 .966.784 1.75 1.75 1.75h1a.75.75 0 0 0 0-1.5h-1a.25.25 0 0 1-.25-.25v-5.5a.25.25 0 0 1 .25-.25h5.5a.25.25 0 0 1 .25.25v1a.75.75 0 0 0 1.5 0v-1A1.75 1.75 0 0 0 9.25 2h-5.5Z"
+								clip-rule="evenodd"
+							/>
+							<path
+								fill-rule="evenodd"
+								d="M6.75 5A1.75 1.75 0 0 0 5 6.75v5.5c0 .966.784 1.75 1.75 1.75h5.5A1.75 1.75 0 0 0 14 12.25v-5.5A1.75 1.75 0 0 0 12.25 5h-5.5Zm5.5 1.5a.25.25 0 0 1 .25.25v5.5a.25.25 0 0 1-.25.25h-5.5a.25.25 0 0 1-.25-.25v-5.5a.25.25 0 0 1 .25-.25h5.5Z"
+								clip-rule="evenodd"
+							/>
+						</svg>
+					</div>
+					<div class="self-center text-sm font-medium">
+						E-Mail-Adressen in Zwischenablage kopieren ({emailsCount} valide Benutzer)
+					</div>
+				</button>
 
-			<hr class=" dark:border-gray-850 my-1" />
-
-			<button
-				type="button"
-				class=" flex rounded-md py-2 px-3 w-full hover:bg-gray-200 dark:hover:bg-gray-800 transition"
-				on:click={() => {
-					downloadLiteLLMConfig(localStorage.token).catch((error) => {
-						toast.error(error);
-					});
-				}}
-			>
-				<div class=" self-center mr-3">
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						viewBox="0 0 16 16"
-						fill="currentColor"
-						class="w-4 h-4"
+				<div class="flex flex-row gap-2">
+					<button
+						class="flex rounded-md py-1.5 px-3 w-full hover:bg-gray-200 dark:hover:bg-gray-800 transition"
+						type="button"
+						on:click={handleEmailAction}
 					>
-						<path d="M2 3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3Z" />
-						<path
-							fill-rule="evenodd"
-							d="M13 6H3v6a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V6ZM8.75 7.75a.75.75 0 0 0-1.5 0v2.69L6.03 9.22a.75.75 0 0 0-1.06 1.06l2.5 2.5a.75.75 0 0 0 1.06 0l2.5-2.5a.75.75 0 1 0-1.06-1.06l-1.22 1.22V7.75Z"
-							clip-rule="evenodd"
-						/>
-					</svg>
+						<div class="self-center mr-3">
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								viewBox="0 0 16 16"
+								fill="currentColor"
+								class="w-4 h-4"
+							>
+								<path
+									d="M2.5 3A1.5 1.5 0 0 0 1 4.5v.793c.026.009.051.02.076.032L7.674 8.51c.206.1.446.1.652 0l6.598-3.185A.755.755 0 0 1 15 5.293V4.5A1.5 1.5 0 0 0 13.5 3h-11Z"
+								/>
+								<path
+									d="M15 6.954 8.978 9.86a2.25 2.25 0 0 1-1.956 0L1 6.954V11.5A1.5 1.5 0 0 0 2.5 13h11a1.5 1.5 0 0 0 1.5-1.5V6.954Z"
+									clip-rule="evenodd"
+									fill-rule="evenodd"
+								/>
+							</svg>
+						</div>
+						<div class="self-center text-sm font-medium">E-Mail-Liste herunterladen</div>
+					</button>
+
+					<button
+						class="flex rounded-md py-1.5 px-3 w-full hover:bg-gray-200 dark:hover:bg-gray-800 transition"
+						type="button"
+						on:click={openEmail}
+						title="Bei vielen Benutzern kann der Browser möglicherweise den langen Link nicht verarbeiten"
+					>
+						<div class="self-center mr-3">
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								viewBox="0 0 16 16"
+								fill="currentColor"
+								class="w-4 h-4"
+							>
+								<path
+									d="M2.5 3A1.5 1.5 0 0 0 1 4.5v.793c.026.009.051.02.076.032L7.674 8.51c.206.1.446.1.652 0l6.598-3.185A.755.755 0 0 1 15 5.293V4.5A1.5 1.5 0 0 0 13.5 3h-11Z"
+								/>
+								<path
+									d="M15 6.954 8.978 9.86a2.25 2.25 0 0 1-1.956 0L1 6.954V11.5A1.5 1.5 0 0 0 2.5 13h11a1.5 1.5 0 0 0 1.5-1.5V6.954Z"
+									clip-rule="evenodd"
+									fill-rule="evenodd"
+								/>
+							</svg>
+						</div>
+						<div class="self-center text-sm font-medium">E-Mail öffnen</div>
+					</button>
 				</div>
-				<div class=" self-center text-sm font-medium">
-					{$i18n.t('Export LiteLLM config.yaml')}
+				<div class="text-xs text-gray-500 dark:text-gray-400 px-3 py-1">
+					Hinweis: Bei vielen E-Mail-Adressen kann es sein dass das E-Mail-Programm nicht mehr
+					öffnet da einige Browser die maximale Länge von URLs nicht unterstützen.
 				</div>
-			</button>
+			</div>
 		</div>
 	</div>
 
