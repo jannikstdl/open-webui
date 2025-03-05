@@ -321,9 +321,8 @@
 				</div>
 			</button>
 
-			<hr class="border-gray-100 dark:border-gray-850 my-1" />
-
 			{#if $config?.features.enable_admin_export ?? true}
+				<hr class="border-gray-100 dark:border-gray-850 my-1" />
 				<div class="  flex w-full justify-between">
 					<!-- <div class=" self-center text-xs font-medium">{$i18n.t('Allow Chat Deletion')}</div> -->
 
