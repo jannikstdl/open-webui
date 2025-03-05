@@ -19,6 +19,21 @@
 	let users: any[] = [];
 	let debugInfo = '';
 	let emailsCount = 0;
+	let visibilityHandler: () => void;
+
+	/**
+	 * Refresh users data and update emailsCount
+	 */
+	async function refreshUserData() {
+		try {
+			users = await getUsers(localStorage.token);
+			emailsCount = getValidEmails().length;
+			console.log(`Loaded ${users.length} users, ${emailsCount} with valid emails`);
+		} catch (error) {
+			console.error('Error loading users:', error);
+			toast.error('Fehler beim Laden der Benutzer');
+		}
+	}
 
 	const exportAllUserChats = async () => {
 		let blob = new Blob([JSON.stringify(await getAllUserChats(localStorage.token))], {
@@ -48,7 +63,13 @@
 				const domain = email.substring(atIndex + 1);
 				const localPart = email.substring(0, atIndex);
 
-				return localPart.includes('.') && domain === MAIL_DOMAIN && email !== $user?.email;
+				// Exclude users with role "pending" and ensure other criteria are met
+				return (
+					localPart.includes('.') &&
+					domain === MAIL_DOMAIN &&
+					email !== $user?.email &&
+					user.role !== 'pending'
+				);
 			})
 			.map((user) => user.email);
 
@@ -71,7 +92,7 @@
 			}
 
 			// Create formatted text and copy to clipboard
-			const emailText = validEmails.join(', ');
+			const emailText = validEmails.join(';');
 			navigator.clipboard
 				.writeText(emailText)
 				.then(() => {
@@ -158,47 +179,52 @@
 			}
 
 			// Create mailto link with all emails
-			const emailList = validEmails.join(',');
+			const emailList = validEmails.join(';');
 			const mailtoLink = `mailto:?bcc=${encodeURIComponent(emailList)}`;
 
-			// Create and click a temporary link
-			const link = document.createElement('a');
-			link.href = mailtoLink;
-			link.style.display = 'none';
-			document.body.appendChild(link);
-			link.click();
-			document.body.removeChild(link);
+			console.log('Attempting to open email client with link length:', mailtoLink.length);
+
+			// Method 1: Direct window.open approach
+			const mailWindow = window.open(mailtoLink, '_blank');
+
+			if (!mailWindow) {
+				console.warn('Failed to open email client with window.open, trying fallback method');
+
+				// Method 2: Fallback to location.href if window.open is blocked
+				window.location.href = mailtoLink;
+			}
 
 			toast.success(`E-Mail an ${validEmails.length} Benutzer vorbereitet`);
 		} catch (error: any) {
 			toast.error(`Fehler: ${error?.message || 'Unbekannter Fehler'}`);
-			console.error(error);
+			console.error('Error opening email client:', error);
 		}
 	}
 
-	onMount(async () => {
-		try {
-			users = await getUsers(localStorage.token);
-			const validEmails = users.filter((user) => {
-				const email = user.email;
-				if (!email) return false;
+	onMount(() => {
+		// Refresh user data when component mounts
+		refreshUserData();
 
-				const atIndex = email.indexOf('@');
-				if (atIndex <= 0) return false;
+		// Set up visibility change listener to refresh data when tab becomes visible
+		visibilityHandler = () => {
+			if (document.visibilityState === 'visible') {
+				refreshUserData();
+			}
+		};
 
-				const domain = email.substring(atIndex + 1);
-				const localPart = email.substring(0, atIndex);
+		// Listen for visibility changes and component activation
+		document.addEventListener('visibilitychange', visibilityHandler);
 
-				return localPart.includes('.') && domain === MAIL_DOMAIN && email !== $user?.email;
-			});
-
-			emailsCount = validEmails.length;
-			console.log(`Loaded ${users.length} users, ${emailsCount} with valid emails`);
-		} catch (error) {
-			console.error('Error loading users:', error);
-			toast.error('Fehler beim Laden der Benutzer');
-		}
+		// Clean up event listener when component is destroyed
+		return () => {
+			document.removeEventListener('visibilitychange', visibilityHandler);
+		};
 	});
+
+	// This will make sure the data is refreshed even when navigating between settings tabs
+	export function onActivate() {
+		refreshUserData();
+	}
 </script>
 
 <form
@@ -387,7 +413,7 @@
 						</svg>
 					</div>
 					<div class="self-center text-sm font-medium">
-						E-Mail-Adressen in Zwischenablage kopieren ({emailsCount} valide Benutzer)
+						E-Mail-Adressen in Zwischenablage kopieren ({emailsCount} valide aktive Benutzer)
 					</div>
 				</button>
 
