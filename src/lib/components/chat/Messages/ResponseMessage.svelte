@@ -39,6 +39,7 @@
 	import Sparkles from '$lib/components/icons/Sparkles.svelte';
 
 	import DeleteConfirmDialog from '$lib/components/common/ConfirmDialog.svelte';
+	import RatingConfirmDialog from '$lib/components/common/ConfirmDialog.svelte';
 
 	import Error from './Error.svelte';
 	import Citations from './Citations.svelte';
@@ -130,6 +131,9 @@
 	export let readOnly = false;
 
 	let showDeleteConfirm = false;
+	let showDeleteConfirmDialog = false;
+	let showRatingConfirmDialog = false;
+	let ratingToSubmit: number | null = null;
 
 	let model = null;
 	$: model = $models.find((m) => m.id === message.model);
@@ -526,6 +530,24 @@
 	title={$i18n.t('Delete message?')}
 	on:confirm={() => {
 		deleteMessageHandler();
+	}}
+/>
+
+<RatingConfirmDialog
+	bind:show={showRatingConfirmDialog}
+	title={$i18n.t('Bewertung bestätigen')}
+	message={$i18n.t(
+		'Durch Ihre Bewertung wird dieser Chat an Administratoren zur Qualitätsverbesserung weitergeleitet. Ihre Bewertung ist wichtig, um den Service zu verbessern. Bitte beachten Sie, dass alle Details (außer der Bewertung selbst) nicht länger als 30 Tage gespeichert werden.'
+	)}
+	confirmLabel={$i18n.t('Bewertung senden')}
+	cancelLabel={$i18n.t('Abbrechen')}
+	onConfirm={async () => {
+		if (ratingToSubmit !== null) {
+			await feedbackHandler(ratingToSubmit);
+			window.setTimeout(() => {
+				document.getElementById(`message-feedback-${message.id}`)?.scrollIntoView();
+			}, 0);
+		}
 	}}
 />
 
@@ -1114,12 +1136,8 @@
 													: ''} dark:hover:text-white hover:text-black transition disabled:cursor-progress disabled:hover:bg-transparent"
 												disabled={feedbackLoading}
 												on:click={async () => {
-													await feedbackHandler(1);
-													window.setTimeout(() => {
-														document
-															.getElementById(`message-feedback-${message.id}`)
-															?.scrollIntoView();
-													}, 0);
+													showRatingConfirmDialog = true;
+													ratingToSubmit = 1;
 												}}
 											>
 												<svg
@@ -1150,12 +1168,8 @@
 													: ''} dark:hover:text-white hover:text-black transition disabled:cursor-progress disabled:hover:bg-transparent"
 												disabled={feedbackLoading}
 												on:click={async () => {
-													await feedbackHandler(-1);
-													window.setTimeout(() => {
-														document
-															.getElementById(`message-feedback-${message.id}`)
-															?.scrollIntoView();
-													}, 0);
+													showRatingConfirmDialog = true;
+													ratingToSubmit = -1;
 												}}
 											>
 												<svg
