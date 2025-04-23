@@ -3,7 +3,7 @@
 	import { getOllamaVersion } from '$lib/apis/ollama';
 	import { FITS_AI_VERSION, WEBUI_BUILD_HASH, WEBUI_VERSION } from '$lib/constants';
 	import { WEBUI_NAME, config } from '$lib/stores/index';
-	import { showAcknowledgements } from '$lib/stores/index';
+	import { showAcknowledgements, showChangelog } from '$lib/stores/index';
 	import { compareVersion } from '$lib/utils';
 	import { onMount, getContext } from 'svelte';
 
@@ -81,6 +81,17 @@
 			}}
 		>
 			<div>OpenSource Acknowledgements</div>
+		</button>
+
+		<hr class="border-gray-100 dark:border-gray-850 my-4" />
+
+		<button
+			class=" underline flex items-center space-x-1 text-xs text-gray-500 dark:text-gray-500"
+			on:click={() => {
+				showChangelog.set(true);
+			}}
+		>
+			<div>{$i18n.t("See what's new")}</div>
 		</button>
 
 		<!-- FI-TS_custom 21.02.2025 - Dont show ollama version 

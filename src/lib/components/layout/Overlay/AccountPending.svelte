@@ -21,15 +21,29 @@
 		<div class="m-auto pb-10 flex flex-col justify-center">
 			<div class="max-w-md">
 				<div class="text-center dark:text-white text-2xl font-medium z-50">
-					{$i18n.t('Account Activation Pending')}<br />
-					{$i18n.t('Contact Admin for WebUI Access')}
+					<!-- {$i18n.t('Account Activation Pending')}<br />
+					{$i18n.t('Contact Admin for WebUI Access')} -->
+					Aktivierung des Accounts ausstehend
+					<br />
 				</div>
 
 				<div class=" mt-4 text-center text-sm dark:text-gray-200 w-full">
-					{$i18n.t('Your account status is currently pending activation.')}<br />
+					<!-- {$i18n.t('Your account status is currently pending activation.')}<br />
 					{$i18n.t(
 						'To access the WebUI, please reach out to the administrator. Admins can manage user statuses from the Admin Panel.'
-					)}
+					)} -->
+					Ihr Account ist derzeit noch nicht aktiviert. Aufgrund interner Beschlüsse ist der Zugriff
+					auf FI-TS AI erst nach Teilnahme der
+					<a
+						href="https://intranet.officelan.izb/Veranstaltungen/default.aspx"
+						target="_blank"
+						class="underline">Veranstaltung "KI-Führerschein"</a
+					>
+					möglich. Falls dies ein Missverständnis zu sein scheint, wenden Sie sich bitte an
+					<br />
+					<a href="mailto:ZZG-FITS-AI-Services@f-i-ts.de" class="underline"
+						>ZZG-FITS-AI-Services@f-i-ts.de</a
+					>.
 				</div>
 
 				{#if adminDetails}

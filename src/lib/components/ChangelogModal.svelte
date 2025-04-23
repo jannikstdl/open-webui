@@ -4,7 +4,7 @@
 
 	import { WEBUI_NAME, config, settings } from '$lib/stores';
 
-	import { WEBUI_VERSION } from '$lib/constants';
+	import { FITS_AI_VERSION } from '$lib/constants';
 	import { getChangelog } from '$lib/apis';
 
 	import Modal from './common/Modal.svelte';
@@ -15,6 +15,10 @@
 	export let show = false;
 
 	let changelog = null;
+
+	const calculateFitsMajorVersion = () => {
+		return FITS_AI_VERSION.split('.')[0];
+	};
 
 	onMount(async () => {
 		const res = await getChangelog();
@@ -53,7 +57,7 @@
 			<div class="text-sm dark:text-gray-200">{$i18n.t('Release Notes')}</div>
 			<div class="flex self-center w-[1px] h-6 mx-2.5 bg-gray-200 dark:bg-gray-700" />
 			<div class="text-sm dark:text-gray-200">
-				v{WEBUI_VERSION}
+				Version {calculateFitsMajorVersion()}
 			</div>
 		</div>
 	</div>
@@ -106,8 +110,8 @@
 		<div class="flex justify-end pt-3 text-sm font-medium">
 			<button
 				on:click={async () => {
-					localStorage.version = $config.version;
-					await settings.set({ ...$settings, ...{ version: $config.version } });
+					localStorage.version = FITS_AI_VERSION;
+					await settings.set({ ...$settings, ...{ version: FITS_AI_VERSION } });
 					await updateUserSettings(localStorage.token, { ui: $settings });
 					show = false;
 				}}

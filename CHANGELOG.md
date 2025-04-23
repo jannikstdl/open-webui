@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [2.1.0] - 23.04.2025
 
+### Added
+
+- **🔄 Aktualisierung der Open Source Software**: Die Software und Bibliotheken wurden aktualisiert.
+
+### Changed
+
+- **⚡ Performanceoptimierungen**: Es wurden Performanceoptimierungen an mehreren Stellen insbesondere der Dateiabfragen vorgenommen.
+
+### Fixed
+
+- **🔧 Bug Fixes**: Mehrere Bugfixes, um eine reibungslose Benutzererfahrung zu ermöglichen.
+
 ## [2.0.0] - 24.02.2025
 
 ### Added

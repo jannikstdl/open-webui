@@ -2020,7 +2020,7 @@
 							</div>
 						</div>
 
-						<div class=" pb-[1rem]">
+						<div class=" pb-[2rem]">
 							<MessageInput
 								{history}
 								{taskIds}
@@ -2068,7 +2068,7 @@
 							/>
 
 							<div
-								class="absolute bottom-1 text-xs text-gray-300 dark:text-gray-600 text-center line-clamp-1 right-0 left-0"
+								class="absolute bottom-1 text-xs text-gray-300 dark:text-gray-600 text-center line-clamp-1 right-0 left-0 pb-1"
 							>
 								Antworten basieren auf generativer KI. Bitte prüfen Sie deren Richtigkeit. Keine
 								Eingabe personenbezogener Daten erlaubt.
