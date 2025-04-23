@@ -28,7 +28,10 @@ class ERROR_MESSAGES(str, Enum):
     DELETE_USER_ERROR = "Etwas ist schief gelaufen. Wir haben ein Problem beim Löschen des Benutzers festgestellt. Bitte versuche es erneut. Bei Fragen wende dich gerne an ZZG-FITS-AI-Services@f-i-ts.de"
     EMAIL_MISMATCH = "Diese E-Mail stimmt nicht mit der E-Mail überein, mit der dein Anbieter registriert ist. Bitte überprüfe deine E-Mail und versuche es erneut. Bei Fragen wende dich gerne an ZZG-FITS-AI-Services@f-i-ts.de"
     EMAIL_TAKEN = "Diese E-Mail ist bereits registriert. Melde dich mit deinem bestehenden Konto an oder wähle eine andere E-Mail, um neu zu beginnen. Bei Fragen wende dich gerne an ZZG-FITS-AI-Services@f-i-ts.de"
-    USERNAME_TAKEN = "Dieser Benutzername ist bereits registriert. Bitte wähle einen anderen Benutzernamen. Bei Fragen wende dich gerne an ZZG-FITS-AI-Services@f-i-ts.de"
+    USERNAME_TAKEN = (
+        "Dieser Benutzername ist bereits registriert. Bitte wähle einen anderen Benutzernamen. Bei Fragen wende dich gerne an ZZG-FITS-AI-Services@f-i-ts.de"
+    )
+    PASSWORD_TOO_LONG = "Das angegebene Passwort ist zu lang. Bitte stelle sicher, dass es weniger als 72 Bytes lang ist. Bei Fragen wende dich gerne an ZZG-FITS-AI-Services@f-i-ts.de"
     COMMAND_TAKEN = "Dieser Befehl ist bereits registriert. Bitte wähle eine andere Befehlszeichenfolge. Bei Fragen wende dich gerne an ZZG-FITS-AI-Services@f-i-ts.de"
     FILE_EXISTS = "Diese Datei ist bereits registriert. Bitte wähle eine andere Datei. Bei Fragen wende dich gerne an ZZG-FITS-AI-Services@f-i-ts.de"
 
