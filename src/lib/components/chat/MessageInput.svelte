@@ -125,8 +125,6 @@
 	};
 
 	const screenCaptureHandler = async () => {
-		if (!enableCaptureFeature) return;
-
 		try {
 			// Request screen media
 			const mediaStream = await navigator.mediaDevices.getDisplayMedia({
