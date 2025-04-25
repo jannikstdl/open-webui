@@ -41,7 +41,7 @@
 	let fileUploadEnabled = true;
 	$: fileUploadEnabled = $user?.role === 'admin' || $user?.permissions?.chat?.file_upload;
 
-	const enableCaptureFeature = false; // FI-TS_custom 05.02.2025 - Disabled until we run a vision model
+	const enableCaptureFeature = true; // FI-TS_custom 25.04.2025 - Enabled for now
 
 	const init = async () => {
 		if ($_tools === null) {
