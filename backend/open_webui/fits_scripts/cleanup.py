@@ -62,7 +62,7 @@ def main():
     # All file ids from knowledges
     cursor.execute("SELECT data FROM knowledge")
     knowledge_rows = [json.loads(row['data']) for row in cursor.fetchall()]
-    knowledge_ids = list(itertools.chain(*[list(k.values())[0] for k in knowledge_rows]))
+    knowledge_ids = list(itertools.chain(*[list(k.values())[0] for k in knowledge_rows if k is not None]))
     knowledge_ids_set = set(knowledge_ids)
 
     # All file ids mentioned inside chats (processed in batches)
