@@ -44,9 +44,10 @@
 </script>
 
 <AcknowledgementsModal />
+<!-- FI-TS_custom 27.06.2025 - Open Source Acknowledgements -->
 
-<div class="flex flex-col h-full justify-between space-y-3 text-sm mb-6">
-	<div class="space-y-3 overflow-y-scroll max-h-[28rem] lg:max-h-full">
+<div id="tab-about" class="flex flex-col h-full justify-between space-y-3 text-sm mb-6">
+	<div class=" space-y-3 overflow-y-scroll max-h-[28rem] lg:max-h-full">
 		<div>
 			<div class="mb-2.5 text-sm font-medium flex space-x-2 items-center">
 				<div>
@@ -111,6 +112,7 @@
 
 		<hr class="border-gray-100 dark:border-gray-850 my-4" />
 
+		<!-- FI-TS_custom 27.06.2025 - About-Section -->
 		<div class="mt-2 text-gray-400 dark:text-gray-500">
 			{#if !$WEBUI_NAME.includes('Open WebUI')}
 				<span class="text-sm text-gray-500 dark:text-gray-300 font-medium">

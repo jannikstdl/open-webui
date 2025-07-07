@@ -11,6 +11,7 @@
 		chatId,
 		tags,
 		showSidebar,
+		showSearch,
 		mobile,
 		showArchivedChats,
 		pinnedChats,
@@ -20,7 +21,8 @@
 		channels,
 		socket,
 		config,
-		isApp
+		isApp,
+		models
 	} from '$lib/stores';
 	import { onMount, getContext, tick, onDestroy } from 'svelte';
 
@@ -42,13 +44,12 @@
 	import { createNewFolder, getFolders, updateFolderParentIdById } from '$lib/apis/folders';
 	import { WEBUI_BASE_URL } from '$lib/constants';
 
-	import ArchivedChatsModal from './Sidebar/ArchivedChatsModal.svelte';
+	import ArchivedChatsModal from './ArchivedChatsModal.svelte';
 	import UserMenu from './Sidebar/UserMenu.svelte';
 	import ChatItem from './Sidebar/ChatItem.svelte';
 	import Spinner from '../common/Spinner.svelte';
 	import Loader from '../common/Loader.svelte';
 	import AddFilesPlaceholder from '../AddFilesPlaceholder.svelte';
-	import SearchInput from './Sidebar/SearchInput.svelte';
 	import Folder from '../common/Folder.svelte';
 	import Plus from '../icons/Plus.svelte';
 	import Tooltip from '../common/Tooltip.svelte';
@@ -58,15 +59,12 @@
 	import ChannelItem from './Sidebar/ChannelItem.svelte';
 	import PencilSquare from '../icons/PencilSquare.svelte';
 	import Home from '../icons/Home.svelte';
-	import Dropdown from '../common/Dropdown.svelte';
-	import { DropdownMenu } from 'bits-ui';
-	import { flyAndScale } from '$lib/utils/transitions';
+	import MagnifyingGlass from '../icons/MagnifyingGlass.svelte';
+	import SearchModal from './SearchModal.svelte';
 
 	const BREAKPOINT = 768;
 
 	let navElement;
-	let search = '';
-
 	let shiftKey = false;
 
 	let selectedChatId = null;
@@ -177,11 +175,7 @@
 		currentChatPage.set(1);
 		allChatsLoaded = false;
 
-		if (search) {
-			await chats.set(await getChatListBySearchText(localStorage.token, search, $currentChatPage));
-		} else {
-			await chats.set(await getChatList(localStorage.token, $currentChatPage));
-		}
+		await chats.set(await getChatList(localStorage.token, $currentChatPage));
 
 		// Enable pagination
 		scrollPaginationEnabled.set(true);
@@ -194,43 +188,13 @@
 
 		let newChatList = [];
 
-		if (search) {
-			newChatList = await getChatListBySearchText(localStorage.token, search, $currentChatPage);
-		} else {
-			newChatList = await getChatList(localStorage.token, $currentChatPage);
-		}
+		newChatList = await getChatList(localStorage.token, $currentChatPage);
 
 		// once the bottom of the list has been reached (no results) there is no need to continue querying
 		allChatsLoaded = newChatList.length === 0;
 		await chats.set([...($chats ? $chats : []), ...newChatList]);
 
 		chatListLoading = false;
-	};
-
-	let searchDebounceTimeout;
-
-	const searchDebounceHandler = async () => {
-		console.log('search', search);
-		chats.set(null);
-
-		if (searchDebounceTimeout) {
-			clearTimeout(searchDebounceTimeout);
-		}
-
-		if (search === '') {
-			await initChatList();
-			return;
-		} else {
-			searchDebounceTimeout = setTimeout(async () => {
-				allChatsLoaded = false;
-				currentChatPage.set(1);
-				await chats.set(await getChatListBySearchText(localStorage.token, search));
-
-				if ($chats.length === 0) {
-					tags.set(await getAllTags(localStorage.token));
-				}
-			}, 1000);
-		}
 	};
 
 	const importChatHandler = async (items, pinned = false, folderId = null) => {
@@ -403,7 +367,7 @@
 		window.addEventListener('touchend', onTouchEnd);
 
 		window.addEventListener('focus', onFocus);
-		window.addEventListener('blur-sm', onBlur);
+		window.addEventListener('blur', onBlur);
 
 		const dropZone = document.getElementById('sidebar');
 
@@ -420,7 +384,7 @@
 		window.removeEventListener('touchend', onTouchEnd);
 
 		window.removeEventListener('focus', onFocus);
-		window.removeEventListener('blur-sm', onBlur);
+		window.removeEventListener('blur', onBlur);
 
 		const dropZone = document.getElementById('sidebar');
 
@@ -432,7 +396,7 @@
 
 <ArchivedChatsModal
 	bind:show={$showArchivedChats}
-	on:change={async () => {
+	onUpdate={async () => {
 		await initChatList();
 	}}
 />
@@ -468,6 +432,15 @@
 		}}
 	/>
 {/if}
+
+<SearchModal
+	bind:show={$showSearch}
+	onClose={() => {
+		if ($mobile) {
+			showSidebar.set(false);
+		}
+	}}
+/>
 
 <div
 	bind:this={navElement}
@@ -517,10 +490,9 @@
 				draggable="false"
 				on:click={async () => {
 					selectedChatId = null;
-					await goto('/');
-					const newChatButton = document.getElementById('new-chat-button');
+
+					await temporaryChatEnabled.set(false);
 					setTimeout(() => {
-						newChatButton?.click();
 						if ($mobile) {
 							showSidebar.set(false);
 						}
@@ -532,7 +504,7 @@
 						<img
 							crossorigin="anonymous"
 							src="{WEBUI_BASE_URL}/static/favicon.png"
-							class=" size-5 -translate-x-1.5 rounded-md"
+							class="sidebar-new-chat-icon size-5 -translate-x-1.5 rounded-full"
 							alt="logo"
 						/>
 					</div>
@@ -573,6 +545,66 @@
 			</div>
 		{/if} -->
 
+		<div class="px-1.5 flex justify-center text-gray-800 dark:text-gray-200">
+			<button
+				class="grow flex items-center space-x-3 rounded-lg px-2 py-[7px] hover:bg-gray-100 dark:hover:bg-gray-900 transition outline-none"
+				on:click={() => {
+					showSearch.set(true);
+				}}
+				draggable="false"
+			>
+				<div class="self-center">
+					<MagnifyingGlass strokeWidth="2" className="size-[1.1rem]" />
+				</div>
+
+				<div class="flex self-center translate-y-[0.5px]">
+					<div class=" self-center font-medium text-sm font-primary">{$i18n.t('Search')}</div>
+				</div>
+			</button>
+		</div>
+
+		{#if ($config?.features?.enable_notes ?? false) && ($user?.role === 'admin' || ($user?.permissions?.features?.notes ?? true))}
+			<div class="px-1.5 flex justify-center text-gray-800 dark:text-gray-200">
+				<a
+					class="grow flex items-center space-x-3 rounded-lg px-2 py-[7px] hover:bg-gray-100 dark:hover:bg-gray-900 transition"
+					href="/notes"
+					on:click={() => {
+						selectedChatId = null;
+						chatId.set('');
+
+						if ($mobile) {
+							showSidebar.set(false);
+						}
+					}}
+					draggable="false"
+				>
+					<div class="self-center">
+						<svg
+							class="size-4"
+							aria-hidden="true"
+							xmlns="http://www.w3.org/2000/svg"
+							width="24"
+							height="24"
+							fill="none"
+							viewBox="0 0 24 24"
+						>
+							<path
+								stroke="currentColor"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M10 3v4a1 1 0 0 1-1 1H5m4 8h6m-6-4h6m4-8v16a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V7.914a1 1 0 0 1 .293-.707l3.914-3.914A1 1 0 0 1 9.914 3H18a1 1 0 0 1 1 1Z"
+							/>
+						</svg>
+					</div>
+
+					<div class="flex self-center translate-y-[0.5px]">
+						<div class=" self-center font-medium text-sm font-primary">{$i18n.t('Notes')}</div>
+					</div>
+				</a>
+			</div>
+		{/if}
+
 		{#if $user?.role === 'admin' || $user?.permissions?.workspace?.models || $user?.permissions?.workspace?.knowledge || $user?.permissions?.workspace?.prompts || $user?.permissions?.workspace?.tools}
 			<div class="px-1.5 flex justify-center text-gray-800 dark:text-gray-200">
 				<a
@@ -612,124 +644,48 @@
 			</div>
 		{/if}
 
-		<!-- FI-TS_custom 05.02.2025 - Feedback Link -->
-		{#if $user?.role === 'user'}
-			<div class="mt-2 mb-3 mx-1.5">
-				<Dropdown
-					on:change={(e) => {
-						if (e.detail === false) {
-							// Optional: Handle dropdown close
-						}
-					}}
-				>
-					<button
-						class="w-full flex space-x-3 rounded-xl px-3.5 py-2 hover:bg-gray-200 dark:hover:bg-gray-900 transition"
-					>
-						<div class="self-center text-gray-700 dark:text-gray-300">
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								fill="none"
-								viewBox="0 0 24 24"
-								stroke-width="2"
-								stroke="currentColor"
-								class="size-4"
-							>
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									d="M12 20.25c4.97 0 9-3.694 9-8.25s-4.03-8.25-9-8.25S3 7.444 3 12c0 2.104.859 4.023 2.273 5.48.432.447.74 1.04.586 1.641a4.483 4.483 0 0 1-.923 1.785A5.969 5.969 0 0 0 6 21c1.282 0 2.47-.402 3.445-1.087.81.22 1.668.337 2.555.337Z"
-								/>
-							</svg>
-						</div>
-
-						<div class="flex self-center">
-							<div class="text-gray-700 dark:text-gray-300 self-center text-sm">Feedback</div>
-						</div>
-					</button>
-
-					<div slot="content">
-						<DropdownMenu.Content
-							class="w-full max-w-[230px] rounded-xl px-1 py-1.5 border border-gray-300/30 dark:border-gray-700/50 z-50 bg-white dark:bg-gray-850 dark:text-white shadow-lg"
-							sideOffset={4}
-							side="right"
-							align="start"
-							transition={flyAndScale}
-						>
-							<DropdownMenu.Item
-								class="flex gap-2 items-center px-3 py-2 text-sm cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 rounded-md"
-							>
+		<div class="relative flex flex-col flex-1 overflow-y-auto overflow-x-hidden">
+			{#if ($models ?? []).length > 0 && ($settings?.pinnedModels ?? []).length > 0}
+				<div class="mt-0.5">
+					{#each $settings.pinnedModels as modelId (modelId)}
+						{@const model = $models.find((model) => model.id === modelId)}
+						{#if model}
+							<div class="px-1.5 flex justify-center text-gray-800 dark:text-gray-200">
 								<a
-									href="mailto:ZZG-FITS-AI-Services@f-i-ts.de"
-									class="flex gap-2 items-center w-full"
+									class="grow flex items-center space-x-2.5 rounded-lg px-2 py-[7px] hover:bg-gray-100 dark:hover:bg-gray-900 transition"
+									href="/?model={modelId}"
+									on:click={() => {
+										selectedChatId = null;
+										chatId.set('');
+
+										if ($mobile) {
+											showSidebar.set(false);
+										}
+									}}
+									draggable="false"
 								>
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										fill="none"
-										viewBox="0 0 24 24"
-										stroke-width="1.5"
-										stroke="currentColor"
-										class="size-5"
-									>
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											d="M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25h-15a2.25 2.25 0 0 1-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25m19.5 0v.243a2.25 2.25 0 0 1-1.07 1.916l-7.5 4.615a2.25 2.25 0 0 1-2.36 0L3.32 8.91a2.25 2.25 0 0 1-1.07-1.916V6.75"
+									<div class="self-center shrink-0">
+										<img
+											crossorigin="anonymous"
+											src={model?.info?.meta?.profile_image_url ?? '/static/favicon.png'}
+											class=" size-5 rounded-full -translate-x-[0.5px]"
+											alt="logo"
 										/>
-									</svg>
-									<div class="flex items-center">Mail</div>
+									</div>
+
+									<div class="flex self-center translate-y-[0.5px]">
+										<div class=" self-center font-medium text-sm font-primary line-clamp-1">
+											{model?.name ?? modelId}
+										</div>
+									</div>
 								</a>
-							</DropdownMenu.Item>
-
-							<DropdownMenu.Item
-								class="flex gap-2 items-center px-3 py-2 text-sm cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 rounded-md"
-								on:click={() => {
-									window.open(
-										'https://intranet.officelan.izb/Services/Innovationsmanagment/Lists/AI%20Services/NewForm.aspx?Source=https%3A%2F%2Fintranet%2Eofficelan%2Eizb%2FServices%2FInnovationsmanagment%2FLists%2FAI%2520Services%2Foverview%2Easpx',
-										'_blank'
-									);
-								}}
-							>
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke-width="1.5"
-									stroke="currentColor"
-									class="size-5"
-								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"
-									/>
-								</svg>
-								<div class="flex items-center">Formular</div>
-							</DropdownMenu.Item>
-						</DropdownMenu.Content>
-					</div>
-				</Dropdown>
-			</div>
-		{/if}
-
-		<div class="relative {$temporaryChatEnabled ? 'opacity-20' : ''}">
-			{#if $temporaryChatEnabled}
-				<div class="absolute z-40 w-full h-full flex justify-center"></div>
+							</div>
+						{/if}
+					{/each}
+				</div>
 			{/if}
 
-			<SearchInput
-				bind:value={search}
-				on:input={searchDebounceHandler}
-				placeholder={$i18n.t('Search')}
-				showClearButton={true}
-			/>
-		</div>
-
-		<div
-			class="relative flex flex-col flex-1 overflow-y-auto overflow-x-hidden {$temporaryChatEnabled
-				? 'opacity-20'
-				: ''}"
-		>
-			{#if $config?.features?.enable_channels && ($user?.role === 'admin' || $channels.length > 0) && !search}
+			{#if $config?.features?.enable_channels && ($user?.role === 'admin' || $channels.length > 0)}
 				<Folder
 					className="px-2 mt-0.5"
 					name={$i18n.t('Channels')}
@@ -757,7 +713,6 @@
 			{/if}
 
 			<Folder
-				collapsible={!search}
 				className="px-2 mt-0.5"
 				name={$i18n.t('Chats')}
 				onAdd={() => {
@@ -813,11 +768,7 @@
 					}
 				}}
 			>
-				{#if $temporaryChatEnabled}
-					<div class="absolute z-40 w-full h-full flex justify-center"></div>
-				{/if}
-
-				{#if !search && $pinnedChats.length > 0}
+				{#if $pinnedChats.length > 0}
 					<div class="flex flex-col space-y-1 rounded-xl">
 						<Folder
 							className=""
@@ -866,7 +817,7 @@
 							<div
 								class="ml-3 pl-1 mt-[1px] flex flex-col overflow-y-auto scrollbar-hidden border-s border-gray-100 dark:border-gray-900"
 							>
-								{#each $pinnedChats as chat, idx}
+								{#each $pinnedChats as chat, idx (`pinned-chat-${chat?.id ?? idx}`)}
 									<ChatItem
 										className=""
 										id={chat.id}
@@ -893,7 +844,7 @@
 					</div>
 				{/if}
 
-				{#if !search && folders}
+				{#if folders}
 					<Folders
 						{folders}
 						on:import={(e) => {
@@ -912,7 +863,7 @@
 				<div class=" flex-1 flex flex-col overflow-y-auto scrollbar-hidden">
 					<div class="pt-1.5">
 						{#if $chats}
-							{#each $chats as chat, idx}
+							{#each $chats as chat, idx (`chat-${chat?.id ?? idx}`)}
 								{#if idx === 0 || (idx > 0 && chat.time_range !== $chats[idx - 1].time_range)}
 									<div
 										class="w-full pl-2.5 text-xs text-gray-500 dark:text-gray-500 font-medium {idx ===

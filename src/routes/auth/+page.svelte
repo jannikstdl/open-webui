@@ -42,7 +42,6 @@
 			if (sessionUser.token) {
 				localStorage.token = sessionUser.token;
 			}
-
 			$socket.emit('user-join', { auth: { token: sessionUser.token } });
 			await user.set(sessionUser);
 			await config.set(await getBackendConfig());
@@ -173,9 +172,9 @@
 					<img
 						id="logo"
 						crossorigin="anonymous"
-						src="{WEBUI_BASE_URL}/static/logo.png"
-						class="w-8 rounded-md"
-						alt="logo"
+						src="{WEBUI_BASE_URL}/static/favicon.png"
+						class=" w-6 rounded-full"
+						alt=""
 					/>
 				</div>
 			</div>
