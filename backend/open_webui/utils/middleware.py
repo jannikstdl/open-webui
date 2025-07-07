@@ -604,69 +604,100 @@ async def chat_image_generation_handler(
 
 
 async def chat_completion_files_handler(
-    request: Request, body: dict, user: UserModel
+    request: Request, body: dict, user: UserModel, extra_params: dict = None
 ) -> tuple[dict, dict[str, list]]:
     sources = []
 
     if files := body.get("metadata", {}).get("files", None):
-        queries = []
-        try:
-            queries_response = await generate_queries(
-                request,
-                {
-                    "model": body["model"],
-                    "messages": body["messages"],
-                    "type": "retrieval",
-                },
-                user,
-            )
-            queries_response = queries_response["choices"][0]["message"]["content"]
+        # Check if any files are not web_search type (to avoid showing retrieval queries for web search results)
+        non_web_search_files = [f for f in files if f.get("type") != "web_search"]
+        
+        if non_web_search_files:
+            event_emitter = extra_params.get("__event_emitter__") if extra_params else None
+            
+            if event_emitter:
+                await event_emitter(
+                    {
+                        "type": "status",
+                        "data": {
+                            "action": "retrieval_search",
+                            "description": "Generating retrieval queries",
+                            "done": False,
+                        },
+                    }
+                )
+
+            queries = []
+            try:
+                queries_response = await generate_queries(
+                    request,
+                    {
+                        "model": body["model"],
+                        "messages": body["messages"],
+                        "type": "retrieval",
+                    },
+                    user,
+                )
+                queries_response = queries_response["choices"][0]["message"]["content"]
+
+                try:
+                    bracket_start = queries_response.find("{")
+                    bracket_end = queries_response.rfind("}") + 1
+
+                    if bracket_start == -1 or bracket_end == -1:
+                        raise Exception("No JSON object found in the response")
+
+                    queries_response = queries_response[bracket_start:bracket_end]
+                    queries_response = json.loads(queries_response)
+                except Exception as e:
+                    queries_response = {"queries": [queries_response]}
+
+                queries = queries_response.get("queries", [])
+            except:
+                pass
+
+            if len(queries) == 0:
+                queries = [get_last_user_message(body["messages"])]
 
             try:
-                bracket_start = queries_response.find("{")
-                bracket_end = queries_response.rfind("}") + 1
-
-                if bracket_start == -1 or bracket_end == -1:
-                    raise Exception("No JSON object found in the response")
-
-                queries_response = queries_response[bracket_start:bracket_end]
-                queries_response = json.loads(queries_response)
-            except Exception as e:
-                queries_response = {"queries": [queries_response]}
-
-            queries = queries_response.get("queries", [])
-        except:
-            pass
-
-        if len(queries) == 0:
-            queries = [get_last_user_message(body["messages"])]
-
-        try:
-            # Offload get_sources_from_files to a separate thread
-            loop = asyncio.get_running_loop()
-            with ThreadPoolExecutor() as executor:
-                sources = await loop.run_in_executor(
-                    executor,
-                    lambda: get_sources_from_files(
-                        request=request,
-                        files=files,
-                        queries=queries,
-                        embedding_function=lambda query, prefix: request.app.state.EMBEDDING_FUNCTION(
-                            query, prefix=prefix, user=user
+                # Offload get_sources_from_files to a separate thread
+                loop = asyncio.get_running_loop()
+                with ThreadPoolExecutor() as executor:
+                    sources = await loop.run_in_executor(
+                        executor,
+                        lambda: get_sources_from_files(
+                            request=request,
+                            files=files,
+                            queries=queries,
+                            embedding_function=lambda query, prefix: request.app.state.EMBEDDING_FUNCTION(
+                                query, prefix=prefix, user=user
+                            ),
+                            k=request.app.state.config.TOP_K,
+                            reranking_function=request.app.state.rf,
+                            k_reranker=request.app.state.config.TOP_K_RERANKER,
+                            r=request.app.state.config.RELEVANCE_THRESHOLD,
+                            hybrid_bm25_weight=request.app.state.config.HYBRID_BM25_WEIGHT,
+                            hybrid_search=request.app.state.config.ENABLE_RAG_HYBRID_SEARCH,
+                            full_context=request.app.state.config.RAG_FULL_CONTEXT,
                         ),
-                        k=request.app.state.config.TOP_K,
-                        reranking_function=request.app.state.rf,
-                        k_reranker=request.app.state.config.TOP_K_RERANKER,
-                        r=request.app.state.config.RELEVANCE_THRESHOLD,
-                        hybrid_bm25_weight=request.app.state.config.HYBRID_BM25_WEIGHT,
-                        hybrid_search=request.app.state.config.ENABLE_RAG_HYBRID_SEARCH,
-                        full_context=request.app.state.config.RAG_FULL_CONTEXT,
-                    ),
-                )
-        except Exception as e:
-            log.exception(e)
+                    )
+            except Exception as e:
+                log.exception(e)
 
-        log.debug(f"rag_contexts:sources: {sources}")
+            if event_emitter:
+                await event_emitter(
+                    {
+                        "type": "status",
+                        "data": {
+                            "action": "retrieval_search",
+                            "description": "Retrieved knowledge",
+                            "queries": queries,
+                            "done": True,
+                        },
+                    }
+                )
+
+            log.debug(f"rag_contexts:sources: {sources}")
 
     return body, {"sources": sources}
 
@@ -919,7 +950,7 @@ async def process_chat_payload(request, form_data, user, metadata, model):
                 log.exception(e)
 
     try:
-        form_data, flags = await chat_completion_files_handler(request, form_data, user)
+        form_data, flags = await chat_completion_files_handler(request, form_data, user, extra_params)
         sources.extend(flags.get("sources", []))
     except Exception as e:
         log.exception(e)

@@ -38,6 +38,9 @@
 	import RateComment from './RateComment.svelte';
 	import Spinner from '$lib/components/common/Spinner.svelte';
 	import WebSearchResults from './ResponseMessage/WebSearchResults.svelte';
+	import RetrievalQueryResults from './ResponseMessage/RetrievalQueryResults.svelte';
+	import MagnifyingGlass from '$lib/components/icons/MagnifyingGlass.svelte';
+	import Document from '$lib/components/icons/Document.svelte';
 	import Sparkles from '$lib/components/icons/Sparkles.svelte';
 
 	import DeleteConfirmDialog from '$lib/components/common/ConfirmDialog.svelte';
@@ -654,69 +657,133 @@
 				<div class="chat-{message.role} w-full min-w-full markdown-prose">
 					<div>
 						{#if (message?.statusHistory ?? [...(message?.status ? [message?.status] : [])]).length > 0}
-							{@const status = (
-								message?.statusHistory ?? [...(message?.status ? [message?.status] : [])]
-							).at(-1)}
-							{#if !status?.hidden}
+							{@const allStatuses = message?.statusHistory ?? [...(message?.status ? [message?.status] : [])]}
+							{@const webSearchStatus = allStatuses.find(s => s.action === 'web_search' && s.done && s.urls)}
+							{@const retrievalSearchStatus = allStatuses.find(s => s.action === 'retrieval_search' && s.done && s.queries)}
+							{@const lastStatus = allStatuses.at(-1)}
+							
+							<!-- Show web search results if completed -->
+							{#if webSearchStatus && !webSearchStatus.hidden}
 								<div class="status-description flex items-center gap-2 py-0.5">
-									{#if status?.action === 'web_search' && status?.urls}
-										<WebSearchResults {status}>
+									<WebSearchResults status={webSearchStatus}>
+										<div class="flex items-center gap-2">
+											<MagnifyingGlass />
+											<div class="flex flex-col justify-center -space-y-0.5">
+												<div class="text-base line-clamp-1 text-wrap">
+													{#if webSearchStatus?.description.includes('{{count}}')}
+														{$i18n.t(webSearchStatus?.description, {
+															count: webSearchStatus?.urls.length
+														})}
+													{:else if webSearchStatus?.description === 'No search query generated'}
+														{$i18n.t('No search query generated')}
+													{:else if webSearchStatus?.description === 'Generating search query'}
+														{$i18n.t('Generating search query')}
+													{:else}
+														{webSearchStatus?.description}
+													{/if}
+												</div>
+											</div>
+										</div>
+									</WebSearchResults>
+								</div>
+							{/if}
+							
+							<!-- Show retrieval search results if completed -->
+							{#if retrievalSearchStatus && !retrievalSearchStatus.hidden}
+								<div class="status-description flex items-center gap-2 py-0.5">
+									<RetrievalQueryResults status={retrievalSearchStatus}>
+										<div class="flex items-center gap-2">
+											<Document />
+											<div class="flex flex-col justify-center -space-y-0.5">
+												<div class="text-base line-clamp-1 text-wrap">
+													{#if retrievalSearchStatus?.description === 'Generating retrieval queries'}
+														{$i18n.t('Generating retrieval queries')}
+													{:else if retrievalSearchStatus?.description === 'Retrieved knowledge'}
+														{$i18n.t('Retrieved knowledge')}
+													{:else}
+														{retrievalSearchStatus?.description}
+													{/if}
+												</div>
+											</div>
+										</div>
+									</RetrievalQueryResults>
+								</div>
+							{/if}
+							
+							<!-- Show current in-progress status if different from completed ones -->
+							{#if lastStatus && !lastStatus.hidden && (!lastStatus.done || (!webSearchStatus && !retrievalSearchStatus))}
+								<div class="status-description flex items-center gap-2 py-0.5">
+									{#if lastStatus?.action === 'web_search' && lastStatus?.urls}
+										<WebSearchResults status={lastStatus}>
 											<div class="flex flex-col justify-center -space-y-0.5">
 												<div
-													class="{status?.done === false
+													class="{lastStatus?.done === false
 														? 'shimmer'
 														: ''} text-base line-clamp-1 text-wrap"
 												>
-													<!-- $i18n.t("Generating search query") -->
-													<!-- $i18n.t("No search query generated") -->
-
-													<!-- $i18n.t('Searched {{count}} sites') -->
-													{#if status?.description.includes('{{count}}')}
-														{$i18n.t(status?.description, {
-															count: status?.urls.length
+													{#if lastStatus?.description.includes('{{count}}')}
+														{$i18n.t(lastStatus?.description, {
+															count: lastStatus?.urls.length
 														})}
-													{:else if status?.description === 'No search query generated'}
+													{:else if lastStatus?.description === 'No search query generated'}
 														{$i18n.t('No search query generated')}
-													{:else if status?.description === 'Generating search query'}
+													{:else if lastStatus?.description === 'Generating search query'}
 														{$i18n.t('Generating search query')}
 													{:else}
-														{status?.description}
+														{lastStatus?.description}
 													{/if}
 												</div>
 											</div>
 										</WebSearchResults>
-									{:else if status?.action === 'knowledge_search'}
+									{:else if lastStatus?.action === 'knowledge_search'}
 										<div class="flex flex-col justify-center -space-y-0.5">
 											<div
-												class="{status?.done === false
+												class="{lastStatus?.done === false
 													? 'shimmer'
 													: ''} text-gray-500 dark:text-gray-500 text-base line-clamp-1 text-wrap"
 											>
 												{$i18n.t(`Searching Knowledge for "{{searchQuery}}"`, {
-													searchQuery: status.query
+													searchQuery: lastStatus.query
 												})}
 											</div>
 										</div>
+									{:else if lastStatus?.action === 'retrieval_search' && lastStatus?.queries}
+										<RetrievalQueryResults status={lastStatus}>
+											<div class="flex flex-col justify-center -space-y-0.5">
+												<div
+													class="{lastStatus?.done === false
+														? 'shimmer'
+														: ''} text-base line-clamp-1 text-wrap"
+												>
+													{#if lastStatus?.description === 'Generating retrieval queries'}
+														{$i18n.t('Generating retrieval queries')}
+													{:else if lastStatus?.description === 'Retrieved knowledge'}
+														{$i18n.t('Retrieved knowledge')}
+													{:else}
+														{lastStatus?.description}
+													{/if}
+												</div>
+											</div>
+										</RetrievalQueryResults>
 									{:else}
 										<div class="flex flex-col justify-center -space-y-0.5">
 											<div
-												class="{status?.done === false
+												class="{lastStatus?.done === false
 													? 'shimmer'
 													: ''} text-gray-500 dark:text-gray-500 text-base line-clamp-1 text-wrap"
 											>
-												<!-- $i18n.t(`Searching "{{searchQuery}}"`) -->
-												{#if status?.description.includes('{{searchQuery}}')}
-													{$i18n.t(status?.description, {
-														searchQuery: status?.query
+												{#if lastStatus?.description.includes('{{searchQuery}}')}
+													{$i18n.t(lastStatus?.description, {
+														searchQuery: lastStatus?.query
 													})}
-												{:else if status?.description === 'No search query generated'}
+												{:else if lastStatus?.description === 'No search query generated'}
 													{$i18n.t('No search query generated')}
-												{:else if status?.description === 'Generating search query'}
+												{:else if lastStatus?.description === 'Generating search query'}
 													{$i18n.t('Generating search query')}
-												{:else if status?.description === 'Searching the web'}
+												{:else if lastStatus?.description === 'Searching the web'}
 													{$i18n.t('Searching the web...')}
 												{:else}
-													{status?.description}
+													{lastStatus?.description}
 												{/if}
 											</div>
 										</div>
