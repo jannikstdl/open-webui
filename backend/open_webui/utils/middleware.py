@@ -609,26 +609,29 @@ async def chat_completion_files_handler(
     sources = []
 
     if files := body.get("metadata", {}).get("files", None):
-        # Check if any files are not web_search type (to avoid showing retrieval queries for web search results)
+        # Check if any files are not web_search type (to show retrieval query generation UI only for knowledge files)
         non_web_search_files = [f for f in files if f.get("type") != "web_search"]
+        should_show_retrieval_status = len(non_web_search_files) > 0
         
-        if non_web_search_files:
-            event_emitter = extra_params.get("__event_emitter__") if extra_params else None
-            
-            if event_emitter:
-                await event_emitter(
-                    {
-                        "type": "status",
-                        "data": {
-                            "action": "retrieval_search",
-                            "description": "Generating retrieval queries",
-                            "done": False,
-                        },
-                    }
-                )
+        event_emitter = extra_params.get("__event_emitter__") if extra_params else None
+        
+        # Show retrieval query generation status only for non-web-search files
+        if should_show_retrieval_status and event_emitter:
+            await event_emitter(
+                {
+                    "type": "status",
+                    "data": {
+                        "action": "retrieval_search",
+                        "description": "Generating retrieval queries",
+                        "done": False,
+                    },
+                }
+            )
 
-            queries = []
-            try:
+        queries = []
+        try:
+            # Generate retrieval queries only if there are knowledge files, otherwise use web search queries
+            if should_show_retrieval_status:
                 queries_response = await generate_queries(
                     request,
                     {
@@ -653,51 +656,55 @@ async def chat_completion_files_handler(
                     queries_response = {"queries": [queries_response]}
 
                 queries = queries_response.get("queries", [])
-            except:
-                pass
-
-            if len(queries) == 0:
+            else:
+                # For web search files, use the user message as query
                 queries = [get_last_user_message(body["messages"])]
+        except:
+            pass
 
-            try:
-                # Offload get_sources_from_files to a separate thread
-                loop = asyncio.get_running_loop()
-                with ThreadPoolExecutor() as executor:
-                    sources = await loop.run_in_executor(
-                        executor,
-                        lambda: get_sources_from_files(
-                            request=request,
-                            files=files,
-                            queries=queries,
-                            embedding_function=lambda query, prefix: request.app.state.EMBEDDING_FUNCTION(
-                                query, prefix=prefix, user=user
-                            ),
-                            k=request.app.state.config.TOP_K,
-                            reranking_function=request.app.state.rf,
-                            k_reranker=request.app.state.config.TOP_K_RERANKER,
-                            r=request.app.state.config.RELEVANCE_THRESHOLD,
-                            hybrid_bm25_weight=request.app.state.config.HYBRID_BM25_WEIGHT,
-                            hybrid_search=request.app.state.config.ENABLE_RAG_HYBRID_SEARCH,
-                            full_context=request.app.state.config.RAG_FULL_CONTEXT,
+        if len(queries) == 0:
+            queries = [get_last_user_message(body["messages"])]
+
+        try:
+            # Process ALL files (including web_search) for retrieval to extract content
+            loop = asyncio.get_running_loop()
+            with ThreadPoolExecutor() as executor:
+                sources = await loop.run_in_executor(
+                    executor,
+                    lambda: get_sources_from_files(
+                        request=request,
+                        files=files,
+                        queries=queries,
+                        embedding_function=lambda query, prefix: request.app.state.EMBEDDING_FUNCTION(
+                            query, prefix=prefix, user=user
                         ),
-                    )
-            except Exception as e:
-                log.exception(e)
-
-            if event_emitter:
-                await event_emitter(
-                    {
-                        "type": "status",
-                        "data": {
-                            "action": "retrieval_search",
-                            "description": "Retrieved knowledge",
-                            "queries": queries,
-                            "done": True,
-                        },
-                    }
+                        k=request.app.state.config.TOP_K,
+                        reranking_function=request.app.state.rf,
+                        k_reranker=request.app.state.config.TOP_K_RERANKER,
+                        r=request.app.state.config.RELEVANCE_THRESHOLD,
+                        hybrid_bm25_weight=request.app.state.config.HYBRID_BM25_WEIGHT,
+                        hybrid_search=request.app.state.config.ENABLE_RAG_HYBRID_SEARCH,
+                        full_context=request.app.state.config.RAG_FULL_CONTEXT,
+                    ),
                 )
+        except Exception as e:
+            log.exception(e)
 
-            log.debug(f"rag_contexts:sources: {sources}")
+        # Show completion status only for knowledge files
+        if should_show_retrieval_status and event_emitter:
+            await event_emitter(
+                {
+                    "type": "status",
+                    "data": {
+                        "action": "retrieval_search",
+                        "description": "Retrieved knowledge",
+                        "queries": queries,
+                        "done": True,
+                    },
+                }
+            )
+
+        log.debug(f"rag_contexts:sources: {sources}")
 
     return body, {"sources": sources}
 

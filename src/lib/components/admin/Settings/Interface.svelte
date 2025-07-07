@@ -41,6 +41,8 @@
 		ENABLE_SEARCH_QUERY_GENERATION: true,
 		ENABLE_RETRIEVAL_QUERY_GENERATION: true,
 		QUERY_GENERATION_PROMPT_TEMPLATE: '',
+		WEB_SEARCH_QUERY_GENERATION_PROMPT_TEMPLATE: '',
+		RETRIEVAL_QUERY_GENERATION_PROMPT_TEMPLATE: '',
 		TOOLS_FUNCTION_CALLING_PROMPT_TEMPLATE: ''
 	};
 
@@ -298,6 +300,22 @@
 					<Switch bind:state={taskConfig.ENABLE_RETRIEVAL_QUERY_GENERATION} />
 				</div>
 
+				<div class="mb-2.5">
+					<div class=" mb-1 text-xs font-medium">{$i18n.t('Retrieval Query Generation Prompt')}</div>
+
+					<Tooltip
+						content={$i18n.t('Leave empty to use the default prompt optimized for semantic search in documents, or enter a custom prompt for generating retrieval queries')}
+						placement="top-start"
+					>
+						<Textarea
+							bind:value={taskConfig.RETRIEVAL_QUERY_GENERATION_PROMPT_TEMPLATE}
+							placeholder={$i18n.t(
+								'Leave empty to use the default document search prompt, or enter a custom prompt'
+							)}
+						/>
+					</Tooltip>
+				</div>
+
 				<div class="mb-2.5 flex w-full items-center justify-between">
 					<div class=" self-center text-xs font-medium">
 						{$i18n.t('Web Search Query Generation')}
@@ -307,16 +325,16 @@
 				</div>
 
 				<div class="mb-2.5">
-					<div class=" mb-1 text-xs font-medium">{$i18n.t('Query Generation Prompt')}</div>
+					<div class=" mb-1 text-xs font-medium">{$i18n.t('Web Search Query Generation Prompt')}</div>
 
 					<Tooltip
-						content={$i18n.t('Leave empty to use the default prompt, or enter a custom prompt')}
+						content={$i18n.t('Leave empty to use the default prompt optimized for web search engines, or enter a custom prompt for generating web search queries')}
 						placement="top-start"
 					>
 						<Textarea
-							bind:value={taskConfig.QUERY_GENERATION_PROMPT_TEMPLATE}
+							bind:value={taskConfig.WEB_SEARCH_QUERY_GENERATION_PROMPT_TEMPLATE}
 							placeholder={$i18n.t(
-								'Leave empty to use the default prompt, or enter a custom prompt'
+								'Leave empty to use the default web search prompt, or enter a custom prompt'
 							)}
 						/>
 					</Tooltip>

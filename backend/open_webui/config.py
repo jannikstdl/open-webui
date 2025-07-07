@@ -1538,6 +1538,18 @@ QUERY_GENERATION_PROMPT_TEMPLATE = PersistentConfig(
     os.environ.get("QUERY_GENERATION_PROMPT_TEMPLATE", ""),
 )
 
+WEB_SEARCH_QUERY_GENERATION_PROMPT_TEMPLATE = PersistentConfig(
+    "WEB_SEARCH_QUERY_GENERATION_PROMPT_TEMPLATE",
+    "task.query.web_search.prompt_template",
+    os.environ.get("WEB_SEARCH_QUERY_GENERATION_PROMPT_TEMPLATE", ""),
+)
+
+RETRIEVAL_QUERY_GENERATION_PROMPT_TEMPLATE = PersistentConfig(
+    "RETRIEVAL_QUERY_GENERATION_PROMPT_TEMPLATE",
+    "task.query.retrieval.prompt_template", 
+    os.environ.get("RETRIEVAL_QUERY_GENERATION_PROMPT_TEMPLATE", ""),
+)
+
 DEFAULT_QUERY_GENERATION_PROMPT_TEMPLATE = """### Task:
 Analyze the chat history to determine the necessity of generating search queries, in the given language. By default, **prioritize generating 1-3 broad and relevant search queries** unless it is absolutely certain that no additional information is required. The aim is to retrieve comprehensive, updated, and valuable information even with minimal uncertainty. If no search is unequivocally needed, return an empty list.
 
@@ -1549,6 +1561,54 @@ Analyze the chat history to determine the necessity of generating search queries
 - Be concise and focused on composing high-quality search queries, avoiding unnecessary elaboration, commentary, or assumptions.
 - Today's date is: {{CURRENT_DATE}}.
 - Always prioritize providing actionable and broad queries that maximize informational coverage.
+
+### Output:
+Strictly return in JSON format: 
+{
+  "queries": ["query1", "query2"]
+}
+
+### Chat History:
+<chat_history>
+{{MESSAGES:END:6}}
+</chat_history>
+"""
+
+DEFAULT_WEB_SEARCH_QUERY_GENERATION_PROMPT_TEMPLATE = """### Task:
+Analyze the chat history to generate effective web search queries that will find relevant, current information online. Generate **1-3 broad and specific search queries** optimized for web search engines unless it is absolutely certain that no web search is needed. Focus on generating queries that will find recent news, current information, or comprehensive online resources.
+
+### Guidelines:
+- Respond **EXCLUSIVELY** with a JSON object. Any form of extra commentary, explanation, or additional text is strictly prohibited.
+- Generate search queries optimized for web search engines (Google, Bing, etc.)
+- Focus on finding current information, recent developments, news, or comprehensive online resources
+- Use keywords and phrases that work well with search engines
+- Consider synonyms and alternative phrasings to maximize search coverage
+- Respond in the format: { "queries": ["query1", "query2"] }, ensuring each query is distinct and effective for web search
+- If no web search is needed, return: { "queries": [] }
+- Today's date is: {{CURRENT_DATE}}.
+
+### Output:
+Strictly return in JSON format: 
+{
+  "queries": ["query1", "query2"]
+}
+
+### Chat History:
+<chat_history>
+{{MESSAGES:END:6}}
+</chat_history>
+"""
+
+DEFAULT_RETRIEVAL_QUERY_GENERATION_PROMPT_TEMPLATE = """### Task:
+Analyze the chat history to generate effective retrieval queries that capture the user's information need. Use the chat history **only if the latest message clearly depends on prior context**. Generate 1–3 high-quality, semantically meaningful queries. The goal is to retrieve relevant knowledge from a vector database.
+
+### Guidelines:
+- Respond **EXCLUSIVELY** with a JSON object. Any form of extra commentary, explanation, or additional text is strictly prohibited.
+- Each query should be a clear, information-rich sentence or phrase that captures the user's intent.
+- Provide a **mixture of full-sentence queries and concise keyword-style queries** (e.g. entity-based or phrase-based).
+- Avoid overly verbose or irrelevant queries. Be concise.
+- Use the latest user message as the primary source of intent. Use earlier messages **only if necessary** to resolve ambiguity.
+- If no retrieval is needed, return: { "queries": [] }
 
 ### Output:
 Strictly return in JSON format: 
