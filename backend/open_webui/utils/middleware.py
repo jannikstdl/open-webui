@@ -464,6 +464,7 @@ async def chat_web_search_handler(
                     "data": {
                         "action": "web_search",
                         "description": "Searched {{count}} sites",
+                        "queries": queries,
                         "urls": results["filenames"],
                         "done": True,
                     },
@@ -476,6 +477,7 @@ async def chat_web_search_handler(
                     "data": {
                         "action": "web_search",
                         "description": "No search results found",
+                        "queries": queries,
                         "done": True,
                         "error": True,
                     },
