@@ -165,9 +165,11 @@
 				</Tooltip>
 
 				{#if $user !== undefined}
+					<!-- FITS_custom: help={false} -->
 					<UserMenu
-						className="max-w-[200px]"
+						className="max-w-[240px]"
 						role={$user?.role}
+						help={false}
 						on:show={(e) => {
 							if (e.detail === 'archived-chat') {
 								showArchivedChats.set(true);
