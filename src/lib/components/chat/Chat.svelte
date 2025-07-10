@@ -292,6 +292,7 @@
 					} else {
 						message.statusHistory = [data];
 					}
+					message.status = data;
 				} else if (type === 'chat:completion') {
 					chatCompletionEventHandler(data, message, event.chat_id);
 				} else if (type === 'chat:message:delta' || type === 'message') {

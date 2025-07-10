@@ -1,51 +1,25 @@
 <script lang="ts">
 	import { getContext } from 'svelte';
+	import type { Writable } from 'svelte/store';
+	import type { i18n as i18nType } from 'i18next';
 	import ChevronDown from '$lib/components/icons/ChevronDown.svelte';
 	import ChevronUp from '$lib/components/icons/ChevronUp.svelte';
 	import MagnifyingGlass from '$lib/components/icons/MagnifyingGlass.svelte';
 	import Collapsible from '$lib/components/common/Collapsible.svelte';
+	import { getFaviconSrc, handleFaviconError, getDomain } from '$lib/utils/favicon';
 
-	const i18n = getContext('i18n');
+	// i18n is provided as a Svelte store via context in the parent component
+	// so type it accordingly so that `$i18n` can be used in the markup without linter errors
+	const i18n = getContext<Writable<i18nType>>('i18n');
 
 	export let status = { urls: [], query: '', queries: [] };
 	let state = false;
 	let showAllLinks = false;
-
-	// Get the favicon from domain using google's favicon service or fallback to SVG if offline
-	let faviconFallbacks: Record<number, number> = {};
-	let faviconErrors: Set<number> = new Set();
-	let googleFaviconAvailable = true;
-
-	function handleFaviconError(idx: number) {
-		faviconFallbacks[idx] = (faviconFallbacks[idx] || 0) + 1;
-		faviconErrors.add(idx);
-
-		// If Google favicon fails, mark as unavailable
-		if (idx === 0) {
-			googleFaviconAvailable = false;
-		}
-	}
-
-	function getFaviconSrc(domain: string, idx: number): string | null {
-		// If Google favicon service is not available, don't try to load favicons
-		if (!googleFaviconAvailable) return null;
-
-		if (faviconErrors.has(idx)) return null;
-		return `https://www.google.com/s2/favicons?domain=${domain}&sz=32`;
-	}
-
-	function getDomain(url: string): string {
-		try {
-			return new URL(url).hostname.replace(/^www\./, '');
-		} catch {
-			return url;
-		}
-	}
 </script>
 
 <Collapsible bind:open={state} className="w-full space-y-1">
 	<div
-		class="flex items-center gap-2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition"
+		class="flex items-center gap-2 text-gray-700 dark:text-gray-200 hover:text-gray-900 dark:hover:text-gray-100 transition"
 	>
 		<slot />
 
@@ -58,16 +32,16 @@
 	<div class="text-sm border border-gray-300/30 dark:border-gray-700/50 rounded-xl" slot="content">
 		<!-- Show generated search queries as pills (same style as links) -->
 		{#if status?.queries && status.queries.length > 0}
-			<div class="flex flex-wrap gap-3 px-4 pt-4 pb-2">
+			<div class="flex flex-wrap gap-3 px-4 py-3">
 				{#each status.queries as query}
 					<a
 						href="https://www.google.com/search?q={encodeURIComponent(query)}"
 						target="_blank"
-						class="inline-flex items-center min-h-[2rem] rounded-full bg-gray-100 dark:bg-gray-800 px-2.5 py-0.5 text-sm font-normal text-gray-800 dark:text-gray-100 border border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all duration-300 ease-out whitespace-nowrap"
+						class="inline-flex items-center min-h-[2rem] rounded-full bg-gray-100 dark:bg-gray-800 px-2.5 py-0.5 text-sm font-normal !text-gray-700 dark:!text-gray-100 border border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all duration-300 ease-out whitespace-nowrap"
 						style="text-decoration: none;"
 					>
 						<svg
-							class="w-4 h-4 mr-1 text-gray-500 flex-shrink-0"
+							class="w-4 h-4 mr-1 text-gray-600 dark:text-gray-300 flex-shrink-0"
 							fill="none"
 							stroke="currentColor"
 							stroke-width="2"
@@ -90,10 +64,13 @@
 			<a
 				href="https://www.google.com/search?q={status.query}"
 				target="_blank"
-				class="flex w-full items-center p-3 px-4 border-b border-gray-300/30 dark:border-gray-700/50 group/item justify-between font-normal text-gray-800 dark:text-gray-300 no-underline"
+				class="flex w-full items-center p-3 border-b border-gray-300/30 dark:border-gray-700/50 group/item justify-between font-normal !text-gray-700 dark:!text-gray-300 no-underline hover:!text-gray-900 dark:hover:!text-gray-100"
+				style="text-decoration: none;"
 			>
 				<div class="flex gap-2 items-center">
-					<MagnifyingGlass />
+					<MagnifyingGlass
+						className="w-4 h-4 mr-2 text-gray-600 dark:text-gray-300 flex-shrink-0"
+					/>
 
 					<div class=" line-clamp-1">
 						{status.query}
@@ -121,13 +98,13 @@
 
 		<!-- Show search results URLs as pills with favicon and domain, and a 'N more' pill if needed -->
 		{#if status.urls && status.urls.length > 0}
-			<div class="flex flex-wrap gap-3 px-4 pb-4 pt-2">
+			<div class="flex flex-wrap gap-3 px-4 py-3">
 				{#each showAllLinks ? status.urls : status.urls.slice(0, 3) as url, urlIdx (urlIdx)}
 					<a
 						href={url}
 						target="_blank"
 						rel="noopener noreferrer"
-						class="inline-flex items-center min-h-[2rem] rounded-full bg-gray-100 dark:bg-gray-800 px-2.5 py-0.5 text-sm font-normal text-gray-800 dark:text-gray-100 border border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all duration-300 ease-out whitespace-nowrap"
+						class="inline-flex items-center min-h-[2rem] rounded-full bg-gray-100 dark:bg-gray-800 px-2.5 py-0.5 text-sm font-normal !text-gray-700 dark:!text-gray-100 border border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all duration-300 ease-out whitespace-nowrap"
 						style="text-decoration: none;"
 					>
 						{#if getFaviconSrc(getDomain(url), urlIdx)}
@@ -136,7 +113,7 @@
 								alt=""
 								class="w-4 h-4 mr-2 rounded-full bg-white border border-gray-200 dark:border-gray-700"
 								loading="lazy"
-								on:error={() => handleFaviconError(urlIdx)}
+								on:error={(e) => handleFaviconError(e, getDomain(url), urlIdx)}
 							/>
 						{:else}
 							<svg
@@ -145,7 +122,7 @@
 								viewBox="0 0 24 24"
 								stroke-width="1.5"
 								stroke="currentColor"
-								class="w-4 h-4 mr-2 text-gray-500"
+								class="w-4 h-4 mr-2 text-gray-600 dark:text-gray-300"
 							>
 								<path
 									stroke-linecap="round"
@@ -161,7 +138,7 @@
 				{#if !showAllLinks && status.urls.length > 3}
 					<a
 						href="#"
-						class="inline-flex items-center min-h-[2rem] rounded-full bg-gray-100 dark:bg-gray-800 px-2.5 py-0.5 text-sm font-normal text-gray-800 dark:text-gray-100 border border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all duration-300 ease-out whitespace-nowrap cursor-pointer"
+						class="inline-flex items-center min-h-[2rem] rounded-full bg-gray-100 dark:bg-gray-800 px-2.5 py-0.5 text-sm font-normal !text-gray-700 dark:!text-gray-100 border border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all duration-300 ease-out whitespace-nowrap cursor-pointer"
 						style="text-decoration: none;"
 						on:click|preventDefault={() => (showAllLinks = true)}
 					>
@@ -176,7 +153,7 @@
 											? '-ml-2'
 											: ''}"
 										loading="lazy"
-										on:error={() => handleFaviconError(3 + i)}
+										on:error={(e) => handleFaviconError(e, getDomain(status.urls[3 + i]), 3 + i)}
 									/>
 								{:else if status.urls[3 + i]}
 									<svg
@@ -185,7 +162,9 @@
 										viewBox="0 0 24 24"
 										stroke-width="1.5"
 										stroke="currentColor"
-										class="w-4 h-4 text-gray-500 flex-shrink-0 {i === 1 ? '-ml-2' : ''}"
+										class="w-4 h-4 text-gray-600 dark:text-gray-300 flex-shrink-0 {i === 1
+											? '-ml-2'
+											: ''}"
 									>
 										<path
 											stroke-linecap="round"
@@ -203,7 +182,7 @@
 				{#if showAllLinks && status.urls.length > 3}
 					<a
 						href="#"
-						class="inline-flex items-center min-h-[2rem] rounded-full bg-gray-100 dark:bg-gray-800 px-2.5 py-0.5 text-sm font-normal text-gray-800 dark:text-gray-100 border border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all duration-300 ease-out whitespace-nowrap cursor-pointer"
+						class="inline-flex items-center min-h-[2rem] rounded-full bg-gray-100 dark:bg-gray-800 px-2.5 py-0.5 text-sm font-normal !text-gray-700 dark:!text-gray-100 border border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all duration-300 ease-out whitespace-nowrap cursor-pointer"
 						style="text-decoration: none;"
 						on:click|preventDefault={() => (showAllLinks = false)}
 					>
@@ -217,7 +196,7 @@
 						>
 							<path stroke="currentColor" stroke-width="2" d="M18 15l-6-6-6 6" />
 						</svg>
-						<span>{$i18n.t('Show less')}</span>
+						<span>{$i18n.t('Show Less')}</span>
 					</a>
 				{/if}
 			</div>
