@@ -3,7 +3,8 @@ import { browser, dev } from '$app/environment';
 
 // FI-TS_custom 08.11.2024
 export const APP_NAME = 'FI-TS AI Chat';
-export const MAIL_DOMAIN = 'f-i-ts.de';
+export const MAIL_DOMAIN_INTERNAL = 'f-i-ts.de';
+export const MAIL_DOMAIN_EXTERNAL = 'extern.f-i-ts.de';
 
 export const WEBUI_HOSTNAME = browser ? (dev ? `${location.hostname}:8080` : ``) : '';
 export const WEBUI_BASE_URL = browser ? (dev ? `http://${WEBUI_HOSTNAME}` : ``) : ``;
