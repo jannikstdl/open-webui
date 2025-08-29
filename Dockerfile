@@ -39,18 +39,7 @@ WORKDIR /app
 RUN apk add --no-cache git
 
 COPY package.json package-lock.json ./
-
-RUN apk add --no-cache curl
-
-# Testverbindung
-RUN curl -I "https://objects.githubusercontent.com/github-production-release-asset-2e65be/156939672/ab73ff41-1078-4703-b0f4-b2e673c27810?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=releaseassetproduction%2F20241119%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20241119T150736Z&X-Amz-Expires=300&X-Amz-Signature=16362f580321de8c6fa3f319fcedfb6006956be69a5a89aa4789c8064fca9e29&X-Amz-SignedHeaders=host&response-content-disposition=attachment%3B%20filename%3Donnxruntime-linux-x64-gpu-1.19.2.tgz&response-content-type=application%2Foctet-stream"
-
-# npm für die Verwendung des Proxys konfigurieren
-RUN npm config set proxy $HTTP_PROXY
-RUN npm config set https-proxy $HTTPS_PROXY
-
-# Abhängigkeiten installieren
-RUN npm ci --loglevel verbose
+RUN npm ci --force
 
 COPY . .
 ENV APP_BUILD_HASH=${BUILD_HASH}
@@ -128,29 +117,14 @@ RUN echo -n 00000000-0000-0000-0000-000000000000 > $HOME/.cache/chroma/telemetry
 # Make sure the user has access to the app and root directory
 RUN chown -R $UID:$GID /app $HOME
 
-RUN if [ "$USE_OLLAMA" = "true" ]; then \
-    apt-get update && \
-    # Install pandoc and netcat
-    apt-get install -y --no-install-recommends git build-essential pandoc netcat-openbsd curl && \
-    apt-get install -y --no-install-recommends gcc python3-dev && \
-    # for RAG OCR
-    apt-get install -y --no-install-recommends ffmpeg libsm6 libxext6 && \
-    # install helper tools
-    apt-get install -y --no-install-recommends curl jq sqlite3 vim&& \
-    # install ollama
-    curl -fsSL https://ollama.com/install.sh | sh && \
-    # cleanup
-    rm -rf /var/lib/apt/lists/*; \
-    else \
-    apt-get update && \
-    # Install pandoc, netcat and gcc
-    apt-get install -y --no-install-recommends git build-essential pandoc gcc netcat-openbsd curl jq sqlite3 vim && \
-    apt-get install -y --no-install-recommends gcc python3-dev && \
-    # for RAG OCR
-    apt-get install -y --no-install-recommends ffmpeg libsm6 libxext6 && \
-    # cleanup
-    rm -rf /var/lib/apt/lists/*; \
-    fi
+# Install common system dependencies
+#FI-TS_custom 29.08.2025: add vim
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    git build-essential pandoc gcc netcat-openbsd curl jq vim \ 
+    python3-dev \
+    ffmpeg libsm6 libxext6 \
+    && rm -rf /var/lib/apt/lists/*
 
 # install python dependencies
 COPY --chown=$UID:$GID ./backend/requirements.txt ./requirements.txt
@@ -172,7 +146,13 @@ RUN pip3 install --no-cache-dir uv && \
     fi; \
     chown -R $UID:$GID /app/backend/data/
 
-
+# Install Ollama if requested
+RUN if [ "$USE_OLLAMA" = "true" ]; then \
+    date +%s > /tmp/ollama_build_hash && \
+    echo "Cache broken at timestamp: `cat /tmp/ollama_build_hash`" && \
+    curl -fsSL https://ollama.com/install.sh | sh && \
+    rm -rf /var/lib/apt/lists/*; \
+    fi
 
 # copy embedding weight from build
 # RUN mkdir -p /root/.cache/chroma/onnx_models/all-MiniLM-L6-v2
@@ -189,6 +169,15 @@ COPY --chown=$UID:$GID ./backend .
 EXPOSE 8080
 
 HEALTHCHECK CMD curl --silent --fail http://localhost:${PORT:-8080}/health | jq -ne 'input.status == true' || exit 1
+
+# Minimal, atomic permission hardening for OpenShift (arbitrary UID):
+# - Group 0 owns /app and /root
+# - Directories are group-writable and have SGID so new files inherit GID 0
+RUN set -eux; \
+    chgrp -R 0 /app /root || true; \
+    chmod -R g+rwX /app /root || true; \
+    find /app -type d -exec chmod g+s {} + || true; \
+    find /root -type d -exec chmod g+s {} + || true
 
 USER $UID:$GID
 

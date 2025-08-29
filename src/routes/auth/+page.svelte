@@ -1,4 +1,7 @@
 <script>
+	import DOMPurify from 'dompurify';
+	import { marked } from 'marked';
+
 	import { toast } from 'svelte-sonner';
 
 	import { onMount, getContext, tick } from 'svelte';
@@ -28,12 +31,6 @@
 	let showAdminForm = null;
 
 	let ldapUsername = '';
-
-	const querystringValue = (key) => {
-		const querystring = window.location.search;
-		const urlParams = new URLSearchParams(querystring);
-		return urlParams.get(key);
-	};
 
 	const setSessionUser = async (sessionUser) => {
 		if (sessionUser) {
@@ -74,18 +71,19 @@
 	};
 
 	const checkOauthCallback = async () => {
-		if (!$page.url.hash) {
-			return;
+		// Get the value of the 'token' cookie
+		function getCookie(name) {
+			const match = document.cookie.match(
+				new RegExp('(?:^|; )' + name.replace(/([.$?*|{}()[\]\\/+^])/g, '\\$1') + '=([^;]*)')
+			);
+			return match ? decodeURIComponent(match[1]) : null;
 		}
-		const hash = $page.url.hash.substring(1);
-		if (!hash) {
-			return;
-		}
-		const params = new URLSearchParams(hash);
-		const token = params.get('token');
+
+		const token = getCookie('token');
 		if (!token) {
 			return;
 		}
+
 		const sessionUser = await getSessionUser(token).catch((error) => {
 			toast.error(`${error}`);
 			return null;
@@ -93,6 +91,7 @@
 		if (!sessionUser) {
 			return;
 		}
+
 		localStorage.token = token;
 		await setSessionUser(sessionUser);
 	};
@@ -108,10 +107,10 @@
 
 			if (isDarkMode) {
 				const darkImage = new Image();
-				darkImage.src = '/static/favicon-dark.png';
+				darkImage.src = `${WEBUI_BASE_URL}/static/favicon-dark.png`;
 
 				darkImage.onload = () => {
-					logo.src = '/static/favicon-dark.png';
+					logo.src = `${WEBUI_BASE_URL}/static/favicon-dark.png`;
 					logo.style.filter = ''; // Ensure no inversion is applied if favicon-dark.png exists
 				};
 
@@ -398,6 +397,22 @@
 			<Features />
 			<FAQ />
 		</div>
+
+		{#if !$config?.metadata?.auth_logo_position}
+			<div class="fixed m-10 z-50">
+				<div class="flex space-x-2">
+					<div class=" self-center">
+						<img
+							id="logo"
+							crossorigin="anonymous"
+							src="{WEBUI_BASE_URL}/static/favicon.png"
+							class=" w-6 rounded-full"
+							alt=""
+						/>
+					</div>
+				</div>
+			</div>
+		{/if}
 	{/if}
 {/if}
 

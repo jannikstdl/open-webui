@@ -1,20 +1,18 @@
 <script lang="ts">
 	import { getContext } from 'svelte';
-	import type { Writable } from 'svelte/store';
-	import type { i18n as i18nType } from 'i18next';
 	import ChevronDown from '$lib/components/icons/ChevronDown.svelte';
 	import ChevronUp from '$lib/components/icons/ChevronUp.svelte';
-	import MagnifyingGlass from '$lib/components/icons/MagnifyingGlass.svelte';
+	import Search from '$lib/components/icons/Search.svelte';
 	import Collapsible from '$lib/components/common/Collapsible.svelte';
 	import { getFaviconSrc, handleFaviconError, getDomain } from '$lib/utils/favicon';
 
-	// i18n is provided as a Svelte store via context in the parent component
-	// so type it accordingly so that `$i18n` can be used in the markup without linter errors
-	const i18n = getContext<Writable<i18nType>>('i18n');
+	const i18n = getContext('i18n');
 
 	export let status = { urls: [], query: '', queries: [] };
 	let state = false;
 	let showAllLinks = false;
+
+	//FI-TS_custom 29.08.2025: Retrieval and WebSearch queries
 </script>
 
 <Collapsible bind:open={state} className="w-full space-y-1">
@@ -68,9 +66,7 @@
 				style="text-decoration: none;"
 			>
 				<div class="flex gap-2 items-center">
-					<MagnifyingGlass
-						className="w-4 h-4 mr-2 text-gray-600 dark:text-gray-300 flex-shrink-0"
-					/>
+					<Search />
 
 					<div class=" line-clamp-1">
 						{status.query}
