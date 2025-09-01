@@ -29,8 +29,6 @@
 	export let help = false;
 	export let className = 'max-w-[240px]';
 
-	let showShortcuts = false;
-
 	const dispatch = createEventDispatcher();
 
 	let usage = null;

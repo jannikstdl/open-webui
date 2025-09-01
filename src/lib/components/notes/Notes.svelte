@@ -1,11 +1,8 @@
 <script lang="ts">
 	import { toast } from 'svelte-sonner';
 	import fileSaver from 'file-saver';
-<<<<<<< HEAD
-=======
 	import Fuse from 'fuse.js';
 
->>>>>>> main
 	const { saveAs } = fileSaver;
 
 	import jsPDF from 'jspdf';
@@ -37,11 +34,7 @@
 	import { WEBUI_NAME, config, prompts as _prompts, user } from '$lib/stores';
 
 	import { createNewNote, deleteNoteById, getNotes } from '$lib/apis/notes';
-<<<<<<< HEAD
-	import { capitalizeFirstLetter } from '$lib/utils';
-=======
 	import { capitalizeFirstLetter, copyToClipboard, getTimeRange } from '$lib/utils';
->>>>>>> main
 
 	import EllipsisHorizontal from '../icons/EllipsisHorizontal.svelte';
 	import DeleteConfirmDialog from '$lib/components/common/ConfirmDialog.svelte';
@@ -53,10 +46,7 @@
 	import NoteMenu from './Notes/NoteMenu.svelte';
 	import FilesOverlay from '../chat/MessageInput/FilesOverlay.svelte';
 	import { marked } from 'marked';
-<<<<<<< HEAD
-=======
 	import XMark from '../icons/XMark.svelte';
->>>>>>> main
 
 	const i18n = getContext('i18n');
 	let loaded = false;
@@ -64,20 +54,6 @@
 	let importFiles = '';
 	let query = '';
 
-<<<<<<< HEAD
-	let notes = [];
-	let selectedNote = null;
-
-	let showDeleteConfirm = false;
-
-	const init = async () => {
-		notes = await getNotes(localStorage.token);
-	};
-
-	const createNoteHandler = async () => {
-		const res = await createNewNote(localStorage.token, {
-			title: $i18n.t('New Note'),
-=======
 	let noteItems = [];
 	let fuse = null;
 
@@ -129,7 +105,6 @@
 		const res = await createNewNote(localStorage.token, {
 			// YYYY-MM-DD
 			title: dayjs().format('YYYY-MM-DD'),
->>>>>>> main
 			data: {
 				content: {
 					json: null,
@@ -138,11 +113,7 @@
 				}
 			},
 			meta: null,
-<<<<<<< HEAD
-			access_control: null
-=======
 			access_control: {}
->>>>>>> main
 		}).catch((error) => {
 			toast.error(`${error}`);
 			return null;
@@ -196,7 +167,7 @@
 				document.body.removeChild(node);
 			}
 
-			const imgData = canvas.toDataURL('image/png');
+			const imgData = canvas.toDataURL('image/jpeg', 0.7);
 
 			// A4 page settings
 			const pdf = new jsPDF('p', 'mm', 'a4');
@@ -208,7 +179,7 @@
 			let heightLeft = imgHeight;
 			let position = 0;
 
-			pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+			pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
 			heightLeft -= pageHeight;
 
 			// Handle additional pages
@@ -216,7 +187,7 @@
 				position -= pageHeight;
 				pdf.addPage();
 
-				pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+				pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
 				heightLeft -= pageHeight;
 			}
 
@@ -269,11 +240,7 @@
 						}
 					},
 					meta: null,
-<<<<<<< HEAD
-					access_control: null
-=======
 					access_control: {}
->>>>>>> main
 				}).catch((error) => {
 					toast.error(`${error}`);
 					return null;
@@ -366,8 +333,6 @@
 			</div>
 		</DeleteConfirmDialog>
 
-<<<<<<< HEAD
-=======
 		<div class="flex flex-col gap-1 px-3.5">
 			<div class=" flex flex-1 items-center w-full space-x-2">
 				<div class="flex flex-1 items-center">
@@ -396,7 +361,6 @@
 			</div>
 		</div>
 
->>>>>>> main
 		<div class="px-4.5 @container h-full pt-2">
 			{#if Object.keys(notes).length > 0}
 				<div class="pb-10">
@@ -406,11 +370,7 @@
 						</div>
 
 						<div
-<<<<<<< HEAD
-							class="mb-5 gap-2.5 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
-=======
 							class="mb-5 gap-2.5 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5"
->>>>>>> main
 						>
 							{#each notes[timeRange] as note, idx (note.id)}
 								<div
@@ -432,8 +392,6 @@
 
 																downloadHandler(type);
 															}}
-<<<<<<< HEAD
-=======
 															onCopyLink={async () => {
 																const baseUrl = window.location.origin;
 																const res = await copyToClipboard(`${baseUrl}/notes/${note.id}`);
@@ -444,7 +402,6 @@
 																	toast.error($i18n.t('Failed to copy link'));
 																}
 															}}
->>>>>>> main
 															onDelete={() => {
 																selectedNote = note;
 																showDeleteConfirm = true;
@@ -461,11 +418,7 @@
 												</div>
 
 												<div
-<<<<<<< HEAD
-													class=" text-xs text-gray-500 dark:text-gray-500 mb-3 line-clamp-5 min-h-18"
-=======
 													class=" text-xs text-gray-500 dark:text-gray-500 mb-3 line-clamp-3 min-h-10"
->>>>>>> main
 												>
 													{#if note.data?.content?.md}
 														{note.data?.content?.md}
@@ -589,11 +542,7 @@
 	{/if} -->
 	{:else}
 		<div class="w-full h-full flex justify-center items-center">
-<<<<<<< HEAD
-			<Spinner />
-=======
 			<Spinner className="size-5" />
->>>>>>> main
 		</div>
 	{/if}
 </div>

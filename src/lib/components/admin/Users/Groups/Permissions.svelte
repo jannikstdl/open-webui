@@ -26,6 +26,10 @@
 			params: true,
 			file_upload: true,
 			delete: true,
+			delete_message: true,
+			continue_response: true,
+			regenerate_response: true,
+			rate_response: true,
 			edit: true,
 			share: true,
 			export: true,
@@ -294,10 +298,10 @@
 
 		<div class="  flex w-full justify-between my-2 pr-2">
 			<div class=" self-center text-xs font-medium">
-				{$i18n.t('Allow Chat System Prompt')}
+				{$i18n.t('Allow Chat Edit')}
 			</div>
 
-			<Switch bind:state={permissions.chat.system_prompt} />
+			<Switch bind:state={permissions.chat.edit} />
 		</div>
 
 		<div class="  flex w-full justify-between my-2 pr-2">
@@ -310,10 +314,34 @@
 
 		<div class="  flex w-full justify-between my-2 pr-2">
 			<div class=" self-center text-xs font-medium">
-				{$i18n.t('Allow Chat Edit')}
+				{$i18n.t('Allow Delete Messages')}
 			</div>
 
-			<Switch bind:state={permissions.chat.edit} />
+			<Switch bind:state={permissions.chat.delete_message} />
+		</div>
+
+		<div class="  flex w-full justify-between my-2 pr-2">
+			<div class=" self-center text-xs font-medium">
+				{$i18n.t('Allow Continue Response')}
+			</div>
+
+			<Switch bind:state={permissions.chat.continue_response} />
+		</div>
+
+		<div class="  flex w-full justify-between my-2 pr-2">
+			<div class=" self-center text-xs font-medium">
+				{$i18n.t('Allow Regenerate Response')}
+			</div>
+
+			<Switch bind:state={permissions.chat.regenerate_response} />
+		</div>
+
+		<div class="  flex w-full justify-between my-2 pr-2">
+			<div class=" self-center text-xs font-medium">
+				{$i18n.t('Allow Rate Response')}
+			</div>
+
+			<Switch bind:state={permissions.chat.rate_response} />
 		</div>
 
 		<div class="  flex w-full justify-between my-2 pr-2">

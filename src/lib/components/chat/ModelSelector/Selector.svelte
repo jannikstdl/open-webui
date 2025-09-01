@@ -370,7 +370,7 @@
 				{placeholder}
 			{/if}
 			<ChevronDown className=" self-center ml-2 size-3" strokeWidth="2.5" />
-		</button>
+		</div>
 	</DropdownMenu.Trigger>
 
 	<DropdownMenu.Content

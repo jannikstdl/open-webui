@@ -178,29 +178,7 @@
 				<div class="py-4">
 					<Spinner />
 				</div>
-				{#if Object.keys(tools).length > 3}
-					<button
-						class="flex w-full justify-center items-center text-sm font-medium cursor-pointer rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
-						on:click={() => {
-							showAllTools = !showAllTools;
-						}}
-						title={showAllTools ? $i18n.t('Show Less') : $i18n.t('Show All')}
-					>
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke-width="2.5"
-							stroke="currentColor"
-							class="size-3 transition-transform duration-200 {showAllTools
-								? 'rotate-180'
-								: ''} text-gray-300 dark:text-gray-600"
-						>
-							<path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5"
-							></path>
-						</svg>
-					</button>
-				{/if}
+
 				<hr class="border-black/5 dark:border-white/5 my-1" />
 			{/if}
 

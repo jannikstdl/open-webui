@@ -11,10 +11,6 @@
 	import LocalizedFormat from 'dayjs/plugin/localizedFormat';
 	dayjs.extend(LocalizedFormat);
 
-	import dayjs from 'dayjs';
-	import LocalizedFormat from 'dayjs/plugin/localizedFormat';
-	dayjs.extend(LocalizedFormat);
-
 	const i18n = getContext('i18n');
 
 	export let recording = false;

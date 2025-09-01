@@ -12,7 +12,6 @@
 	export let placeholder = '';
 	export let value = '';
 	export let showClearButton = false;
-	export let onKeydown = (e) => {};
 
 	export let onFocus = () => {};
 	export let onKeydown = (e) => {};

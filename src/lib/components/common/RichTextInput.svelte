@@ -116,10 +116,6 @@
 	import { keymap } from 'prosemirror-keymap';
 
 	import { AIAutocompletion } from './RichTextInput/AutoCompletion.js';
-	import Table from '@tiptap/extension-table';
-	import TableRow from '@tiptap/extension-table-row';
-	import TableHeader from '@tiptap/extension-table-header';
-	import TableCell from '@tiptap/extension-table-cell';
 
 	import StarterKit from '@tiptap/starter-kit';
 

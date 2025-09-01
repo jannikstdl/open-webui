@@ -17,9 +17,6 @@
 	import ChevronDown from '$lib/components/icons/ChevronDown.svelte';
 	import { WEBUI_BASE_URL } from '$lib/constants';
 
-	import ChevronUp from '$lib/components/icons/ChevronUp.svelte';
-	import ChevronDown from '$lib/components/icons/ChevronDown.svelte';
-
 	const i18n = getContext('i18n');
 
 	const EMBEDDING_MODEL = 'TaylorAI/bge-micro-v2';
