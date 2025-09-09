@@ -8,7 +8,8 @@
 	import { getContext, onMount, tick, onDestroy } from 'svelte';
 	import { copyToClipboard } from '$lib/utils';
 
-	import 'highlight.js/styles/github-dark.min.css';
+	// FI-TS_custom: unify background via app.css; do not import hljs theme
+	// import 'highlight.js/styles/github-dark.min.css';
 
 	import PyodideWorker from '$lib/workers/pyodide.worker?worker';
 	import CodeEditor from '$lib/components/common/CodeEditor.svelte';
@@ -20,6 +21,8 @@
 	import ChevronUpDown from '$lib/components/icons/ChevronUpDown.svelte';
 	import CommandLine from '$lib/components/icons/CommandLine.svelte';
 	import Cube from '$lib/components/icons/Cube.svelte';
+	import Clipboard from '$lib/components/icons/Clipboard.svelte';
+	import FloppyDisk from '$lib/components/icons/FloppyDisk.svelte';
 
 	const i18n = getContext('i18n');
 
@@ -42,7 +45,7 @@
 
 	export let className = 'my-2';
 	export let editorClassName = '';
-	export let stickyButtonsClassName = 'top-0';
+export let stickyButtonsClassName = 'top-0';
 
 	let pyodideWorker = null;
 
@@ -69,6 +72,33 @@
 
 	let copied = false;
 	let saved = false;
+
+	// FI-TS_custom: Visual toggle for wrapping long lines in readonly view (kept internal, no UI)
+	let wrapLines = false;
+
+	// FI-TS_custom: Compute sticky top offset and nudge header upward for perfect overlap
+	let stickyTopStyle = '0px';
+	$: {
+		if (stickyButtonsClassName?.includes('top-8')) {
+			stickyTopStyle = 'calc(2rem - 8px)';
+		} else {
+			stickyTopStyle = '-8px';
+		}
+	}
+
+	// FI-TS_custom: Build highlighted HTML with line numbers for readonly view
+	const buildNumberedHtml = (code: string, lang: string) => {
+		const language = hljs.getLanguage(lang) ? lang : '';
+		const lines = code.split('\n');
+		return lines
+			.map((line, idx) => {
+				const highlighted = language
+					? hljs.highlight(line, { language }).value
+					: hljs.highlightAuto(line).value;
+				return `<span class="line"><span class="ln">${idx + 1}</span><span class="lc">${highlighted || '&nbsp;'}</span></span>`;
+			})
+			.join('\n');
+	};
 
 	const collapseCodeBlock = () => {
 		collapsed = !collapsed;
@@ -416,7 +446,7 @@
 </script>
 
 <div>
-	<div class="relative {className} flex flex-col rounded-lg" dir="ltr">
+    <div class="relative {className} flex flex-col rounded-2xl" dir="ltr">
 		{#if lang === 'mermaid'}
 			{#if mermaidHtml}
 				<SvgPanZoom
@@ -428,91 +458,73 @@
 				<pre class="mermaid">{code}</pre>
 			{/if}
 		{:else}
-			<div class="text-text-300 absolute pl-4 py-1.5 text-xs font-medium dark:text-white">
-				{lang}
-			</div>
-
-			<div
-				class="sticky {stickyButtonsClassName} mb-1 py-1 pr-2.5 flex items-center justify-end z-10 text-xs text-black dark:text-white"
-			>
-				<div class="flex items-center gap-0.5 translate-y-[1px]">
+			<!-- FI-TS_custom: Minimalistic header (language + actions) with dark-mode background -->
+			<div class="sticky z-10 flex items-center justify-between gap-2 text-xs text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-800 rounded-t-2xl px-3 py-2 dark:border-b dark:border-gray-700/60" style="top: {stickyTopStyle};">
+				<div class="flex items-center gap-2 min-w-0">
+					<div class="px-2 py-0.5 rounded-md bg-transparent text-gray-600 dark:text-gray-300 font-medium">
+						{lang || 'text'}
+					</div>
+					{#if collapsed}
+						<div class="truncate text-gray-500">{$i18n.t('Collapsed')}</div>
+					{/if}
+				</div>
+				<div class="flex items-center gap-1.5">
 					<button
-						class="flex gap-1 items-center bg-none border-none bg-gray-50 hover:bg-gray-100 dark:bg-gray-850 dark:hover:bg-gray-800 transition rounded-md px-1.5 py-0.5"
+						class="flex gap-1 items-center bg-transparent hover:bg-gray-200/70 dark:hover:bg-gray-700/70 transition rounded-md px-1.5 py-0.5"
 						on:click={collapseCodeBlock}
+						title={collapsed ? $i18n.t('Expand') : $i18n.t('Collapse')}
 					>
-						<div class=" -translate-y-[0.5px]">
-							<ChevronUpDown className="size-3" />
-						</div>
-
-						<div>
-							{collapsed ? $i18n.t('Expand') : $i18n.t('Collapse')}
-						</div>
+						<ChevronUpDown className="size-3" />
+						<span class="hidden sm:inline">{collapsed ? $i18n.t('Expand') : $i18n.t('Collapse')}</span>
 					</button>
 
-					{#if preview && ['html', 'svg'].includes(lang)}
-						<button
-							class="flex gap-1 items-center run-code-button bg-none border-none bg-gray-50 hover:bg-gray-100 dark:bg-gray-850 dark:hover:bg-gray-800 transition rounded-md px-1.5 py-0.5"
-							on:click={previewCode}
-						>
-							<div class=" -translate-y-[0.5px]">
-								<Cube className="size-3" />
-							</div>
-
-							<div>
-								{$i18n.t('Preview')}
-							</div>
-						</button>
-					{/if}
+					<!-- Preview action omitted for minimal UI -->
 
 					{#if ($config?.features?.enable_code_execution ?? true) && (lang.toLowerCase() === 'python' || lang.toLowerCase() === 'py' || (lang === '' && checkPythonCode(code)))}
 						{#if executing}
-							<div class="run-code-button bg-none border-none p-1 cursor-not-allowed">
-								{$i18n.t('Running')}
-							</div>
+							<div class="px-1.5 py-0.5 rounded-md text-gray-500 cursor-not-allowed">{$i18n.t('Running')}</div>
 						{:else if run}
 							<button
-								class="flex gap-1 items-center run-code-button bg-none border-none bg-gray-50 hover:bg-gray-100 dark:bg-gray-850 dark:hover:bg-gray-800 transition rounded-md px-1.5 py-0.5"
+								class="flex gap-1 items-center bg-transparent hover:bg-gray-200/70 dark:hover:bg-gray-700/70 transition rounded-md px-1.5 py-0.5"
 								on:click={async () => {
 									code = _code;
 									await tick();
 									executePython(code);
 								}}
+								title={$i18n.t('Run')}
 							>
-								<div class=" -translate-y-[0.5px]">
-									<CommandLine className="size-3" />
-								</div>
-
-								<div>
-									{$i18n.t('Run')}
-								</div>
+								<CommandLine className="size-3" />
+								<span class="hidden sm:inline">{$i18n.t('Run')}</span>
 							</button>
 						{/if}
 					{/if}
 
 					{#if save}
 						<button
-							class="save-code-button bg-none border-none bg-gray-50 hover:bg-gray-100 dark:bg-gray-850 dark:hover:bg-gray-800 transition rounded-md px-1.5 py-0.5"
+							class="flex gap-1 items-center bg-transparent hover:bg-gray-200/70 dark:hover:bg-gray-700/70 transition rounded-md px-1.5 py-0.5"
 							on:click={saveCode}
+							title={saved ? $i18n.t('Saved') : $i18n.t('Save')}
 						>
-							{saved ? $i18n.t('Saved') : $i18n.t('Save')}
+							<FloppyDisk className="size-3" />
+							<span class="hidden sm:inline">{saved ? $i18n.t('Saved') : $i18n.t('Save')}</span>
 						</button>
 					{/if}
 
+					<!-- Wrap toggle intentionally omitted for minimal UI -->
+
 					<button
-						class="copy-code-button bg-none border-none bg-gray-50 hover:bg-gray-100 dark:bg-gray-850 dark:hover:bg-gray-800 transition rounded-md px-1.5 py-0.5"
-						on:click={copyCode}>{copied ? $i18n.t('Copied') : $i18n.t('Copy')}</button
+						class="flex gap-1 items-center bg-transparent hover:bg-gray-200/70 dark:hover:bg-gray-700/70 transition rounded-md px-1.5 py-0.5"
+						on:click={copyCode}
+						title={copied ? $i18n.t('Copied') : $i18n.t('Copy')}
 					>
+						<Clipboard className="size-3" />
+						<span class="hidden sm:inline">{copied ? $i18n.t('Copied') : $i18n.t('Copy')}</span>
+					</button>
 				</div>
 			</div>
 
-			<div
-				class="language-{lang} rounded-t-lg -mt-8 {editorClassName
-					? editorClassName
-					: executing || stdout || stderr || result
-						? ''
-						: 'rounded-b-lg'} overflow-hidden"
-			>
-				<div class=" pt-7 bg-gray-50 dark:bg-gray-850"></div>
+				<!-- FI-TS_custom: Code content container with consistent dark background -->
+            <div class="language-{lang} {editorClassName ? editorClassName : ''} overflow-hidden bg-gray-50 dark:bg-gray-900/30 {executing || stdout || stderr || result ? '' : 'rounded-b-2xl'}">
 
 				{#if !collapsed}
 					{#if edit}
@@ -528,19 +540,15 @@
 							}}
 						/>
 					{:else}
-						<pre
-							class=" hljs p-4 px-5 overflow-x-auto"
-							style="border-top-left-radius: 0px; border-top-right-radius: 0px; {(executing ||
-								stdout ||
-								stderr ||
-								result) &&
-								'border-bottom-left-radius: 0px; border-bottom-right-radius: 0px;'}"><code
-								class="language-{lang} rounded-t-none whitespace-pre text-sm"
-								>{@html hljs.highlightAuto(code, hljs.getLanguage(lang)?.aliases).value ||
-									code}</code
-							></pre>
+						<!-- FI-TS_custom: Readonly renderer with line numbers -->
+						<pre class="precode hljs p-4 px-5 {wrapLines ? 'wrap' : ''} {wrapLines ? 'overflow-x-hidden' : 'overflow-x-auto'}" style="border-top-left-radius: 0px; border-top-right-radius: 0px; {(executing || stdout || stderr || result) && 'border-bottom-left-radius: 0px; border-bottom-right-radius: 0px;'}">
+							<code class="language-{lang} rounded-t-none text-sm code-with-lines">
+								{@html buildNumberedHtml(code, lang)}
+							</code>
+						</pre>
 					{/if}
 				{:else}
+					<!-- FI-TS_custom: Hidden lines placeholder (collapsed state) -->
 					<div
 						class="bg-gray-50 dark:bg-black dark:text-white rounded-b-lg! pt-2 pb-2 px-4 flex flex-col gap-2 text-xs"
 					>
@@ -554,15 +562,15 @@
 			</div>
 
 			{#if !collapsed}
+				<!-- FI-TS_custom: Matplotlib/plot output canvas background unified -->
 				<div
 					id="plt-canvas-{id}"
 					class="bg-gray-50 dark:bg-[#202123] dark:text-white max-w-full overflow-x-auto scrollbar-hidden"
 				/>
 
 				{#if executing || stdout || stderr || result || files}
-					<div
-						class="bg-gray-50 dark:bg-[#202123] dark:text-white rounded-b-lg! py-4 px-4 flex flex-col gap-2"
-					>
+					<!-- FI-TS_custom: Execution output container background unified -->
+					<div class="bg-gray-50 dark:bg-[#202123] dark:text-white rounded-b-lg! py-4 px-4 flex flex-col gap-2 rounded-b-2xl">
 						{#if executing}
 							<div class=" ">
 								<div class=" text-gray-500 text-xs mb-1">{$i18n.t('STDOUT/STDERR')}</div>
@@ -605,3 +613,32 @@
 		{/if}
 	</div>
 </div>
+
+<style>
+  /* FI-TS_custom: Minimalistic line numbers layout for readonly blocks */
+  .code-with-lines {
+    display: block;
+    background: inherit;
+  }
+  .code-with-lines .line {
+    display: grid;
+    grid-template-columns: 2.5rem 1fr;
+    gap: 0.75rem;
+    background: inherit;
+  }
+  .code-with-lines .ln {
+    color: rgb(209 213 219); /* text-gray-300 */
+    opacity: 0.8;
+    text-align: right;
+    user-select: none;
+    background: inherit;
+  }
+  .code-with-lines .lc {
+    white-space: pre;
+    background: inherit;
+  }
+  .precode.wrap .code-with-lines .lc {
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+</style>

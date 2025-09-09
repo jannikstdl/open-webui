@@ -10,6 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **✨ Suchanfragen für Web und Dokumentensuchen**: Bei Web- und Vektor(Dokument)-Suchen werden in der UI jetzt die verwendeten Suchstrings angezeigt, um dir ein besseres Verständnis darüber zu geben, wonach genau gesucht wurde. Die Oberfläche wurde dafür ebenfalls überarbeitet.
+- **📁 Projekt-Ordner**: In Ordnern können jetzt Projekte angelegt werden mit eigenen Dateien und Instruktionen, wie das Modell antworten soll.
+- **🔄 Erweiterte Regenerier-Optionen**: Beim Neu-generieren einer Antwort kannst du nun konkret angeben, wie das Modell antworten soll.
+- **📏 Erheblich längere Input-Länge**: Das Modell hat nun eine erheblich längere Input-Länge und kann daher mehr Text bearbeiten.
+- **🔍 Verbesserte Chat-Suche**: Die Suchfunktionalität wurde überarbeitet und ist übersichtlicher.
+- **👁️ Fokus-Modus**: Die Seitenleiste kann jetzt in einem Fokusmodus minimiert werden.
 
 ## [3.0.0] - 01.07.2025
 

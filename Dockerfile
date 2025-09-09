@@ -22,17 +22,8 @@ ARG UID=0
 ARG GID=0
 
 ######## WebUI frontend ########
-# syntax=docker/dockerfile:1
 FROM --platform=$BUILDPLATFORM node:22-alpine3.20 AS build
-
-# Build-Argumente
 ARG BUILD_HASH
-ARG HTTP_PROXY
-ARG HTTPS_PROXY
-
-# Proxy-Umgebungsvariablen setzen
-ENV HTTP_PROXY=${HTTP_PROXY}
-ENV HTTPS_PROXY=${HTTPS_PROXY}
 
 WORKDIR /app
 
@@ -44,9 +35,7 @@ RUN npm ci --force
 
 COPY . .
 ENV APP_BUILD_HASH=${BUILD_HASH}
-ARG NODE_OPTIONS="--max-old-space-size=6144"
-ENV NODE_OPTIONS=${NODE_OPTIONS}
-RUN npm run build
+RUN NODE_OPTIONS="--max-old-space-size=8192" npm run build
 
 ######## WebUI backend ########
 FROM python:3.11-slim-bookworm AS base
@@ -123,10 +112,9 @@ RUN echo -n 00000000-0000-0000-0000-000000000000 > $HOME/.cache/chroma/telemetry
 RUN chown -R $UID:$GID /app $HOME
 
 # Install common system dependencies
-#FI-TS_custom 29.08.2025: add vim
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-    git build-essential pandoc gcc netcat-openbsd curl jq vim \ 
+    git build-essential pandoc gcc netcat-openbsd curl jq \
     python3-dev \
     ffmpeg libsm6 libxext6 \
     && rm -rf /var/lib/apt/lists/*

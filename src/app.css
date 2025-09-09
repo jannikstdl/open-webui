@@ -61,6 +61,11 @@ math {
 	@apply rounded-lg;
 }
 
+/* FI-TS_custom: Ensure code background matches dark inline code background */
+.dark .hljs {
+	background-color: #1f2937 !important; /* gray-800 */
+}
+
 input::placeholder {
 	direction: auto;
 }
@@ -282,6 +287,18 @@ input[type='number'] {
 	outline: none;
 }
 
+/* FI-TS_custom: Make CodeMirror gutters blend with container background */
+.cm-gutters {
+	background-color: transparent !important;
+	border-right: none !important;
+}
+.cm-activeLineGutter {
+	background-color: transparent !important;
+}
+.cm-activeLine {
+	background-color: transparent !important;
+}
+
 .tippy-box[data-theme~='dark'] {
 	@apply rounded-lg bg-gray-950 text-xs border border-gray-900 shadow-xl;
 }
@@ -291,12 +308,13 @@ input[type='number'] {
 }
 
 .codespan {
-	color: #eb5757;
+ 	/* FI-TS_custom: Neutral inline code style (no red) */
 	border-width: 0px;
-	padding: 3px 8px;
-	font-size: 0.8em;
-	font-weight: 600;
-	@apply rounded-md dark:bg-gray-800 bg-gray-100 mx-0.5;
+	padding: 2px 8px;
+	font-size: 0.85em;
+	font-weight: 500;
+	font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+	@apply rounded-md bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-gray-100 mx-0.5;
 }
 
 .svelte-flow {

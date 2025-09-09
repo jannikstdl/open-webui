@@ -84,8 +84,8 @@
 	import EventConfirmDialog from '../common/ConfirmDialog.svelte';
 	import Placeholder from './Placeholder.svelte';
 	import NotificationToast from '../NotificationToast.svelte';
-	import Spinner from '../common/Spinner.svelte';
-	import { fade } from 'svelte/transition';
+    import Spinner from '../common/Spinner.svelte';
+import { fade, fly } from 'svelte/transition'; // FI-TS_custom 24.02.2025 - Input slide transitions
 	import Tooltip from '../common/Tooltip.svelte';
 	import Sidebar from '../icons/Sidebar.svelte';
 	import { uploadFile } from '$lib/apis/files';
@@ -113,6 +113,9 @@
 	let eventConfirmationInputPlaceholder = '';
 	let eventConfirmationInputValue = '';
 	let eventCallback = null;
+
+	// FI-TS_custom 24.02.2025 - Force remount of Placeholder to retrigger transitions
+	let placeholderKey = 0;
 
 	let chatIdUnsubscriber: Unsubscriber | undefined;
 
@@ -738,7 +741,9 @@
 	// Web functions
 	//////////////////////////
 
-	const initNewChat = async () => {
+const initNewChat = async () => {
+    // FI-TS_custom 24.02.2025 - Bump key so Placeholder re-mounts and plays in: transitions
+    placeholderKey += 1;
 		if ($user?.role !== 'admin' && $user?.permissions?.chat?.temporary_enforced) {
 			await temporaryChatEnabled.set(true);
 		}
@@ -2298,12 +2303,13 @@
 								</div>
 							</div>
 
-							<div class=" pb-2">
-								<MessageInput
-									bind:this={messageInput}
-									{history}
-									{taskIds}
-									{selectedModels}
+                        <!-- FI-TS_custom 24.02.2025 - Slide-in for MessageInput when switching from Placeholder to Chat -->
+                        <div class=" pb-2" in:fly={{ y: -80, duration: 300 }}>
+                            <MessageInput
+                                bind:this={messageInput}
+                                {history}
+                                {taskIds}
+                                {selectedModels}
 									bind:files
 									bind:prompt
 									bind:autoScroll
@@ -2355,13 +2361,14 @@
 								</div>
 							</div>
 						{:else}
-							<div class="flex items-center h-full">
-								<Placeholder
-									{history}
-									{selectedModels}
-									bind:messageInput
-									bind:files
-									bind:prompt
+                        <div class="flex items-center h-full">
+                            {#key placeholderKey}
+                            <Placeholder
+                                {history}
+                                {selectedModels}
+                                bind:messageInput
+                                bind:files
+                                bind:prompt
 									bind:autoScroll
 									bind:selectedToolIds
 									bind:selectedFilterIds
@@ -2399,8 +2406,9 @@
 											);
 										}
 									}}
-								/>
-							</div>
+                            />
+                            {/key}
+                        </div>
 						{/if}
 					</div>
 				</Pane>
@@ -2435,4 +2443,9 @@
 			</div>
 		</div>
 	{/if}
-</div>
+    						<!-- FI-TS_custom 29.08.2025 - Disclaimer below MessageInput -->
+				<div class="text-xs text-gray-300 dark:text-gray-600 text-center line-clamp-1 mb-2">
+					Antworten basieren auf generativer KI. Bitte prüfen Sie deren Richtigkeit. Keine Eingabe
+					personenbezogener Daten erlaubt.
+				</div>
+	</div>

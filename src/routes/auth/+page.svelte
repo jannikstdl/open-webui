@@ -5,7 +5,7 @@
 	import { goto } from '$app/navigation';
 
 	import { getBackendConfig } from '$lib/apis';
-	import { getSessionUser, userSignIn } from '$lib/apis/auths';
+	import { getSessionUser, userSignIn, ldapUserSignIn } from '$lib/apis/auths';
 
 	import Spinner from '$lib/components/common/Spinner.svelte';
 	import { WEBUI_API_BASE_URL, WEBUI_BASE_URL } from '$lib/constants';
@@ -42,9 +42,11 @@
 			if (sessionUser.token) {
 				localStorage.token = sessionUser.token;
 			}
-			$socket.emit('user-join', { auth: { token: sessionUser.token } });
+			$socket?.emit('user-join', { auth: { token: sessionUser.token } });
 			await user.set(sessionUser);
 			await config.set(await getBackendConfig());
+
+			isOAuthLoading = false;
 
 			const redirectPath = querystringValue('redirect') || '/';
 			goto(redirectPath);
@@ -74,25 +76,29 @@
 	};
 
 	const checkOauthCallback = async () => {
-		if (!$page.url.hash) {
-			return;
+		function getCookie(name) {
+			const match = document.cookie.match(
+				new RegExp('(?:^|; )' + name.replace(/([.$?*|{}()[\]\\/+^])/g, '\\$1') + '=([^;]*)')
+			);
+			return match ? decodeURIComponent(match[1]) : null;
 		}
-		const hash = $page.url.hash.substring(1);
-		if (!hash) {
-			return;
-		}
-		const params = new URLSearchParams(hash);
-		const token = params.get('token');
+
+		const token = getCookie('token');
 		if (!token) {
+			isOAuthLoading = false;
 			return;
 		}
+
 		const sessionUser = await getSessionUser(token).catch((error) => {
 			toast.error(`${error}`);
+			isOAuthLoading = false;
 			return null;
 		});
 		if (!sessionUser) {
+			isOAuthLoading = false;
 			return;
 		}
+
 		localStorage.token = token;
 		await setSessionUser(sessionUser);
 	};
@@ -112,11 +118,11 @@
 
 				darkImage.onload = () => {
 					logo.src = '/static/favicon-dark.png';
-					logo.style.filter = ''; // Ensure no inversion is applied if favicon-dark.png exists
+					logo.style.filter = '';
 				};
 
 				darkImage.onerror = () => {
-					logo.style.filter = 'invert(1)'; // Invert image if favicon-dark.png is missing
+					logo.style.filter = 'invert(1)';
 				};
 			}
 		}
@@ -146,6 +152,9 @@
 		isOAuthLoading = true;
 		if ($config?.oauth?.providers?.oidc) {
 			window.location.href = `${WEBUI_BASE_URL}/oauth/oidc/login`;
+		} else {
+			toast.error('OAuth provider not configured');
+			isOAuthLoading = false;
 		}
 	};
 </script>
@@ -158,7 +167,6 @@
 
 {#if loaded}
 	{#if isOAuthLoading}
-		<!-- OAuth Loading Screen -->
 		<div class="fixed inset-0 bg-white dark:bg-gray-950 z-50 flex items-center justify-center">
 			<div class="text-center">
 				<Spinner size="lg" />
@@ -186,7 +194,6 @@
 			>
 				<div class="w-full sm:max-w-md px-10 flex flex-col text-center">
 					{#if ($config?.features.auth_trusted_header ?? false) || $config?.features.auth === false}
-						<!-- Falls Auth über Header gesetzt oder Auth deaktiviert ist -->
 						<div class="my-auto pb-10 w-full">
 							<div
 								class="flex items-center justify-center gap-3 text-2xl sm:text-2xl text-center font-medium dark:text-gray-200"
@@ -203,9 +210,6 @@
 							</div>
 						</div>
 					{:else}
-						<!-- Auth ist aktiv, normale Anzeige -->
-
-						<!-- Überschrift immer auf der ersten Seite -->
 						{#if !showAdminForm}
 							<div class="mb-9">
 								<div class="font-bold text-left text-3xl text-gray-400 dark:text-gray-600">
@@ -227,7 +231,6 @@
 
 						<div class="my-auto pb-10 w-full dark:text-gray-100">
 							{#if !showAdminForm}
-								<!-- Startseite mit Oauth -->
 								<div class={showAdminForm === null ? 'animate-fade-in' : 'animate-slide-in-left'}>
 									<div class="flex flex-col space-y-2">
 										<div class="relative">
@@ -238,7 +241,6 @@
 												<div
 													class="relative overflow-hidden min-w-[300px] flex items-center justify-center"
 												>
-													<!-- First view with key icon -->
 													<div
 														class="flex items-center justify-center w-full transition-all duration-300 group-hover:-translate-y-full group-hover:opacity-0"
 													>
@@ -261,7 +263,6 @@
 														})}
 													</div>
 
-													<!-- Second view with arrow icon -->
 													<div
 														class="absolute left-0 w-full flex items-center justify-center transition-all duration-300 translate-y-full opacity-0 group-hover:translate-y-0 group-hover:opacity-100"
 													>
@@ -286,7 +287,6 @@
 										</div>
 									</div>
 
-									<!-- "oder" Trennstrich -->
 									<div class="relative w-full z-0">
 										<hr class="w-64 h-px my-8 bg-gray-200 border-0 dark:bg-gray-700 mx-auto" />
 										<div
@@ -296,7 +296,6 @@
 										</div>
 									</div>
 
-									<!-- Administrativer Login Button -->
 									<button
 										class="text-sm rounded-full border border-gray-300 dark:border-gray-700 py-2 px-4 text-gray-600 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition"
 										on:click={() => (showAdminForm = true)}
@@ -305,9 +304,7 @@
 									</button>
 								</div>
 							{:else}
-								<!-- Admin Login -->
 								<div class="animate-slide-in-left">
-									<!-- Back Button -->
 									<div class="flex items-center justify-start mb-4">
 										<button
 											class="rounded-full border border-gray-300 dark:border-gray-700 p-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition"
@@ -330,7 +327,6 @@
 										</button>
 									</div>
 
-									<!-- Administrativer Login Formular -->
 									<form
 										class="flex flex-col justify-center"
 										on:submit|preventDefault={() => {
@@ -454,7 +450,6 @@
 		border: 2px solid rgba(255, 255, 255, 0.2);
 	}
 
-	/* Hover-Effekte nur, wenn der Button nicht disabled ist */
 	.oauth-button:not(:disabled):hover {
 		color: #fff;
 		background: linear-gradient(90deg, #7e7a7a, #ad2525, #2a2a2a, #304b6a, #7e7a7a);
@@ -493,14 +488,12 @@
 		transition: 0.4s ease-out;
 	}
 
-	/* Glow-Effekt auch nur, wenn nicht disabled */
 	.oauth-button:not(:disabled):hover::before {
 		opacity: 0.6;
 		z-index: -1;
 	}
 
 	.oauth-button:disabled {
-		/* Falls gewünscht, kann man hier eine optische Anpassung für disabled vornehmen */
 		opacity: 0.6;
 		cursor: not-allowed;
 	}

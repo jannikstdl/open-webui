@@ -3,7 +3,8 @@
 	import { marked } from 'marked';
 
 	import { onMount, getContext, tick, createEventDispatcher } from 'svelte';
-	import { blur, fade } from 'svelte/transition';
+	import { blur, fade, scale } from 'svelte/transition';
+	import { cubicOut } from 'svelte/easing';
 
 	const dispatch = createEventDispatcher();
 
@@ -204,6 +205,8 @@
 			{/if}
 
 			<div class="text-base font-normal @md:max-w-3xl w-full py-3 {atSelectedModel ? 'mt-2' : ''}">
+				<!-- FI-TS_custom 24.02.2025 - Subtle grow-in for MessageInput on Placeholder load -->
+				<div class="w-full origin-center" in:scale={{ start: 0.95, opacity: 1, duration: 250, easing: cubicOut }}>
 				<MessageInput
 					bind:this={messageInput}
 					{history}
@@ -229,11 +232,7 @@
 					on:submit={(e) => {
 						dispatch('submit', e.detail);
 					}}
-				/>
-				<!--FI-TS_custom 29.08.2025-->
-				<div class="text-xs text-gray-300 dark:text-gray-600 text-center line-clamp-1 m-1">
-					Antworten basieren auf generativer KI. Bitte prüfen Sie deren Richtigkeit. Keine Eingabe
-					personenbezogener Daten erlaubt.
+					/>
 				</div>
 			</div>
 		</div>
