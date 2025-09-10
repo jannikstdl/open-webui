@@ -50,7 +50,6 @@
 		removeAllDetails
 	} from '$lib/utils';
 
-	import { generateChatCompletion } from '$lib/apis/ollama';
 	import {
 		createNewChat,
 		getAllTags,
@@ -63,8 +62,6 @@
 	} from '$lib/apis/chats';
 	import { generateOpenAIChatCompletion } from '$lib/apis/openai';
 	import { processWeb, processWebSearch, processYoutubeVideo } from '$lib/apis/retrieval';
-	import { createOpenAITextStream } from '$lib/apis/streaming';
-	import { queryMemory } from '$lib/apis/memories';
 	import { getAndUpdateUserLocation, getUserSettings } from '$lib/apis/users';
 	import {
 		chatCompleted,
@@ -75,6 +72,10 @@
 		getTaskIdsByChatId
 	} from '$lib/apis';
 	import { getTools } from '$lib/apis/tools';
+	import { uploadFile } from '$lib/apis/files';
+	import { createOpenAITextStream } from '$lib/apis/streaming';
+
+	import { fade, fly } from 'svelte/transition'; // FI-TS_custom 24.02.2025 - Input slide transitions
 
 	import Banner from '../common/Banner.svelte';
 	import MessageInput from '$lib/components/chat/MessageInput.svelte';
@@ -85,10 +86,8 @@
 	import Placeholder from './Placeholder.svelte';
 	import NotificationToast from '../NotificationToast.svelte';
     import Spinner from '../common/Spinner.svelte';
-import { fade, fly } from 'svelte/transition'; // FI-TS_custom 24.02.2025 - Input slide transitions
 	import Tooltip from '../common/Tooltip.svelte';
 	import Sidebar from '../icons/Sidebar.svelte';
-	import { uploadFile } from '$lib/apis/files';
 
 	export let chatIdProp = '';
 
@@ -206,7 +205,12 @@ import { fade, fly } from 'svelte/transition'; // FI-TS_custom 24.02.2025 - Inpu
 
 		if (type === 'prompt') {
 			// Handle prompt selection
-			messageInput?.setText(data);
+			messageInput?.setText(data, async () => {
+				if (!($settings?.insertSuggestionPrompt ?? false)) {
+					await tick();
+					submitPrompt(prompt);
+				}
+			});
 		}
 	};
 
@@ -322,6 +326,13 @@ import { fade, fly } from 'svelte/transition'; // FI-TS_custom 24.02.2025 - Inpu
 					message.status = data;
 				} else if (type === 'chat:completion') {
 					chatCompletionEventHandler(data, message, event.chat_id);
+				} else if (type === 'chat:tasks:cancel') {
+					taskIds = null;
+					const responseMessage = history.messages[history.currentId];
+					// Set all response messages to done
+					for (const messageId of history.messages[responseMessage.parentId].childrenIds) {
+						history.messages[messageId].done = true;
+					}
 				} else if (type === 'chat:message:delta' || type === 'message') {
 					message.content += data.content;
 				} else if (type === 'chat:message' || type === 'replace') {
@@ -675,7 +686,7 @@ import { fade, fly } from 'svelte/transition'; // FI-TS_custom 24.02.2025 - Inpu
 		console.log(url);
 
 		const fileItem = {
-			type: 'doc',
+			type: 'text',
 			name: url,
 			collection_name: '',
 			status: 'uploading',
@@ -708,7 +719,7 @@ import { fade, fly } from 'svelte/transition'; // FI-TS_custom 24.02.2025 - Inpu
 		console.log(url);
 
 		const fileItem = {
-			type: 'doc',
+			type: 'text',
 			name: url,
 			collection_name: '',
 			status: 'uploading',
@@ -1402,10 +1413,10 @@ const initNewChat = async () => {
 	const submitPrompt = async (userPrompt, { _raw = false } = {}) => {
 		console.log('submitPrompt', userPrompt, $chatId);
 
-		const messages = createMessagesList(history, history.currentId);
 		const _selectedModels = selectedModels.map((modelId) =>
 			$models.map((m) => m.id).includes(modelId) ? modelId : ''
 		);
+
 		if (JSON.stringify(selectedModels) !== JSON.stringify(_selectedModels)) {
 			selectedModels = _selectedModels;
 		}
@@ -1419,15 +1430,6 @@ const initNewChat = async () => {
 			return;
 		}
 
-		if (messages.length != 0 && messages.at(-1).done != true) {
-			// Response not done
-			return;
-		}
-		if (messages.length != 0 && messages.at(-1).error && !messages.at(-1).content) {
-			// Error in response
-			toast.error($i18n.t(`Oops! There was an error in the previous response.`));
-			return;
-		}
 		if (
 			files.length > 0 &&
 			files.filter((file) => file.type !== 'image' && file.status === 'uploading').length > 0
@@ -1437,6 +1439,7 @@ const initNewChat = async () => {
 			);
 			return;
 		}
+
 		if (
 			($config?.file?.max_count ?? null) !== null &&
 			files.length + chatFiles.length > $config?.file?.max_count
@@ -1449,8 +1452,24 @@ const initNewChat = async () => {
 			return;
 		}
 
+		if (history?.currentId) {
+			const lastMessage = history.messages[history.currentId];
+			if (lastMessage.done != true) {
+				// Response not done
+				return;
+			}
+
+			if (lastMessage.error && !lastMessage.content) {
+				// Error in response
+				toast.error($i18n.t(`Oops! There was an error in the previous response.`));
+				return;
+			}
+		}
+
 		messageInput?.setText('');
 		prompt = '';
+
+		const messages = createMessagesList(history, history.currentId);
 
 		// Reset chat input textarea
 		if (!($settings?.richTextInput ?? true)) {
@@ -1626,6 +1645,46 @@ const initNewChat = async () => {
 		chats.set(await getChatList(localStorage.token, $currentChatPage));
 	};
 
+	const getFeatures = () => {
+		let features = {};
+
+		if ($config?.features)
+			features = {
+				image_generation:
+					$config?.features?.enable_image_generation &&
+					($user?.role === 'admin' || $user?.permissions?.features?.image_generation)
+						? imageGenerationEnabled
+						: false,
+				code_interpreter:
+					$config?.features?.enable_code_interpreter &&
+					($user?.role === 'admin' || $user?.permissions?.features?.code_interpreter)
+						? codeInterpreterEnabled
+						: false,
+				web_search:
+					$config?.features?.enable_web_search &&
+					($user?.role === 'admin' || $user?.permissions?.features?.web_search)
+						? webSearchEnabled
+						: false
+			};
+
+		const currentModels = atSelectedModel?.id ? [atSelectedModel.id] : selectedModels;
+		if (
+			currentModels.filter(
+				(model) => $models.find((m) => m.id === model)?.info?.meta?.capabilities?.web_search ?? true
+			).length === currentModels.length
+		) {
+			if (($settings?.webSearch ?? false) === 'always') {
+				features = { ...features, web_search: true };
+			}
+		}
+
+		if ($settings?.memory ?? false) {
+			features = { ...features, memory: true };
+		}
+
+		return features;
+	};
+
 	const sendMessageSocket = async (model, _messages, _history, responseMessageId, _chatId) => {
 		const responseMessage = _history.messages[responseMessageId];
 		const userMessage = _history.messages[responseMessage.parentId];
@@ -1738,25 +1797,7 @@ const initNewChat = async () => {
 				filter_ids: selectedFilterIds.length > 0 ? selectedFilterIds : undefined,
 				tool_ids: selectedToolIds.length > 0 ? selectedToolIds : undefined,
 				tool_servers: $toolServers,
-
-				features: {
-					image_generation:
-						$config?.features?.enable_image_generation &&
-						($user?.role === 'admin' || $user?.permissions?.features?.image_generation)
-							? imageGenerationEnabled
-							: false,
-					code_interpreter:
-						$config?.features?.enable_code_interpreter &&
-						($user?.role === 'admin' || $user?.permissions?.features?.code_interpreter)
-							? codeInterpreterEnabled
-							: false,
-					web_search:
-						$config?.features?.enable_web_search &&
-						($user?.role === 'admin' || $user?.permissions?.features?.web_search)
-							? webSearchEnabled || ($settings?.webSearch ?? false) === 'always'
-							: false,
-					memory: $settings?.memory ?? false
-				},
+				features: getFeatures(),
 				variables: {
 					...getPromptVariables($user?.name, $settings?.userLocation ? userLocation : undefined)
 				},

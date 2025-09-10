@@ -16,6 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **🔍 Verbesserte Chat-Suche**: Die Suchfunktionalität wurde überarbeitet und ist übersichtlicher.
 - **👁️ Fokus-Modus**: Die Seitenleiste kann jetzt in einem Fokusmodus minimiert werden.
 
+### Fixed
+
+- **🔧 Bug Fixes**: Mehrere Bugfixes, um eine reibungslose Benutzererfahrung zu ermöglichen.
+
 ## [3.0.0] - 01.07.2025
 
 ### Added

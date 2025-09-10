@@ -1,17 +1,27 @@
-<script>
+<script lang="ts">
+	import DOMPurify from 'dompurify';
+	import { marked } from 'marked';
+
 	import { toast } from 'svelte-sonner';
 
 	import { onMount, getContext, tick } from 'svelte';
 	import { goto } from '$app/navigation';
-
-	import { getBackendConfig } from '$lib/apis';
-	import { getSessionUser, userSignIn, ldapUserSignIn } from '$lib/apis/auths';
-
-	import Spinner from '$lib/components/common/Spinner.svelte';
-	import { WEBUI_API_BASE_URL, WEBUI_BASE_URL } from '$lib/constants';
-	import { WEBUI_NAME, config, user, socket } from '$lib/stores';
 	import { page } from '$app/stores';
 
+	import { getBackendConfig } from '$lib/apis';
+	import { ldapUserSignIn, getSessionUser, userSignIn, userSignUp } from '$lib/apis/auths';
+
+	import { WEBUI_API_BASE_URL, WEBUI_BASE_URL } from '$lib/constants';
+	import { WEBUI_NAME, config, user, socket } from '$lib/stores';
+
+	import { generateInitialsImage, canvasPixelTest } from '$lib/utils';
+
+	import Spinner from '$lib/components/common/Spinner.svelte';
+	import OnBoarding from '$lib/components/OnBoarding.svelte';
+	import SensitiveInput from '$lib/components/common/SensitiveInput.svelte';
+	import { redirect } from '@sveltejs/kit';
+
+	// FI-TS_custom 10.09.2025 - Landingpage components
 	import Hero from '$lib/components/fi-ts_landingpage/Hero.svelte';
 	import FAQ from '$lib/components/fi-ts_landingpage/FAQ.svelte';
 	import Features from '$lib/components/fi-ts_landingpage/Features.svelte';
@@ -25,17 +35,14 @@
 	let isLoading = false;
 	let isOAuthLoading = false;
 
+	// Keep query param form handling aligned with official file
+	let form: string | null = null;
+
 	let showAdminForm = null;
 
 	let ldapUsername = '';
 
-	const querystringValue = (key) => {
-		const querystring = window.location.search;
-		const urlParams = new URLSearchParams(querystring);
-		return urlParams.get(key);
-	};
-
-	const setSessionUser = async (sessionUser) => {
+	const setSessionUser = async (sessionUser, redirectPath: string | null = null) => {
 		if (sessionUser) {
 			console.log(sessionUser);
 			toast.success($i18n.t("You're now logged in."));
@@ -46,10 +53,12 @@
 			await user.set(sessionUser);
 			await config.set(await getBackendConfig());
 
-			isOAuthLoading = false;
+			if (!redirectPath) {
+				redirectPath = $page.url.searchParams.get('redirectPath') || '/';
+			}
 
-			const redirectPath = querystringValue('redirect') || '/';
 			goto(redirectPath);
+			localStorage.removeItem('redirectPath');
 		}
 	};
 
@@ -75,7 +84,8 @@
 		await signInHandler();
 	};
 
-	const checkOauthCallback = async () => {
+	const oauthCallbackHandler = async () => {
+		// Get the value of the 'token' cookie
 		function getCookie(name) {
 			const match = document.cookie.match(
 				new RegExp('(?:^|; )' + name.replace(/([.$?*|{}()[\]\\/+^])/g, '\\$1') + '=([^;]*)')
@@ -94,13 +104,14 @@
 			isOAuthLoading = false;
 			return null;
 		});
+
 		if (!sessionUser) {
 			isOAuthLoading = false;
 			return;
 		}
 
 		localStorage.token = token;
-		await setSessionUser(sessionUser);
+		await setSessionUser(sessionUser, localStorage.getItem('redirectPath') || null);
 	};
 
 	let onboarding = false;
@@ -114,10 +125,10 @@
 
 			if (isDarkMode) {
 				const darkImage = new Image();
-				darkImage.src = '/static/favicon-dark.png';
+				darkImage.src = `${WEBUI_BASE_URL}/static/favicon-dark.png`;
 
 				darkImage.onload = () => {
-					logo.src = '/static/favicon-dark.png';
+					logo.src = `${WEBUI_BASE_URL}/static/favicon-dark.png`;
 					logo.style.filter = '';
 				};
 
@@ -129,14 +140,22 @@
 	}
 
 	onMount(async () => {
+		const redirectPath = $page.url.searchParams.get('redirect');
 		if ($user !== undefined) {
-			const redirectPath = querystringValue('redirect') || '/';
-			goto(redirectPath);
+			goto(redirectPath || '/');
+		} else {
+			if (redirectPath) {
+				localStorage.setItem('redirectPath', redirectPath);
+			}
 		}
-		if ($page.url.hash) {
-			isOAuthLoading = true;
+
+		const error = $page.url.searchParams.get('error');
+		if (error) {
+			toast.error(error);
 		}
-		await checkOauthCallback();
+
+		await oauthCallbackHandler();
+		form = $page.url.searchParams.get('form');
 
 		loaded = true;
 		setLogoImage();

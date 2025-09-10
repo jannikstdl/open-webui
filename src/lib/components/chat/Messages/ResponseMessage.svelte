@@ -57,6 +57,7 @@
 	import { flyAndScale } from '$lib/utils/transitions';
 	import { getFaviconSrc, handleFaviconError, getDomain } from '$lib/utils/favicon'; //FI-TS_custom 29.08.2025: Retrieval and WebSearch queries
 	import RegenerateMenu from './ResponseMessage/RegenerateMenu.svelte';
+	import StatusHistory from './ResponseMessage/StatusHistory.svelte';
 
 	interface MessageType {
 		id: string;
@@ -667,190 +668,12 @@
 
 			<div>
 				<div class="chat-{message.role} w-full min-w-full markdown-prose">
-					<div> <!-- FI-TS_custom 29.08.2025 Retrieval and WebSearch queries UI -->
-						{#if (message?.statusHistory ?? [...(message?.status ? [message?.status] : [])]).length > 0}
-							{@const allStatuses = message?.statusHistory ?? [
-								...(message?.status ? [message?.status] : [])
-							]}
-							{@const webSearchStatus = allStatuses.find(
-								(s) => s.action === 'web_search' && s.done && s.urls
-							)}
-							{@const retrievalSearchStatus = allStatuses.find(
-								(s) => s.action === 'retrieval_search' && s.done && s.queries
-							)}
-							{@const lastStatus = allStatuses.at(-1)}
-
-							<!-- Show web search results if completed -->
-							{#if webSearchStatus && !webSearchStatus.hidden}
-								<div class="status-description flex items-center gap-2 py-0.5">
-									<WebSearchResults status={webSearchStatus}>
-										<div class="flex items-center gap-2">
-											{#if webSearchStatus?.urls && webSearchStatus.urls.length > 0}
-												<!-- Show overlapping favicons like in the "more" pill -->
-												<span class="flex items-center mr-2">
-													{#each [0, 1] as i}
-														{#if webSearchStatus.urls[i] && getFaviconSrc(getDomain(webSearchStatus.urls[i]), i)}
-															<img
-																src={getFaviconSrc(getDomain(webSearchStatus.urls[i]), i)}
-																alt=""
-																class="w-4 h-4 rounded-full bg-white border border-gray-200 dark:border-gray-700 flex-shrink-0 {i ===
-																1
-																	? '-ml-2'
-																	: ''}"
-																loading="lazy"
-																on:error={(e) =>
-																	handleFaviconError(e, getDomain(webSearchStatus.urls[i]), i)}
-															/>
-														{:else if webSearchStatus.urls[i]}
-															<svg
-																xmlns="http://www.w3.org/2000/svg"
-																fill="none"
-																viewBox="0 0 24 24"
-																stroke-width="1.5"
-																stroke="currentColor"
-																class="w-4 h-4 text-gray-600 dark:text-gray-300 flex-shrink-0 {i ===
-																1
-																	? '-ml-2'
-																	: ''}"
-															>
-																<path
-																	stroke-linecap="round"
-																	stroke-linejoin="round"
-																	d="M12 21a9.004 9.004 0 0 0 8.716-6.747M12 21a9.004 9.004 0 0 1-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 0 1 7.843 4.582M12 3a8.997 8.997 0 0 0-7.843 4.582m15.686 0A11.953 11.953 0 0 1 12 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0 1 21 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0 1 12 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 0 1 3 12c0-1.605.42-3.113 1.157-4.418"
-																/>
-															</svg>
-														{/if}
-													{/each}
-												</span>
-											{:else}
-												<GlobeAlt className="size-4" />
-											{/if}
-											<div class="flex flex-col justify-center -space-y-0.5">
-												<div class="text-base line-clamp-1 text-wrap">
-													{#if webSearchStatus?.description.includes('{{count}}')}
-														{$i18n.t(webSearchStatus?.description, {
-															count: webSearchStatus?.urls.length
-														})}
-													{:else if webSearchStatus?.description === 'No search query generated'}
-														{$i18n.t('No search query generated')}
-													{:else if webSearchStatus?.description === 'Generating search query'}
-														{$i18n.t('Generating search query')}
-													{:else}
-														{webSearchStatus?.description}
-													{/if}
-												</div>
-											</div>
-										</div>
-									</WebSearchResults>
-								</div>
-							{/if}
-
-							<!-- Show retrieval search results if completed -->
-							{#if retrievalSearchStatus && !retrievalSearchStatus.hidden}
-								<div class="status-description flex items-center gap-2 py-0.5">
-									<RetrievalQueryResults status={retrievalSearchStatus}>
-										<div class="flex items-center gap-2">
-											<Document />
-											<div class="flex flex-col justify-center -space-y-0.5">
-												<div class="text-base line-clamp-1 text-wrap">
-													{#if retrievalSearchStatus?.description === 'Generating retrieval queries'}
-														{$i18n.t('Generating retrieval queries')}
-													{:else if retrievalSearchStatus?.description === 'Retrieved knowledge'}
-														{$i18n.t('Retrieved knowledge')}
-													{:else}
-														{$i18n.t(retrievalSearchStatus?.description)}
-													{/if}
-												</div>
-											</div>
-										</div>
-									</RetrievalQueryResults>
-								</div>
-							{/if}
-
-							<!-- Show current in-progress status if different from completed ones -->
-							{#if lastStatus && !lastStatus.hidden && (!lastStatus.done || (lastStatus !== webSearchStatus && lastStatus !== retrievalSearchStatus))}
-								<div class="status-description flex items-center gap-2 py-0.5">
-									{#if lastStatus?.action === 'web_search' && lastStatus?.urls}
-										<WebSearchResults status={lastStatus}>
-											<div class="flex flex-col justify-center -space-y-0.5">
-												<div
-													class="{lastStatus?.done === false
-														? 'shimmer'
-														: ''} text-base line-clamp-1 text-wrap"
-												>
-													{#if lastStatus?.description.includes('{{count}}')}
-														{$i18n.t(lastStatus?.description, {
-															count: lastStatus?.urls.length
-														})}
-													{:else if lastStatus?.description === 'No search query generated'}
-														{$i18n.t('No search query generated')}
-													{:else if lastStatus?.description === 'Generating search query'}
-														{$i18n.t('Generating search query')}
-													{:else}
-														{lastStatus?.description}
-													{/if}
-												</div>
-											</div>
-										</WebSearchResults>
-									{:else if lastStatus?.action === 'knowledge_search'}
-										<div class="flex flex-col justify-center -space-y-0.5">
-											<div
-												class="{lastStatus?.done === false
-													? 'shimmer'
-													: ''} text-gray-700 dark:text-gray-200 text-base line-clamp-1 text-wrap"
-											>
-												{$i18n.t(`Searching Knowledge for "{{searchQuery}}"`, {
-													searchQuery: lastStatus.query
-												})}
-											</div>
-										</div>
-									{:else if lastStatus?.action === 'retrieval_search' && lastStatus?.queries}
-										<RetrievalQueryResults status={lastStatus}>
-											<div class="flex flex-col justify-center -space-y-0.5">
-												<div
-													class="{lastStatus?.done === false
-														? 'shimmer'
-														: ''} text-base line-clamp-1 text-wrap"
-												>
-													{#if lastStatus?.description === 'Generating retrieval queries'}
-														{$i18n.t('Generating retrieval queries')}
-													{:else if lastStatus?.description === 'Retrieved knowledge'}
-														{$i18n.t('Retrieved knowledge')}
-													{:else}
-														{$i18n.t(lastStatus?.description)}
-													{/if}
-												</div>
-											</div>
-										</RetrievalQueryResults>
-									{:else}
-										<div class="flex flex-col justify-center -space-y-0.5">
-											<div
-												class="{lastStatus?.done === false
-													? 'shimmer'
-													: ''} text-gray-700 dark:text-gray-200 text-base line-clamp-1 text-wrap"
-											>
-												{#if lastStatus?.description.includes('{{searchQuery}}')}
-													{$i18n.t(lastStatus?.description, {
-														searchQuery: lastStatus?.query
-													})}
-												{:else if lastStatus?.description === 'No search query generated'}
-													{$i18n.t('No search query generated')}
-												{:else if lastStatus?.description === 'Generating search query'}
-													{$i18n.t('Generating search query')}
-												{:else if lastStatus?.description === 'Searching the web'}
-													{$i18n.t('Searching the web...')}
-												{:else if lastStatus?.description === 'Generating retrieval queries'}
-													{$i18n.t('Generating retrieval queries')}
-												{:else if lastStatus?.description === 'Retrieved knowledge'}
-													{$i18n.t('Retrieved knowledge')}
-												{:else}
-													{lastStatus?.description}
-												{/if}
-											</div>
-										</div>
-									{/if}
-								</div>
-							{/if}
+					<div>
+						{#if model?.info?.meta?.capabilities?.status_updates ?? true}
+							<StatusHistory
+								statusHistory={message?.statusHistory}
+								expand={message?.content === ''}
+							/>
 						{/if}
 
 						{#if message?.files && message.files?.filter((f) => f.type === 'image').length > 0}
@@ -937,7 +760,7 @@
 							</div>
 						{:else}
 							<div class="w-full flex flex-col relative" id="response-content-container">
-								{#if message.content === '' && !message.error && (message?.statusHistory ?? [...(message?.status ? [message?.status] : [])]).length === 0}
+								{#if message.content === '' && !message.error && ((model?.info?.meta?.capabilities?.status_updates ?? true) ? (message?.statusHistory ?? [...(message?.status ? [message?.status] : [])]).length === 0 || (message?.statusHistory?.at(-1)?.hidden ?? false) : true)}
 									<Skeleton />
 								{:else if message.content && message.error !== true}
 									<!-- always show message contents even if there's an error -->
@@ -1470,7 +1293,7 @@
 										</Tooltip>
 									{/if}
 
-									{#if $user?.role === 'admin' || ($user?.permissions?.chat?.regenerate_response ?? false)}
+									{#if $user?.role === 'admin' || ($user?.permissions?.chat?.regenerate_response ?? true)}
 										{#if $settings?.regenerateMenu ?? true}
 											<button
 												type="button"
@@ -1581,7 +1404,7 @@
 										{/if}
 									{/if}
 
-									{#if $user?.role === 'admin' || ($user?.permissions?.chat?.delete_message ?? false)}
+									{#if $user?.role === 'admin' || ($user?.permissions?.chat?.delete_message ?? true)}
 										{#if siblings.length > 1}
 											<Tooltip content={$i18n.t('Delete')} placement="bottom">
 												<button
