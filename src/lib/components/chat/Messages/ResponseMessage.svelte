@@ -170,7 +170,31 @@
 	let loadingSpeech = false;
 	let generatingImage = false;
 
-	let showRateComment = false;
+    let showRateComment = false;
+    let buttonsAnimated = false; // FI-TS_custom
+
+        const animateButtons = async () => { // FI-TS_custom
+                await tick(); // FI-TS_custom
+                if (!buttonsContainerElement) return; // FI-TS_custom
+                const buttons = buttonsContainerElement.querySelectorAll('button'); // FI-TS_custom
+                buttons.forEach((btn, idx) => { // FI-TS_custom
+                        btn.style.opacity = '0'; // FI-TS_custom
+                        btn.style.transition = 'opacity 0.2s ease'; // FI-TS_custom
+                        btn.style.transitionDelay = `${idx * 30}ms`; // FI-TS_custom
+                }); // FI-TS_custom
+                requestAnimationFrame(() => { // FI-TS_custom
+                        buttons.forEach((btn) => (btn.style.opacity = '1')); // FI-TS_custom
+                }); // FI-TS_custom
+        }; // FI-TS_custom
+
+        $: if (!message.done) { // FI-TS_custom
+                buttonsAnimated = false; // FI-TS_custom
+        } // FI-TS_custom
+
+        $: if (message.done && !buttonsAnimated) { // FI-TS_custom
+                buttonsAnimated = true; // FI-TS_custom
+                animateButtons(); // FI-TS_custom
+        } // FI-TS_custom
 
 	const copyToClipboard = async (text) => {
 		text = removeAllDetails(text);
