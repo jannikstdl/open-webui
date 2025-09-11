@@ -1698,7 +1698,7 @@ Strictly return in JSON format:
 """
 
 DEFAULT_WEB_SEARCH_QUERY_GENERATION_PROMPT_TEMPLATE = """### Task:
-Analyze the chat history to generate effective web search queries that will find relevant, current information online. Generate **1-3 broad and specific search queries** optimized for web search engines unless it is absolutely certain that no web search is needed. Focus on generating queries that will find recent news, current information, or comprehensive online resources.
+Analyze the chat history to generate effective web search queries that will find relevant, current information online in the same language as the user query. Generate **1-3 broad and specific search queries** optimized for web search engines unless it is absolutely certain that no web search is needed. Focus on generating queries that will find recent news, current information, or comprehensive online resources.
 
 ### Guidelines:
 - Respond **EXCLUSIVELY** with a JSON object. Any form of extra commentary, explanation, or additional text is strictly prohibited.
@@ -1706,6 +1706,7 @@ Analyze the chat history to generate effective web search queries that will find
 - Focus on finding current information, recent developments, news, or comprehensive online resources
 - Use keywords and phrases that work well with search engines
 - Consider synonyms and alternative phrasings to maximize search coverage
+- Incorporate Google search operators (e.g., `site:`, `filetype:`, `intitle:`, `-keyword`, `before:YYYY-MM-DD`, `AROUND(n)`) where appropriate to refine or broaden results
 - Respond in the format: { "queries": ["query1", "query2"] }, ensuring each query is distinct and effective for web search
 - If no web search is needed, return: { "queries": [] }
 - Today's date is: {{CURRENT_DATE}}.
@@ -1722,8 +1723,9 @@ Strictly return in JSON format:
 </chat_history>
 """
 
+
 DEFAULT_RETRIEVAL_QUERY_GENERATION_PROMPT_TEMPLATE = """### Task:
-Analyze the chat history to generate effective retrieval queries that capture the user's information need. Use the chat history **only if the latest message clearly depends on prior context**. Generate 1–3 high-quality, semantically meaningful queries. The goal is to retrieve relevant knowledge from a vector database.
+Analyze the chat history to generate effective retrieval queries that capture the user's information need in the same language as the user query. Use the chat history **only if the latest message clearly depends on prior context**. Generate 1–3 high-quality, semantically meaningful queries. The goal is to retrieve relevant knowledge from a vector database.
 
 ### Guidelines:
 - Respond **EXCLUSIVELY** with a JSON object. Any form of extra commentary, explanation, or additional text is strictly prohibited.

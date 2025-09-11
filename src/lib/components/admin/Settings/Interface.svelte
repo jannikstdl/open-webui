@@ -40,7 +40,9 @@
 		ENABLE_TAGS_GENERATION: true,
 		ENABLE_SEARCH_QUERY_GENERATION: true,
 		ENABLE_RETRIEVAL_QUERY_GENERATION: true,
-		QUERY_GENERATION_PROMPT_TEMPLATE: '',
+		QUERY_GENERATION_PROMPT_TEMPLATE: '', // FI-TS_custom 2025-01-11: keeping for backward compatibility
+		WEB_SEARCH_QUERY_GENERATION_PROMPT_TEMPLATE: '',
+		RETRIEVAL_QUERY_GENERATION_PROMPT_TEMPLATE: '',
 		TOOLS_FUNCTION_CALLING_PROMPT_TEMPLATE: ''
 	};
 
@@ -305,15 +307,32 @@
 					<Switch bind:state={taskConfig.ENABLE_SEARCH_QUERY_GENERATION} />
 				</div>
 
+				<!-- FI-TS_custom 2025-01-11: Separate prompt templates for web search and retrieval -->
 				<div class="mb-2.5">
-					<div class=" mb-1 text-xs font-medium">{$i18n.t('Query Generation Prompt')}</div>
+					<div class=" mb-1 text-xs font-medium">{$i18n.t('Web Search Query Generation Prompt')}</div>
 
 					<Tooltip
 						content={$i18n.t('Leave empty to use the default prompt, or enter a custom prompt')}
 						placement="top-start"
 					>
 						<Textarea
-							bind:value={taskConfig.QUERY_GENERATION_PROMPT_TEMPLATE}
+							bind:value={taskConfig.WEB_SEARCH_QUERY_GENERATION_PROMPT_TEMPLATE}
+							placeholder={$i18n.t(
+								'Leave empty to use the default prompt, or enter a custom prompt'
+							)}
+						/>
+					</Tooltip>
+				</div>
+
+				<div class="mb-2.5">
+					<div class=" mb-1 text-xs font-medium">{$i18n.t('Retrieval Query Generation Prompt')}</div>
+
+					<Tooltip
+						content={$i18n.t('Leave empty to use the default prompt, or enter a custom prompt')}
+						placement="top-start"
+					>
+						<Textarea
+							bind:value={taskConfig.RETRIEVAL_QUERY_GENERATION_PROMPT_TEMPLATE}
 							placeholder={$i18n.t(
 								'Leave empty to use the default prompt, or enter a custom prompt'
 							)}
