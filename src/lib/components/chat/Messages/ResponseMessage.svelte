@@ -180,7 +180,7 @@
                 buttons.forEach((btn, idx) => { // FI-TS_custom
                         btn.style.opacity = '0'; // FI-TS_custom
                         btn.style.transition = 'opacity 0.2s ease'; // FI-TS_custom
-                        btn.style.transitionDelay = `${idx * 30}ms`; // FI-TS_custom
+                        btn.style.transitionDelay = `${idx * 50}ms`; // FI-TS_custom
                 }); // FI-TS_custom
                 requestAnimationFrame(() => { // FI-TS_custom
                         buttons.forEach((btn) => (btn.style.opacity = '1')); // FI-TS_custom

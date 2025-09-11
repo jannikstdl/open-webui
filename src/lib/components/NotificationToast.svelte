@@ -39,7 +39,7 @@
 	}}
 >
 	<div class="shrink-0 self-top -translate-y-0.5">
-		<img src="{WEBUI_BASE_URL}/static/favicon.png" alt="favicon" class="size-7 rounded-full" />
+		<img src="{WEBUI_BASE_URL}/static/favicon.png" alt="favicon" class="size-7 rounded-md" /> <!-- FI-TS_custom 11.09.2025: medium rounded -->
 	</div>
 
 	<div>
