@@ -1781,21 +1781,26 @@ Return ONLY a JSON object with this structure:
 
 # FI-TS_custom 12.09.2025: Prompt template for automatic file search decision
 DEFAULT_AUTO_FILE_SEARCH_DECISION_PROMPT_TEMPLATE = """### Task:
-Analyze the user's request in context and determine if searching attached files/collections would provide relevant information. Consider both the explicit request and the nature of attached files.
+Analyze the user's request in context and determine if searching attached files/collections would provide relevant information. Consider both the explicit request and the nature of attached files. The user may ask in any language (multilingual support).
 
 ### Available Files/Collections Context:
 {{FILE_CONTEXT}}
 
 ### When file search IS beneficial:
-- **Direct file references**: "What's in the file?", "Analyze the document", "What does the file say about X?"
+- **Direct file references**: "What's in the file?", "Analyze the document", "What does the file say about X?" (or equivalent in German: "Was steht in der Datei?", "Analysiere das Dokument")
+- **Knowledge base queries**: "What's in your knowledge?", "What files do you have?", "Show me the collection" (or German: "Was steht in deinem internen Wissen?", "Was für Dateien hast du?", "Zeige mir die Wissenssammlung")
+- **Collection references**: "What's in the collection?", "Search the collection", "What's in the knowledge base?" (or German: "Was ist in der Collection?", "Durchsuche die Collection")
 - **Content-specific queries**: Questions that could be answered by the attached file content
-- **Data analysis requests**: "What are the sales figures?", "Show me the budget breakdown" (for relevant file types)
-- **Document summarization**: "Summarize the report", "Key points from the document"
-- **Search within files**: "Find references to X", "What section talks about Y?"
-- **Questions related to file topic/domain**: If file is about business and user asks business questions
+- **Data analysis requests**: "What are the sales figures?", "Show me the budget breakdown" (or German: "Was sind die Verkaufszahlen?", "Zeige mir die Budget-Aufschlüsselung")
+- **Document summarization**: "Summarize the report", "Key points from the document" (or German: "Fasse den Bericht zusammen", "Wichtige Punkte aus dem Dokument")
+- **Search within files**: "Find references to X", "What section talks about Y?" (or German: "Finde Verweise auf X", "Welcher Abschnitt behandelt Y?")
+- **Questions about file content/domain**: If file is about business and user asks business questions
+- **Internal knowledge queries**: "What do you know about..." when files are attached (or German: "Was weißt du über...")
+- **File listing/overview**: "What documents do you have?", "List attached files" (or German: "Welche Dokumente hast du?", "Liste die angehängten Dateien")
 
 ### When file search is NOT needed:
-- **General knowledge**: Questions unrelated to file content or domain
+- **General knowledge**: "What's the weather?", "What's the capital of Germany?" (or German: "Wie ist das Wetter?", "Was ist die Hauptstadt von Deutschland?")
+- **Unrelated topics**: Questions clearly unrelated to file content or domain
 - **Simple acknowledgments**: "Thanks", "OK", "I understand"
 - **Creative tasks**: Writing, brainstorming unrelated to file content
 - **Technical help**: Programming questions unrelated to attached files
