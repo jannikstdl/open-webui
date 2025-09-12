@@ -1706,7 +1706,8 @@ Analyze the chat history to generate effective web search queries that will find
 - Focus on finding current information, recent developments, news, or comprehensive online resources
 - Use keywords and phrases that work well with search engines
 - Consider synonyms and alternative phrasings to maximize search coverage
-- Incorporate Google search operators (e.g., `site:`, `filetype:`, `intitle:`, `-keyword`, `before:YYYY-MM-DD`, `AROUND(n)`) where appropriate to refine or broaden results
+- Incorporate web search operators (e.g., `site:`, `filetype:`, `intitle:`, `-keyword`, `before:YYYY-MM-DD`, `AROUND(n)`) where appropriate to refine or broaden results
+- If the user gives you a specific website or source, generate only the in queries for the targeted links (e.g., `site:example.com`)
 - Respond in the format: { "queries": ["query1", "query2"] }, ensuring each query is distinct and effective for web search
 - If no web search is needed, return: { "queries": [] }
 - Today's date is: {{CURRENT_DATE}}.
