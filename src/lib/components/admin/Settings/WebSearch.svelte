@@ -106,6 +106,22 @@
 						</div>
 					</div>
 
+					<!-- FI-TS_custom 12.09.2025: Add automatic web search decision toggle -->
+					{#if webConfig.ENABLE_WEB_SEARCH}
+						<div class="  mb-2.5 flex w-full justify-between">
+							<div class=" self-center text-xs font-medium">
+								<Tooltip content="Automatically decide when web search would improve the response" placement="top-start">
+									<span class="cursor-help">
+										{$i18n.t('Auto Web Search')}
+									</span>
+								</Tooltip>
+							</div>
+							<div class="flex items-center relative">
+								<Switch bind:state={webConfig.ENABLE_AUTO_WEB_SEARCH} />
+							</div>
+						</div>
+					{/if}
+
 					<div class="  mb-2.5 flex w-full justify-between">
 						<div class=" self-center text-xs font-medium">
 							{$i18n.t('Web Search Engine')}

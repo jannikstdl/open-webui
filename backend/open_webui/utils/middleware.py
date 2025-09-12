@@ -943,6 +943,47 @@ async def process_chat_payload(request, form_data, user, metadata, model):
         raise Exception(f"{e}")
 
     features = form_data.pop("features", None)
+    
+    # FI-TS_custom 12.09.2025: Auto web search decision logic (moved to frontend)
+    # TODO: Remove this backend implementation, using frontend approach instead
+    if False and (features is None or not features.get("web_search", False)) and request.app.state.config.ENABLE_AUTO_WEB_SEARCH:
+        # Check if web search capabilities are available
+        if (request.app.state.config.ENABLE_WEB_SEARCH and 
+            (user.role == 'admin' or user.permissions.get('features', {}).get('web_search', False))):
+            
+            try:
+                # Call the auto decision endpoint
+                from open_webui.routers.tasks import decide_web_search
+                
+                decision_response = await decide_web_search(
+                    request, 
+                    {
+                        "model": form_data.get("model"),
+                        "messages": form_data.get("messages", []),
+                        "chat_id": form_data.get("chat_id")
+                    },
+                    user
+                )
+                
+                if decision_response.get("web_search_needed", False):
+                    # Automatically enable web search
+                    if features is None:
+                        features = {}
+                    features["web_search"] = True
+                    
+                    await extra_params["__event_emitter__"]({
+                        "type": "status",
+                        "data": {
+                            "action": "auto_web_search_enabled",
+                            "description": "Automatically enabled web search for better results",
+                            "done": False,
+                        },
+                    })
+                    
+            except Exception as e:
+                log.warning(f"Auto web search decision failed: {e}")
+                # Continue without web search if decision fails
+
     if features:
         if "memory" in features and features["memory"]:
             form_data = await chat_memory_handler(

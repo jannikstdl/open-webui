@@ -1667,6 +1667,13 @@ WEB_SEARCH_QUERY_GENERATION_PROMPT_TEMPLATE = PersistentConfig(
     os.environ.get("WEB_SEARCH_QUERY_GENERATION_PROMPT_TEMPLATE", ""),
 )
 
+# FI-TS_custom 12.09.2025: Configuration for automatic web search decision prompt
+AUTO_WEB_SEARCH_DECISION_PROMPT_TEMPLATE = PersistentConfig(
+    "AUTO_WEB_SEARCH_DECISION_PROMPT_TEMPLATE",
+    "task.query.web_search.auto_decision.prompt_template",
+    os.environ.get("AUTO_WEB_SEARCH_DECISION_PROMPT_TEMPLATE", ""),
+)
+
 RETRIEVAL_QUERY_GENERATION_PROMPT_TEMPLATE = PersistentConfig(
     "RETRIEVAL_QUERY_GENERATION_PROMPT_TEMPLATE",
     "task.query.retrieval.prompt_template", 
@@ -1725,6 +1732,45 @@ Strictly return in JSON format:
 </chat_history>
 """
 
+# FI-TS_custom 12.09.2025: Prompt template for automatic web search decision
+DEFAULT_AUTO_WEB_SEARCH_DECISION_PROMPT_TEMPLATE = """### Task:
+Analyze the user's request in context and determine if a web search would provide better, more current, or more comprehensive information. Consider both the explicit request and implicit information needs.
+
+### When web search IS beneficial:
+- **Search requests**: "Search for X", "Can you search for Y?", "Find information about Z", "Suche nach X", "Kannst du nach Y suchen?"
+- **Current information**: News, recent events, current statistics, live data
+- **Person/celebrity queries**: Information about public figures, influencers, streamers, actors
+- **Recent developments**: Technology updates, product launches, company news
+- **Location-specific information**: Local news, weather, events, businesses
+- **Factual verification**: Claims that need up-to-date verification
+- **Comparison queries**: "Compare X and Y" where current data matters
+- **Time-sensitive topics**: Stock prices, sports results, election updates
+
+### When web search is NOT needed:
+- **Simple acknowledgments**: "Thanks", "OK", "I understand", "Danke", "OK", "Verstehe"
+- **General knowledge**: Historical facts, basic definitions, established concepts
+- **Creative tasks**: Writing, brainstorming, storytelling
+- **Personal opinions**: Subjective advice, recommendations based on preferences
+- **Math/calculations**: Computational problems that don't need external data
+- **Technical explanations**: Programming concepts, scientific principles (unless very recent)
+
+### Context Analysis:
+- Look at the conversation history for implicit search intentions
+- If user previously asked about someone/something, follow-up questions likely need web search
+- Questions like "Can you also search for [PERSON]?" clearly indicate search intent
+- Consider if the query builds on previous topics that benefited from web search
+
+### Response Format:
+Return ONLY a JSON object with this structure:
+{
+  "web_search_needed": boolean
+}
+
+### Chat History:
+{{MESSAGES}}
+
+### Current User Query:
+{{QUERY}}"""
 
 DEFAULT_RETRIEVAL_QUERY_GENERATION_PROMPT_TEMPLATE = """### Task:
 Analyze the chat history to generate effective retrieval queries that capture the user's information need in the same language as the user query. Use the chat history **only if the latest message clearly depends on prior context**. Generate 1–3 high-quality, semantically meaningful queries. The goal is to retrieve relevant knowledge from a vector database.
@@ -2703,6 +2749,13 @@ ENABLE_WEB_SEARCH = PersistentConfig(
     "ENABLE_WEB_SEARCH",
     "rag.web.search.enable",
     os.getenv("ENABLE_WEB_SEARCH", "False").lower() == "true",
+)
+
+# FI-TS_custom 12.09.2025: Add automatic web search decision feature
+ENABLE_AUTO_WEB_SEARCH = PersistentConfig(
+    "ENABLE_AUTO_WEB_SEARCH",
+    "rag.web.search.auto.enable",
+    os.getenv("ENABLE_AUTO_WEB_SEARCH", "False").lower() == "true",
 )
 
 WEB_SEARCH_ENGINE = PersistentConfig(

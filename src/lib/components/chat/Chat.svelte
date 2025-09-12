@@ -1775,6 +1775,48 @@ const initNewChat = async () => {
 			}))
 			.filter((message) => message?.role === 'user' || message?.content?.trim());
 
+		// FI-TS_custom 12.09.2025: Auto web search decision
+		let autoWebSearchEnabled = false;
+		if (!webSearchEnabled && 
+			$config?.features?.enable_web_search && 
+			($user?.role === 'admin' || $user?.permissions?.features?.web_search)) {
+			
+			try {
+				const lastUserMessage = messages.filter(m => m.role === 'user').pop();
+				if (lastUserMessage?.content) {
+					console.log('🔍 Checking if web search would be beneficial...');
+					
+					const decisionResponse = await fetch(`${WEBUI_BASE_URL}/api/v1/tasks/agent/web_search_decision`, {
+						method: 'POST',
+						headers: {
+							'Content-Type': 'application/json',
+							'Authorization': `Bearer ${localStorage.token}`
+						},
+						body: JSON.stringify({
+							model: model.id,
+							messages: messages,
+							chat_id: $chatId
+						})
+					});
+					
+					if (decisionResponse.ok) {
+						const decision = await decisionResponse.json();
+						console.log('🔍 Auto web search decision:', decision);
+						
+						if (decision.web_search_needed) {
+							console.log('✅ Auto-enabling web search for this request only');
+							autoWebSearchEnabled = true;
+							// No toast notification - silent activation
+							// Don't modify webSearchEnabled - keep button state unchanged
+						}
+					}
+				}
+			} catch (error) {
+				console.log('⚠️ Auto web search decision failed:', error);
+				// Continue without web search
+			}
+		}
+
 		const res = await generateOpenAIChatCompletion(
 			localStorage.token,
 			{
@@ -1797,7 +1839,11 @@ const initNewChat = async () => {
 				filter_ids: selectedFilterIds.length > 0 ? selectedFilterIds : undefined,
 				tool_ids: selectedToolIds.length > 0 ? selectedToolIds : undefined,
 				tool_servers: $toolServers,
-				features: getFeatures(),
+				features: {
+					...getFeatures(),
+					// FI-TS_custom 12.09.2025: Override web_search if auto-enabled for this request
+					web_search: (getFeatures().web_search || autoWebSearchEnabled)
+				},
 				variables: {
 					...getPromptVariables($user?.name, $settings?.userLocation ? userLocation : undefined)
 				},

@@ -31,6 +31,7 @@ from open_webui.config import (
     DEFAULT_IMAGE_PROMPT_GENERATION_PROMPT_TEMPLATE,
     DEFAULT_QUERY_GENERATION_PROMPT_TEMPLATE,
     DEFAULT_WEB_SEARCH_QUERY_GENERATION_PROMPT_TEMPLATE,
+    DEFAULT_AUTO_WEB_SEARCH_DECISION_PROMPT_TEMPLATE,
     DEFAULT_RETRIEVAL_QUERY_GENERATION_PROMPT_TEMPLATE,
     DEFAULT_AUTOCOMPLETE_GENERATION_PROMPT_TEMPLATE,
     DEFAULT_EMOJI_GENERATION_PROMPT_TEMPLATE,
@@ -555,6 +556,129 @@ async def generate_queries(
 
     try:
         return await generate_chat_completion(request, form_data=payload, user=user)
+    except Exception as e:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"detail": str(e)},
+        )
+
+
+# FI-TS_custom 12.09.2025: Add endpoint for automatic web search decision
+@router.post("/agent/web_search_decision")
+async def decide_web_search(
+    request: Request, form_data: dict, user=Depends(get_verified_user)
+):
+    """
+    Decide if web search would be beneficial for the user's query using an LLM.
+    Returns true if web search is recommended, false otherwise.
+    """
+    if not request.app.state.config.ENABLE_AUTO_WEB_SEARCH:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Automatic web search decision is disabled",
+        )
+
+    if not request.app.state.config.ENABLE_WEB_SEARCH:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Web search is disabled",
+        )
+
+    if getattr(request.state, "direct", False) and hasattr(request.state, "model"):
+        models = {
+            request.state.model["id"]: request.state.model,
+        }
+    else:
+        models = request.app.state.MODELS
+
+    model_id = form_data["model"]
+    if model_id not in models:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Model not found",
+        )
+
+    # Check if the user has a custom task model
+    task_model_id = get_task_model_id(
+        model_id,
+        request.app.state.config.TASK_MODEL,
+        request.app.state.config.TASK_MODEL_EXTERNAL,
+        models,
+    )
+
+    log.debug(
+        f"deciding web search necessity using model {task_model_id} for user {user.email}"
+    )
+
+    # Get the user's query from messages
+    user_message = form_data.get("prompt", "")
+    if not user_message and "messages" in form_data:
+        messages = form_data["messages"]
+        for message in reversed(messages):
+            if message.get("role") == "user":
+                user_message = message.get("content", "")
+                break
+
+    if not user_message:
+        return {"web_search_needed": False, "reason": "No user query found"}
+
+    # Use the configured template or default
+    if (request.app.state.config.AUTO_WEB_SEARCH_DECISION_PROMPT_TEMPLATE).strip() != "":
+        template = request.app.state.config.AUTO_WEB_SEARCH_DECISION_PROMPT_TEMPLATE
+    else:
+        template = DEFAULT_AUTO_WEB_SEARCH_DECISION_PROMPT_TEMPLATE
+
+    # Replace the placeholders
+    # Format messages for context
+    messages_context = ""
+    if "messages" in form_data and form_data["messages"]:
+        for msg in form_data["messages"][-6:]:  # Last 6 messages for context
+            role = msg.get("role", "")
+            content_text = msg.get("content", "")
+            if role and content_text:
+                messages_context += f"{role}: {content_text}\n"
+    
+    content = template.replace("{{QUERY}}", user_message).replace("{{MESSAGES}}", messages_context)
+
+    payload = {
+        "model": task_model_id,
+        "messages": [{"role": "user", "content": content}],
+        "stream": False,
+        "metadata": {
+            **(request.state.metadata if hasattr(request.state, "metadata") else {}),
+            "task": "auto_web_search_decision",
+            "task_body": form_data,
+            "chat_id": form_data.get("chat_id", None),
+        },
+    }
+
+    # Process the payload through the pipeline
+    try:
+        payload = await process_pipeline_inlet_filter(request, payload, user, models)
+    except Exception as e:
+        raise e
+
+    try:
+        response = await generate_chat_completion(request, form_data=payload, user=user)
+        
+        # Extract the decision from the response
+        decision_text = response["choices"][0]["message"]["content"].strip()
+        
+        try:
+            # Try to parse as JSON
+            import json
+            decision_json = json.loads(decision_text)
+            web_search_needed = decision_json.get("web_search_needed", False)
+        except (json.JSONDecodeError, ValueError):
+            # Fallback to text parsing if JSON fails
+            decision_text_lower = decision_text.lower()
+            web_search_needed = decision_text_lower == "true" or "true" in decision_text_lower
+        
+        return {
+            "web_search_needed": web_search_needed,
+            "query": user_message
+        }
+        
     except Exception as e:
         return JSONResponse(
             status_code=status.HTTP_400_BAD_REQUEST,

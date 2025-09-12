@@ -487,7 +487,7 @@ def get_sources_from_items(
         collection_names = []
 
         if item.get("type") == "text":
-            # Raw Text
+            # Raw TextEs
             # Used during temporary chat file uploads or web page & youtube attachements
 
             if item.get("collection_name"):

@@ -265,6 +265,8 @@ from open_webui.config import (
     YOUTUBE_LOADER_PROXY_URL,
     # Retrieval (Web Search)
     ENABLE_WEB_SEARCH,
+    ENABLE_AUTO_WEB_SEARCH,
+    AUTO_WEB_SEARCH_DECISION_PROMPT_TEMPLATE,
     WEB_SEARCH_ENGINE,
     BYPASS_WEB_SEARCH_EMBEDDING_AND_RETRIEVAL,
     BYPASS_WEB_SEARCH_WEB_LOADER,
@@ -885,6 +887,8 @@ app.state.config.YOUTUBE_LOADER_PROXY_URL = YOUTUBE_LOADER_PROXY_URL
 
 
 app.state.config.ENABLE_WEB_SEARCH = ENABLE_WEB_SEARCH
+app.state.config.ENABLE_AUTO_WEB_SEARCH = ENABLE_AUTO_WEB_SEARCH
+app.state.config.AUTO_WEB_SEARCH_DECISION_PROMPT_TEMPLATE = AUTO_WEB_SEARCH_DECISION_PROMPT_TEMPLATE
 app.state.config.WEB_SEARCH_ENGINE = WEB_SEARCH_ENGINE
 app.state.config.WEB_SEARCH_DOMAIN_FILTER_LIST = WEB_SEARCH_DOMAIN_FILTER_LIST
 app.state.config.WEB_SEARCH_RESULT_COUNT = WEB_SEARCH_RESULT_COUNT
@@ -1748,6 +1752,7 @@ async def get_app_config(request: Request):
                     "enable_channels": app.state.config.ENABLE_CHANNELS,
                     "enable_notes": app.state.config.ENABLE_NOTES,
                     "enable_web_search": app.state.config.ENABLE_WEB_SEARCH,
+                    "enable_auto_web_search": app.state.config.ENABLE_AUTO_WEB_SEARCH,
                     "enable_code_execution": app.state.config.ENABLE_CODE_EXECUTION,
                     "enable_code_interpreter": app.state.config.ENABLE_CODE_INTERPRETER,
                     "enable_image_generation": app.state.config.ENABLE_IMAGE_GENERATION,
