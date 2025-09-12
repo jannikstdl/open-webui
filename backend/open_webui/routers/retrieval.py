@@ -403,6 +403,8 @@ async def get_rag_config(request: Request, user=Depends(get_admin_user)):
         "TOP_K": request.app.state.config.TOP_K,
         "BYPASS_EMBEDDING_AND_RETRIEVAL": request.app.state.config.BYPASS_EMBEDDING_AND_RETRIEVAL,
         "RAG_FULL_CONTEXT": request.app.state.config.RAG_FULL_CONTEXT,
+        # FI-TS_custom 12.09.2025: Auto file search decision
+        "ENABLE_AUTO_FILE_SEARCH": request.app.state.config.ENABLE_AUTO_FILE_SEARCH,
         # Hybrid search settings
         "ENABLE_RAG_HYBRID_SEARCH": request.app.state.config.ENABLE_RAG_HYBRID_SEARCH,
         "TOP_K_RERANKER": request.app.state.config.TOP_K_RERANKER,
@@ -577,6 +579,9 @@ class ConfigForm(BaseModel):
     TOP_K: Optional[int] = None
     BYPASS_EMBEDDING_AND_RETRIEVAL: Optional[bool] = None
     RAG_FULL_CONTEXT: Optional[bool] = None
+    
+    # FI-TS_custom 12.09.2025: Auto file search decision
+    ENABLE_AUTO_FILE_SEARCH: Optional[bool] = None
 
     # Hybrid search settings
     ENABLE_RAG_HYBRID_SEARCH: Optional[bool] = None
@@ -668,6 +673,13 @@ async def update_rag_config(
         form_data.RAG_FULL_CONTEXT
         if form_data.RAG_FULL_CONTEXT is not None
         else request.app.state.config.RAG_FULL_CONTEXT
+    )
+    
+    # FI-TS_custom 12.09.2025: Auto file search decision
+    request.app.state.config.ENABLE_AUTO_FILE_SEARCH = (
+        form_data.ENABLE_AUTO_FILE_SEARCH
+        if form_data.ENABLE_AUTO_FILE_SEARCH is not None
+        else request.app.state.config.ENABLE_AUTO_FILE_SEARCH
     )
 
     # Hybrid search settings
@@ -1077,6 +1089,8 @@ async def update_rag_config(
         "TOP_K": request.app.state.config.TOP_K,
         "BYPASS_EMBEDDING_AND_RETRIEVAL": request.app.state.config.BYPASS_EMBEDDING_AND_RETRIEVAL,
         "RAG_FULL_CONTEXT": request.app.state.config.RAG_FULL_CONTEXT,
+        # FI-TS_custom 12.09.2025: Auto file search decision
+        "ENABLE_AUTO_FILE_SEARCH": request.app.state.config.ENABLE_AUTO_FILE_SEARCH,
         # Hybrid search settings
         "ENABLE_RAG_HYBRID_SEARCH": request.app.state.config.ENABLE_RAG_HYBRID_SEARCH,
         "TOP_K_RERANKER": request.app.state.config.TOP_K_RERANKER,

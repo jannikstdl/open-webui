@@ -1674,6 +1674,13 @@ AUTO_WEB_SEARCH_DECISION_PROMPT_TEMPLATE = PersistentConfig(
     os.environ.get("AUTO_WEB_SEARCH_DECISION_PROMPT_TEMPLATE", ""),
 )
 
+# FI-TS_custom 12.09.2025: Configuration for automatic file search decision prompt
+AUTO_FILE_SEARCH_DECISION_PROMPT_TEMPLATE = PersistentConfig(
+    "AUTO_FILE_SEARCH_DECISION_PROMPT_TEMPLATE",
+    "task.query.file_search.auto_decision.prompt_template",
+    os.environ.get("AUTO_FILE_SEARCH_DECISION_PROMPT_TEMPLATE", ""),
+)
+
 RETRIEVAL_QUERY_GENERATION_PROMPT_TEMPLATE = PersistentConfig(
     "RETRIEVAL_QUERY_GENERATION_PROMPT_TEMPLATE",
     "task.query.retrieval.prompt_template", 
@@ -1764,6 +1771,41 @@ Analyze the user's request in context and determine if a web search would provid
 Return ONLY a JSON object with this structure:
 {
   "web_search_needed": boolean
+}
+
+### Chat History:
+{{MESSAGES}}
+
+### Current User Query:
+{{QUERY}}"""
+
+# FI-TS_custom 12.09.2025: Prompt template for automatic file search decision
+DEFAULT_AUTO_FILE_SEARCH_DECISION_PROMPT_TEMPLATE = """### Task:
+Analyze the user's request in context and determine if searching attached files/collections would provide relevant information. Consider both the explicit request and the nature of attached files.
+
+### Available Files/Collections Context:
+{{FILE_CONTEXT}}
+
+### When file search IS beneficial:
+- **Direct file references**: "What's in the file?", "Analyze the document", "What does the file say about X?"
+- **Content-specific queries**: Questions that could be answered by the attached file content
+- **Data analysis requests**: "What are the sales figures?", "Show me the budget breakdown" (for relevant file types)
+- **Document summarization**: "Summarize the report", "Key points from the document"
+- **Search within files**: "Find references to X", "What section talks about Y?"
+- **Questions related to file topic/domain**: If file is about business and user asks business questions
+
+### When file search is NOT needed:
+- **General knowledge**: Questions unrelated to file content or domain
+- **Simple acknowledgments**: "Thanks", "OK", "I understand"
+- **Creative tasks**: Writing, brainstorming unrelated to file content
+- **Technical help**: Programming questions unrelated to attached files
+- **Personal opinions**: Subjective advice not based on file content
+- **Questions clearly outside file scope**: If file is about marketing but user asks about cooking
+
+### Response Format:
+Return ONLY a JSON object with this structure:
+{
+  "file_search_needed": boolean
 }
 
 ### Chat History:
@@ -2781,6 +2823,13 @@ WEB_SEARCH_RESULT_COUNT = PersistentConfig(
     "WEB_SEARCH_RESULT_COUNT",
     "rag.web.search.result_count",
     int(os.getenv("WEB_SEARCH_RESULT_COUNT", "3")),
+)
+
+# FI-TS_custom 12.09.2025: Add automatic file search decision feature
+ENABLE_AUTO_FILE_SEARCH = PersistentConfig(
+    "ENABLE_AUTO_FILE_SEARCH",
+    "rag.file.search.auto.enable", 
+    os.getenv("ENABLE_AUTO_FILE_SEARCH", "False").lower() == "true",
 )
 
 

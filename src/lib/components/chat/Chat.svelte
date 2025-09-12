@@ -1777,6 +1777,9 @@ const initNewChat = async () => {
 
 		// FI-TS_custom 12.09.2025: Auto web search decision
 		let autoWebSearchEnabled = false;
+		
+		// FI-TS_custom 12.09.2025: Auto file search decision
+		let autoFileSearchEnabled = true; // Default: enable file search if files are attached
 		if (!webSearchEnabled && 
 			$config?.features?.enable_web_search && 
 			($user?.role === 'admin' || $user?.permissions?.features?.web_search)) {
@@ -1817,6 +1820,45 @@ const initNewChat = async () => {
 			}
 		}
 
+		// FI-TS_custom 12.09.2025: Auto file search decision
+		if ((files?.length ?? 0) > 0 && 
+			$config?.features?.enable_auto_file_search) {
+			
+			try {
+				const lastUserMessage = messages.filter(m => m.role === 'user').pop();
+				if (lastUserMessage?.content) {
+					console.log('📁 Checking if file search would be beneficial...');
+					
+					const decisionResponse = await fetch(`${WEBUI_BASE_URL}/api/v1/tasks/agent/file_search_decision`, {
+						method: 'POST',
+						headers: {
+							'Content-Type': 'application/json',
+							'Authorization': `Bearer ${localStorage.token}`
+						},
+						body: JSON.stringify({
+							model: model.id,
+							messages: messages,
+							files: files,
+							chat_id: $chatId
+						})
+					});
+					
+					if (decisionResponse.ok) {
+						const decision = await decisionResponse.json();
+						console.log('📁 Auto file search decision:', decision);
+						
+						if (!decision.file_search_needed) {
+							console.log('❌ Auto-disabling file search for this request only');
+							autoFileSearchEnabled = false;
+						}
+					}
+				}
+			} catch (error) {
+				console.log('⚠️ Auto file search decision failed:', error);
+				// Continue with file search enabled by default
+			}
+		}
+
 		const res = await generateOpenAIChatCompletion(
 			localStorage.token,
 			{
@@ -1834,7 +1876,7 @@ const initNewChat = async () => {
 							: undefined
 				},
 
-				files: (files?.length ?? 0) > 0 ? files : undefined,
+				files: (files?.length ?? 0) > 0 && autoFileSearchEnabled ? files : undefined,
 
 				filter_ids: selectedFilterIds.length > 0 ? selectedFilterIds : undefined,
 				tool_ids: selectedToolIds.length > 0 ? selectedToolIds : undefined,
