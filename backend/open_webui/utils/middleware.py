@@ -1047,11 +1047,49 @@ async def process_chat_payload(request, form_data, user, metadata, model):
     if len(sources) > 0:
         context_string = ""
         citation_idx_map = {}
-
+        
+        # FI-TS_custom 2025-09-12: Separate web and file search results with headers
+        web_sources = []
+        file_sources = []
+        
+        # Categorize sources by type
         for source in sources:
             is_tool_result = source.get("tool_result", False)
-
             if "document" in source and not is_tool_result:
+                source_type = source.get("source", {}).get("type", "")
+                if source_type == "web_search":
+                    web_sources.append(source)
+                else:
+                    file_sources.append(source)
+        
+        # Process web search results
+        if web_sources:
+            context_string += "### Web Search Results:\n\n"
+            for source in web_sources:
+                for document_text, document_metadata in zip(
+                    source["document"], source["metadata"]
+                ):
+                    source_name = source.get("source", {}).get("name", None)
+                    source_id = (
+                        document_metadata.get("source", None)
+                        or source.get("source", {}).get("id", None)
+                        or "N/A"
+                    )
+
+                    if source_id not in citation_idx_map:
+                        citation_idx_map[source_id] = len(citation_idx_map) + 1
+
+                    context_string += (
+                        f'<source id="{citation_idx_map[source_id]}"'
+                        + (f' name="{source_name}"' if source_name else "")
+                        + f">{document_text}</source>\n"
+                    )
+            context_string += "\n"
+        
+        # Process file search results
+        if file_sources:
+            context_string += "### File Search Results:\n\n"
+            for source in file_sources:
                 for document_text, document_metadata in zip(
                     source["document"], source["metadata"]
                 ):

@@ -1702,6 +1702,7 @@ Analyze the chat history to generate effective web search queries that will find
 
 ### Guidelines:
 - Respond **EXCLUSIVELY** with a JSON object. Any form of extra commentary, explanation, or additional text is strictly prohibited.
+- You get the chat history as context, but use the latest user message as the primary source of intent. Use earlier messages **only if necessary** to resolve ambiguity.
 - Generate search queries optimized for web search engines (Google, Bing, etc.)
 - Focus on finding current information, recent developments, news, or comprehensive online resources
 - Use keywords and phrases that work well with search engines
