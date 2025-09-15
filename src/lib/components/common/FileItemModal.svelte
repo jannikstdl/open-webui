@@ -45,7 +45,7 @@
 	// FI-TS_custom 13.09.2025: Load content summary for files
 	const loadContentSummary = async () => {
 		// FI-TS_custom 15.09.2025: Check if feature is enabled before proceeding
-		if (!($config as any)?.features?.enable_file_content_summary) {
+		if (!$config?.features?.enable_file_content_summary) {
 			return;
 		}
 
@@ -270,7 +270,7 @@
 						>
 
 						<!-- FI-TS_custom 13.09.2025: Content Summary tab -->
-						{#if ($config as any)?.features?.enable_file_content_summary}
+						{#if $config?.features?.enable_file_content_summary}
 							<button
 								class="min-w-fit py-1.5 px-4 border-b {selectedTab === 'summary'
 									? ' '
@@ -330,7 +330,7 @@
 							}}>{$i18n.t('Content')}</button
 						>
 
-						{#if ($config as any)?.features?.enable_file_content_summary}
+						{#if $config?.features?.enable_file_content_summary}
 							<button
 								class="min-w-fit py-1.5 px-4 border-b {selectedTab === 'summary'
 									? ' '
