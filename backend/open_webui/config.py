@@ -1681,6 +1681,25 @@ AUTO_FILE_SEARCH_DECISION_PROMPT_TEMPLATE = PersistentConfig(
     os.environ.get("AUTO_FILE_SEARCH_DECISION_PROMPT_TEMPLATE", ""),
 )
 
+# FI-TS_custom 12.09.2025: Configuration for file content summary generation
+ENABLE_FILE_CONTENT_SUMMARY = PersistentConfig(
+    "ENABLE_FILE_CONTENT_SUMMARY",
+    "rag.file.content.summary.enable",
+    os.getenv("ENABLE_FILE_CONTENT_SUMMARY", "False").lower() == "true",
+)
+
+FILE_CONTENT_SUMMARY_MAX_CHARS = PersistentConfig(
+    "FILE_CONTENT_SUMMARY_MAX_CHARS",
+    "rag.file.content.summary.max_chars",
+    int(os.getenv("FILE_CONTENT_SUMMARY_MAX_CHARS", "50000")),
+)
+
+FILE_CONTENT_SUMMARY_PROMPT_TEMPLATE = PersistentConfig(
+    "FILE_CONTENT_SUMMARY_PROMPT_TEMPLATE",
+    "rag.file.content.summary.prompt_template",
+    os.environ.get("FILE_CONTENT_SUMMARY_PROMPT_TEMPLATE", ""),
+)
+
 RETRIEVAL_QUERY_GENERATION_PROMPT_TEMPLATE = PersistentConfig(
     "RETRIEVAL_QUERY_GENERATION_PROMPT_TEMPLATE",
     "task.query.retrieval.prompt_template", 
@@ -1741,31 +1760,41 @@ Strictly return in JSON format:
 
 # FI-TS_custom 12.09.2025: Prompt template for automatic web search decision
 DEFAULT_AUTO_WEB_SEARCH_DECISION_PROMPT_TEMPLATE = """### Task:
-Analyze the user's request in context and determine if a web search would provide better, more current, or more comprehensive information. Consider both the explicit request and implicit information needs.
+Analyze the user's request and determine if a web search is NECESSARY for accurate information. **Be conservative - only use web search when the question explicitly requires current data, specific recent information, or when you are uncertain about specific factual claims.** The user may ask in any language (multilingual support).
 
-### When web search IS beneficial:
-- **Search requests**: "Search for X", "Can you search for Y?", "Find information about Z", "Suche nach X", "Kannst du nach Y suchen?"
-- **Current information**: News, recent events, current statistics, live data
-- **Person/celebrity queries**: Information about public figures, influencers, streamers, actors
-- **Recent developments**: Technology updates, product launches, company news
-- **Location-specific information**: Local news, weather, events, businesses
-- **Factual verification**: Claims that need up-to-date verification
-- **Comparison queries**: "Compare X and Y" where current data matters
-- **Time-sensitive topics**: Stock prices, sports results, election updates
+### When web search IS necessary:
+- **Explicit search requests**: "Search for X", "Can you search for Y?", "Find current information about Z"
+- **Questions with time indicators**: "currently", "latest", "recent", "now", "this year", "today"
+- **Real-time data**: Live stock prices, current weather, breaking news, today's events
+- **Very recent developments**: Product launches from this month, latest technology updates, recent company news
+- **Person queries when context suggests current info needed**: If conversation history shows need for recent information about public figures
+- **Specific current events**: Election results, recent sports outcomes, breaking news topics
+- **UNCERTAINTY ABOUT SPECIFIC FACTS**: When you cannot confidently provide specific details about movies, books, products, companies, or other factual information - SEARCH rather than guess or fabricate details
+- **User corrections indicating wrong information**: If user says your previous response was incorrect about specific facts
 
-### When web search is NOT needed:
-- **Simple acknowledgments**: "Thanks", "OK", "I understand", "Danke", "OK", "Verstehe"
-- **General knowledge**: Historical facts, basic definitions, established concepts
+### When web search is NOT needed (use general knowledge):
+- **General knowledge questions**: "What are popular travel destinations?", "What's the capital of Germany?"
+- **Broad informational queries**: "What are popular winter destinations for Germans?" - this can be answered with general knowledge about established travel patterns
+- **Historical facts**: Well-established past events, basic concepts, common definitions
 - **Creative tasks**: Writing, brainstorming, storytelling
 - **Personal opinions**: Subjective advice, recommendations based on preferences
 - **Math/calculations**: Computational problems that don't need external data
-- **Technical explanations**: Programming concepts, scientific principles (unless very recent)
+- **Technical explanations**: Programming concepts, scientific principles
+- **Simple acknowledgments**: "Thanks", "OK", "I understand"
+- **Questions without time context**: If no indicators suggest need for current information
 
-### Context Analysis:
-- Look at the conversation history for implicit search intentions
-- If user previously asked about someone/something, follow-up questions likely need web search
-- Questions like "Can you also search for [PERSON]?" clearly indicate search intent
-- Consider if the query builds on previous topics that benefited from web search
+### Critical Rule:
+**NEVER fabricate or guess specific details about movies, books, products, people, or companies. If uncertain about specific factual information, use web search instead of potentially providing incorrect details.**
+- **Comparative questions**: "What's better X or Y?" unless specifically about recent comparisons
+- **How-to questions**: General instructions or explanations that don't require current data
+- **Definition questions**: Explaining concepts, terms, or processes
+
+### Key Decision Points:
+1. **Does the question contain time indicators?** (currently, latest, recent, now, etc.) → Consider web search
+2. **Can this be answered with established general knowledge?** → Don't use web search
+3. **Is this an explicit search request?** → Use web search
+4. **Would the answer change based on current events or recent data?** → Consider web search
+5. **Is this about general trends, patterns, or established facts?** → Don't use web search
 
 ### Response Format:
 Return ONLY a JSON object with this structure:
@@ -1783,38 +1812,51 @@ Return ONLY a JSON object with this structure:
 DEFAULT_AUTO_FILE_SEARCH_DECISION_PROMPT_TEMPLATE = """### Task:
 Analyze the user's request in context and determine if searching attached files/collections would provide relevant information. Consider both the explicit request and the nature of attached files. The user may ask in any language (multilingual support).
 
+**CRITICAL FOR FOLLOW-UP QUESTIONS**: Pay special attention to conversational context. Follow-up questions like "Und sonst noch?" (And what else?), "Was noch?" (What more?), "Anything else?", "Tell me more", or similar phrases typically refer to the same topic discussed previously and should continue using the same information source (files/collections) that was relevant for the previous question.
+
 ### Available Files/Collections Context:
 {{FILE_CONTEXT}}
 
+**Important**: When files have content summaries available, use these summaries to assess relevance. A file might be relevant to a query even if the filename doesn't obviously match - the content summary reveals the actual subject matter.
+
+### Chat History Analysis:
+{{MESSAGES}}
+
+**Context Analysis**: Review the chat history to understand:
+1. **Topic Continuity**: Is the current query a follow-up to a previous question about the same subject?
+2. **Information Source**: Was the previous answer based on file/collection content?
+3. **Conversational Flow**: Does the user expect more information from the same source?
+
 ### When file search IS beneficial:
-- **Direct file references**: "What's in the file?", "Analyze the document", "What does the file say about X?" (or equivalent in German: "Was steht in der Datei?", "Analysiere das Dokument")
-- **Knowledge base queries**: "What's in your knowledge?", "What files do you have?", "Show me the collection" (or German: "Was steht in deinem internen Wissen?", "Was für Dateien hast du?", "Zeige mir die Wissenssammlung")
-- **Collection references**: "What's in the collection?", "Search the collection", "What's in the knowledge base?" (or German: "Was ist in der Collection?", "Durchsuche die Collection")
-- **Content-specific queries**: Questions that could be answered by the attached file content
-- **Data analysis requests**: "What are the sales figures?", "Show me the budget breakdown" (or German: "Was sind die Verkaufszahlen?", "Zeige mir die Budget-Aufschlüsselung")
-- **Document summarization**: "Summarize the report", "Key points from the document" (or German: "Fasse den Bericht zusammen", "Wichtige Punkte aus dem Dokument")
-- **Search within files**: "Find references to X", "What section talks about Y?" (or German: "Finde Verweise auf X", "Welcher Abschnitt behandelt Y?")
-- **Questions about file content/domain**: If file is about business and user asks business questions
-- **Internal knowledge queries**: "What do you know about..." when files are attached (or German: "Was weißt du über...")
-- **File listing/overview**: "What documents do you have?", "List attached files" (or German: "Welche Dokumente hast du?", "Liste die angehängten Dateien")
+- **Direct file references**: "What's in the file?", "Analyze the document", "What does the file say about X?"
+- **Knowledge base queries**: "What's in your knowledge?", "What files do you have?", "Show me the collection"
+- **Collection references**: "What's in the collection?", "Search the collection", "What's in the knowledge base?"
+- **Content-specific queries**: Questions that could be answered by the attached file content, **especially when content summaries indicate relevant information**
+- **Data analysis requests**: "What are the sales figures?", "Show me the budget breakdown"
+- **Document summarization**: "Summarize the report", "Key points from the document"
+- **Search within files**: "Find references to X", "What section talks about Y?"
+- **Questions about file content/domain**: If file content summaries indicate relevance to the user's question domain
+- **Subject-matter queries**: When user asks about specific topics, organizations, or concepts that appear in the content summaries
+- **Internal knowledge queries**: "What do you know about..." when files are attached
+- **File listing/overview**: "What documents do you have?", "List attached files"
+- **Cross-reference queries**: Questions about entities, organizations, contacts, or topics mentioned in content summaries
+- **FOLLOW-UP QUESTIONS**: If the previous question was answered using file content and the current query is asking for more information on the same topic ("Was noch?", "Und sonst noch?", "What else?", "Tell me more", "Any other details?", etc.)
+- **CONTINUATION QUERIES**: Questions that logically extend previous file-based answers ("Was hat er noch gemacht?", "Where else did he work?", "What other projects?")
 
 ### When file search is NOT needed:
-- **General knowledge**: "What's the weather?", "What's the capital of Germany?" (or German: "Wie ist das Wetter?", "Was ist die Hauptstadt von Deutschland?")
-- **Unrelated topics**: Questions clearly unrelated to file content or domain
-- **Simple acknowledgments**: "Thanks", "OK", "I understand"
+- **General knowledge**: "What's the weather?", "What's the capital of Germany?"
+- **Unrelated topics**: Questions clearly unrelated to file content or domain AND not following up on previous file-based answers
+- **Simple acknowledgments**: "Thanks", "OK", "I understand" (unless asking for more information)
 - **Creative tasks**: Writing, brainstorming unrelated to file content
 - **Technical help**: Programming questions unrelated to attached files
 - **Personal opinions**: Subjective advice not based on file content
-- **Questions clearly outside file scope**: If file is about marketing but user asks about cooking
+- **Questions clearly outside file scope**: If file is about marketing but user asks about cooking (unless it's a follow-up)
 
 ### Response Format:
 Return ONLY a JSON object with this structure:
 {
   "file_search_needed": boolean
 }
-
-### Chat History:
-{{MESSAGES}}
 
 ### Current User Query:
 {{QUERY}}"""
@@ -2833,8 +2875,22 @@ WEB_SEARCH_RESULT_COUNT = PersistentConfig(
 # FI-TS_custom 12.09.2025: Add automatic file search decision feature
 ENABLE_AUTO_FILE_SEARCH = PersistentConfig(
     "ENABLE_AUTO_FILE_SEARCH",
-    "rag.file.search.auto.enable", 
+    "rag.file.search.auto.enable",
     os.getenv("ENABLE_AUTO_FILE_SEARCH", "False").lower() == "true",
+)
+
+# FI-TS_custom 15.09.2025: Add automatic full context decision with auto file selection
+ENABLE_AUTO_FULL_CONTEXT = PersistentConfig(
+    "ENABLE_AUTO_FULL_CONTEXT",
+    "rag.full.context.auto.enable",
+    os.getenv("ENABLE_AUTO_FULL_CONTEXT", "False").lower() == "true",
+)
+
+# FI-TS_custom 15.09.2025: Configuration for auto full context query generation template
+AUTO_FULL_CONTEXT_QUERY_GENERATION_PROMPT_TEMPLATE = PersistentConfig(
+    "AUTO_FULL_CONTEXT_QUERY_GENERATION_PROMPT_TEMPLATE",
+    "task.query.full_context.prompt_template",
+    os.environ.get("AUTO_FULL_CONTEXT_QUERY_GENERATION_PROMPT_TEMPLATE", ""),
 )
 
 
@@ -3611,3 +3667,30 @@ LDAP_ATTRIBUTE_FOR_GROUPS = PersistentConfig(
     "ldap.server.attribute_for_groups",
     os.environ.get("LDAP_ATTRIBUTE_FOR_GROUPS", "memberOf"),
 )
+
+# FI-TS_custom 12.09.2025: Prompt template for file content summary generation
+DEFAULT_FILE_CONTENT_SUMMARY_PROMPT_TEMPLATE = """### Task:
+Generate a document-style summary that describes what this file contains and its purpose. Start with "This document..." and identify the document type when possible. Support multilingual content by responding in the same language as the input content.
+
+### Guidelines:
+- Write 60-100 words (approximately 500 characters)
+- Begin with document identification: "This [document type] covers..." 
+- Use document type indicators when identifiable: PDF document, presentation, spreadsheet, report, manual, etc.
+- Focus on main topics, key information, and entities (organizations, people, concepts)
+- Include specific details that would help match user queries (e.g., "contains UNESCO contact information")
+- Be factual and specific, avoid generic descriptions
+- If the content contains contact information, dates, specific data, or procedures, mention them
+- Include key technical terms, names, locations, and other searchable content
+- Use plain text format (no Markdown, no formatting)
+- IMPORTANT: Match the language of the input content exactly (multilingual support)
+
+### Examples:
+- "This PDF document covers bird species of Bavaria and contains detailed information about UNESCO protected areas as well as contact details of regional representatives."
+- "This presentation covers quarterly sales results for 2024 and includes detailed financial data, budget breakdowns, and performance metrics for the European market."
+- "This spreadsheet shows budget data for 2025 with breakdowns by departments and cost centers."
+- "This document provides a comprehensive user manual for the new software system with step-by-step installation and configuration instructions."
+
+### File Content:
+{{CONTENT}}
+
+### Content Summary (respond in the same language as the content above):"""

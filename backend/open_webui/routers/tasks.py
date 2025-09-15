@@ -24,6 +24,7 @@ from open_webui.routers.pipelines import process_pipeline_inlet_filter
 
 from open_webui.utils.task import get_task_model_id
 from open_webui.models.knowledge import Knowledges
+from open_webui.models.files import Files
 
 from open_webui.config import (
     DEFAULT_TITLE_GENERATION_PROMPT_TEMPLATE,
@@ -34,6 +35,7 @@ from open_webui.config import (
     DEFAULT_WEB_SEARCH_QUERY_GENERATION_PROMPT_TEMPLATE,
     DEFAULT_AUTO_WEB_SEARCH_DECISION_PROMPT_TEMPLATE,
     DEFAULT_AUTO_FILE_SEARCH_DECISION_PROMPT_TEMPLATE,
+    DEFAULT_FILE_CONTENT_SUMMARY_PROMPT_TEMPLATE,
     DEFAULT_RETRIEVAL_QUERY_GENERATION_PROMPT_TEMPLATE,
     DEFAULT_AUTOCOMPLETE_GENERATION_PROMPT_TEMPLATE,
     DEFAULT_EMOJI_GENERATION_PROMPT_TEMPLATE,
@@ -688,11 +690,12 @@ async def decide_web_search(
         )
 
 
-def extract_file_context_metadata(form_data: dict, model_info: dict = None) -> str:
+def extract_file_context_metadata(form_data: dict, model_info: dict = None, request: Request = None) -> str:
     """
     Extract file metadata for the auto file search decision.
     Returns formatted string with file name + type for single files,
     knowledge name + description for knowledge bases.
+    FI-TS_custom 13.09.2025: Enhanced with content summaries for better search decisions.
     """
     # FI-TS_custom 12.09.2025: Extract metadata (name + type for files, name + description for knowledge)
     context_parts = []
@@ -715,7 +718,28 @@ def extract_file_context_metadata(form_data: dict, model_info: dict = None) -> s
             file_name = file_info.get("name", "Unknown file")
             # Extract file extension for type
             file_type = file_name.split('.')[-1].lower() if '.' in file_name else "unknown"
-            context_parts.append(f"- {file_name} (type: {file_type})")
+            
+            # FI-TS_custom 13.09.2025: Include content summary if available and enabled
+            file_context = f"- {file_name} (type: {file_type})"
+            
+            # Try to get content summary if the feature is enabled and file has an ID
+            if (request and 
+                hasattr(request.app.state.config, 'ENABLE_FILE_CONTENT_SUMMARY') and 
+                request.app.state.config.ENABLE_FILE_CONTENT_SUMMARY and 
+                file_info.get("id")):
+                
+                try:
+                    file_record = Files.get_file_by_id(file_info.get("id"))
+                    if file_record and file_record.meta and file_record.meta.get("content_summary"):
+                        content_summary = file_record.meta.get("content_summary")
+                        # Summaries should now be ~500 chars, but add safety limit
+                        if len(content_summary) > 600:
+                            content_summary = content_summary[:600] + "..."
+                        file_context += f"\n    Summary: {content_summary}"
+                except Exception as e:
+                    log.debug(f"Error getting content summary for file {file_info.get('id')}: {e}")
+            
+            context_parts.append(file_context)
     
     # Process knowledge bases from files
     if knowledge_files:
@@ -842,7 +866,7 @@ async def decide_file_search(
         template = DEFAULT_AUTO_FILE_SEARCH_DECISION_PROMPT_TEMPLATE
 
     # Extract file context metadata
-    file_context = extract_file_context_metadata(form_data, model_info)
+    file_context = extract_file_context_metadata(form_data, model_info, request)
 
     # Format messages for context
     messages_context = ""
@@ -855,6 +879,16 @@ async def decide_file_search(
     
     # Replace the placeholders
     content = template.replace("{{QUERY}}", user_message).replace("{{MESSAGES}}", messages_context).replace("{{FILE_CONTEXT}}", file_context)
+    
+    # FI-TS_custom 13.09.2025: Debug logging - output complete prompt template
+    log.info("📁 ===== AUTO FILE SEARCH DECISION - COMPLETE PROMPT =====")
+    log.info(f"📁 USER: {user.email}")
+    log.info(f"📁 QUERY: {user_message}")
+    log.info(f"📁 FILE_CONTEXT: {file_context}")
+    log.info("📁 ===== COMPLETE PROMPT SENT TO LLM =====")
+    log.info(content)
+    log.info("📁 ===== END OF PROMPT =====")
+    
 
     payload = {
         "model": task_model_id,
@@ -1106,6 +1140,155 @@ async def generate_moa_response(
     try:
         return await generate_chat_completion(request, form_data=payload, user=user)
     except Exception as e:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"detail": str(e)},
+        )
+
+
+# FI-TS_custom 12.09.2025: Content summary generation for files
+@router.post("/file/content_summary")
+async def generate_file_content_summary(
+    request: Request, form_data: dict, user=Depends(get_verified_user)
+):
+    """
+    Generate a content summary for a file based on its extracted text content.
+    Returns a comprehensive summary to help with file search decision making.
+    """
+    if not request.app.state.config.ENABLE_FILE_CONTENT_SUMMARY:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File content summary generation is disabled",
+        )
+
+    log.info(f"📄 File content summary generation requested by user {user.email}")
+    
+    content = form_data.get("content", "")
+    file_id = form_data.get("file_id", "")
+    
+    # If we have a file_id, verify access regardless of whether content is provided
+    if file_id:
+        # Check if user has access to this file
+        if not Files.check_access_by_user_id(file_id, user.id):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access denied",
+            )
+    
+    # If content is not provided directly, try to get it from file_id
+    if not content and file_id:
+        try:
+            # Get the file record to retrieve content
+            file_record = Files.get_file_by_id(file_id)
+            if not file_record:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="File not found",
+                )
+            
+            # Get content from file data
+            if file_record.data and file_record.data.get("content"):
+                content = file_record.data.get("content")
+                log.info(f"📄 Retrieved content for file {file_id}, length: {len(content)} characters")
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="File does not contain extracted content",
+                )
+                
+        except HTTPException:
+            raise
+        except Exception as e:
+            log.error(f"Error retrieving file content: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Error retrieving file content",
+            )
+    
+    if not content:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Content or file_id is required for summary generation",
+        )
+
+    # Apply character limit for large files
+    max_chars = request.app.state.config.FILE_CONTENT_SUMMARY_MAX_CHARS
+    if len(content) > max_chars:
+        log.info(f"📄 Content truncated from {len(content)} to {max_chars} characters")
+        content = content[:max_chars] + "... [content truncated]"
+
+    # Get or use default prompt template
+    prompt_template = (
+        request.app.state.config.FILE_CONTENT_SUMMARY_PROMPT_TEMPLATE
+        or DEFAULT_FILE_CONTENT_SUMMARY_PROMPT_TEMPLATE
+    )
+    
+    # Replace content in template
+    content_prompt = prompt_template.replace("{{CONTENT}}", content)
+
+    # Get task model - use a default model from available models
+    models = request.app.state.MODELS
+    if not models:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="No models available",
+        )
+    
+    # Use the first available model as default or configured task model
+    if request.app.state.config.TASK_MODEL and request.app.state.config.TASK_MODEL in models:
+        task_model_id = request.app.state.config.TASK_MODEL
+    else:
+        task_model_id = list(models.keys())[0]
+
+    payload = {
+        "model": task_model_id,
+        "messages": [{"role": "user", "content": content_prompt}],
+        "stream": False,
+        "metadata": {
+            **(request.state.metadata if hasattr(request.state, "metadata") else {}),
+            "task": "file_content_summary_generation", 
+            "task_body": {"content_length": len(content)},
+        },
+    }
+
+    # Process the payload through the pipeline
+    try:
+        payload = await process_pipeline_inlet_filter(request, payload, user, request.app.state.MODELS)
+    except Exception as e:
+        raise e
+
+    try:
+        response = await generate_chat_completion(request, form_data=payload, user=user)
+        
+        # Extract the generated summary from the response
+        content_summary = None
+        if hasattr(response, 'choices') and len(response.choices) > 0:
+            content_summary = response.choices[0].message.content
+        elif hasattr(response, 'content'):
+            content_summary = response.content
+        elif isinstance(response, dict) and 'content' in response:
+            content_summary = response['content']
+        elif isinstance(response, dict) and 'choices' in response:
+            if len(response['choices']) > 0 and 'message' in response['choices'][0]:
+                content_summary = response['choices'][0]['message'].get('content')
+        
+        # If we have a file_id, store the summary in the file metadata
+        if file_id and content_summary:
+            try:
+                Files.update_file_metadata_by_id(file_id, {"content_summary": content_summary})
+                log.info(f"📄 Content summary stored for file {file_id}")
+            except Exception as e:
+                log.error(f"📄 Failed to store content summary for file {file_id}: {e}")
+                # Don't fail the request if we can't store, just log the error
+        
+        # Return structured response with summary
+        return {
+            "content_summary": content_summary,
+            "file_id": file_id if file_id else None
+        }
+            
+    except Exception as e:
+        log.error(f"📄 File content summary generation failed: {e}")
         return JSONResponse(
             status_code=status.HTTP_400_BAD_REQUEST,
             content={"detail": str(e)},

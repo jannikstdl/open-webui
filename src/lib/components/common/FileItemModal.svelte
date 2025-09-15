@@ -5,6 +5,7 @@
 	import { getKnowledgeById } from '$lib/apis/knowledge';
 
 	const i18n = getContext('i18n');
+	const config = getContext('config');
 
 	import Modal from './Modal.svelte';
 	import XMark from '../icons/XMark.svelte';
@@ -13,7 +14,7 @@
 	import Tooltip from './Tooltip.svelte';
 	import dayjs from 'dayjs';
 	import Spinner from './Spinner.svelte';
-	import { getFileById } from '$lib/apis/files';
+	import { getFileById, generateFileContentSummary } from '$lib/apis/files';
 
 	export let item;
 	export let show = false;
@@ -26,6 +27,8 @@
 	let loading = false;
 
 	let selectedTab = '';
+	let contentSummary: string | null = null;
+	let summaryLoading = false;
 
 	$: isPDF =
 		item?.meta?.content_type === 'application/pdf' ||
@@ -38,6 +41,45 @@
 		(item?.name && item?.name.toLowerCase().endsWith('.ogg')) ||
 		(item?.name && item?.name.toLowerCase().endsWith('.m4a')) ||
 		(item?.name && item?.name.toLowerCase().endsWith('.webm'));
+
+	// FI-TS_custom 13.09.2025: Load content summary for files
+	const loadContentSummary = async () => {
+		// FI-TS_custom 15.09.2025: Check if feature is enabled before proceeding
+		if (!($config as any)?.features?.enable_file_content_summary) {
+			return;
+		}
+
+		if (item?.type !== 'file') return;
+
+		// Check if summary already exists in metadata
+		if (item?.file?.meta?.content_summary) {
+			contentSummary = item.file.meta.content_summary;
+			return;
+		}
+
+		// Use the extracted content that's already available
+		const extractedContent = item?.file?.data?.content;
+		if (!extractedContent) {
+			contentSummary = null;
+			return;
+		}
+
+		summaryLoading = true;
+		try {
+			// Send both file_id and content for optimal processing and storage
+			const result = await generateFileContentSummary(localStorage.token, item.id, extractedContent);
+			if (result?.content_summary) {
+				contentSummary = result.content_summary;
+				// Update the item metadata so we don't need to regenerate
+				if (item.file && item.file.meta) {
+					item.file.meta.content_summary = result.content_summary;
+				}
+			}
+		} catch (error) {
+			console.error('Error generating content summary:', error);
+		}
+		summaryLoading = false;
+	};
 
 	const loadContent = async () => {
 		if (item?.type === 'collection') {
@@ -226,6 +268,20 @@
 								selectedTab = 'preview';
 							}}>{$i18n.t('Preview')}</button
 						>
+
+						<!-- FI-TS_custom 13.09.2025: Content Summary tab -->
+						{#if ($config as any)?.features?.enable_file_content_summary}
+							<button
+								class="min-w-fit py-1.5 px-4 border-b {selectedTab === 'summary'
+									? ' '
+									: ' border-transparent text-gray-300 dark:text-gray-600 hover:text-gray-700 dark:hover:text-white'} transition"
+								type="button"
+								on:click={() => {
+									selectedTab = 'summary';
+									loadContentSummary();
+								}}>{$i18n.t('Summary')}</button
+							>
+						{/if}
 					</div>
 
 					{#if selectedTab === 'preview'}
@@ -234,25 +290,95 @@
 							src={`${WEBUI_API_BASE_URL}/files/${item.id}/content`}
 							class="w-full h-[70vh] border-0 rounded-lg"
 						/>
+					{:else if selectedTab === 'summary'}
+						<!-- FI-TS_custom 13.09.2025: Content Summary display -->
+						<div class="max-h-96 overflow-scroll scrollbar-hidden text-sm">
+							{#if summaryLoading}
+								<div class="animate-pulse space-y-2">
+									<div class="h-4 bg-gray-300 dark:bg-gray-700 rounded w-3/4"></div>
+									<div class="h-4 bg-gray-300 dark:bg-gray-700 rounded w-1/2"></div>
+									<div class="h-4 bg-gray-300 dark:bg-gray-700 rounded w-2/3"></div>
+									<div class="h-4 bg-gray-300 dark:bg-gray-700 rounded w-1/4"></div>
+								</div>
+							{:else if contentSummary}
+								<div class="prose dark:prose-invert max-w-none">
+									{contentSummary}
+								</div>
+							{:else}
+								<div class="text-gray-500 dark:text-gray-400 text-center py-4">
+									{$i18n.t('No content summary available')}
+								</div>
+							{/if}
+						</div>
 					{:else}
 						<div class="max-h-96 overflow-scroll scrollbar-hidden text-xs whitespace-pre-wrap">
 							{item?.file?.data?.content ?? 'No content'}
 						</div>
 					{/if}
 				{:else}
-					{#if isAudio}
-						<audio
-							src={`${WEBUI_API_BASE_URL}/files/${item.id}/content`}
-							class="w-full border-0 rounded-lg mb-2"
-							controls
-							playsinline
-						/>
-					{/if}
+					<!-- FI-TS_custom 13.09.2025: Add tabs for non-PDF files -->
+					<div
+						class="flex mb-2.5 scrollbar-none overflow-x-auto w-full border-b border-gray-100 dark:border-gray-800 text-center text-sm font-medium bg-transparent dark:text-gray-200"
+					>
+						<button
+							class="min-w-fit py-1.5 px-4 border-b {selectedTab === '' || selectedTab === 'content'
+								? ' '
+								: ' border-transparent text-gray-300 dark:text-gray-600 hover:text-gray-700 dark:hover:text-white'} transition"
+							type="button"
+							on:click={() => {
+								selectedTab = 'content';
+							}}>{$i18n.t('Content')}</button
+						>
 
-					{#if item?.file?.data}
-						<div class="max-h-96 overflow-scroll scrollbar-hidden text-xs whitespace-pre-wrap">
-							{item?.file?.data?.content ?? 'No content'}
+						{#if ($config as any)?.features?.enable_file_content_summary}
+							<button
+								class="min-w-fit py-1.5 px-4 border-b {selectedTab === 'summary'
+									? ' '
+									: ' border-transparent text-gray-300 dark:text-gray-600 hover:text-gray-700 dark:hover:text-white'} transition"
+								type="button"
+								on:click={() => {
+									selectedTab = 'summary';
+									loadContentSummary();
+								}}>{$i18n.t('Summary')}</button
+							>
+						{/if}
+					</div>
+
+					{#if selectedTab === 'summary'}
+						<!-- FI-TS_custom 13.09.2025: Content Summary display -->
+						<div class="max-h-96 overflow-scroll scrollbar-hidden text-sm">
+							{#if summaryLoading}
+								<div class="animate-pulse space-y-2">
+									<div class="h-4 bg-gray-300 dark:bg-gray-700 rounded w-3/4"></div>
+									<div class="h-4 bg-gray-300 dark:bg-gray-700 rounded w-1/2"></div>
+									<div class="h-4 bg-gray-300 dark:bg-gray-700 rounded w-2/3"></div>
+									<div class="h-4 bg-gray-300 dark:bg-gray-700 rounded w-1/4"></div>
+								</div>
+							{:else if contentSummary}
+								<div class="prose dark:prose-invert max-w-none">
+									{contentSummary}
+								</div>
+							{:else}
+								<div class="text-gray-500 dark:text-gray-400 text-center py-4">
+									{$i18n.t('No content summary available')}
+								</div>
+							{/if}
 						</div>
+					{:else}
+						{#if isAudio}
+							<audio
+								src={`${WEBUI_API_BASE_URL}/files/${item.id}/content`}
+								class="w-full border-0 rounded-lg mb-2"
+								controls
+								playsinline
+							/>
+						{/if}
+
+						{#if item?.file?.data}
+							<div class="max-h-96 overflow-scroll scrollbar-hidden text-xs whitespace-pre-wrap">
+								{item?.file?.data?.content ?? 'No content'}
+							</div>
+						{/if}
 					{/if}
 				{/if}
 			{:else}

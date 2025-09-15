@@ -315,3 +315,44 @@ export const deleteAllFiles = async (token: string) => {
 
 	return res;
 };
+
+// FI-TS_custom 13.09.2025: File content summary generation API
+export const generateFileContentSummary = async (token: string, fileId: string | null, content?: string) => {
+	let error = null;
+
+	const requestBody: any = {};
+	if (fileId) {
+		requestBody.file_id = fileId;
+	}
+	if (content) {
+		requestBody.content = content;
+	}
+
+	const res = await fetch(`${WEBUI_API_BASE_URL}/tasks/file/content_summary`, {
+		method: 'POST',
+		headers: {
+			Accept: 'application/json',
+			'Content-Type': 'application/json',
+			authorization: `Bearer ${token}`
+		},
+		body: JSON.stringify(requestBody)
+	})
+		.then(async (res) => {
+			if (!res.ok) throw await res.json();
+			return res.json();
+		})
+		.then((json) => {
+			return json;
+		})
+		.catch((err) => {
+			error = err.detail;
+			console.error(err);
+			return null;
+		});
+
+	if (error) {
+		throw error;
+	}
+
+	return res;
+};

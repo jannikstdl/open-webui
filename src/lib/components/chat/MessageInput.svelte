@@ -41,7 +41,7 @@
 		getUserTimezone,
 		getWeekday
 	} from '$lib/utils';
-	import { uploadFile } from '$lib/apis/files';
+	import { uploadFile, generateFileContentSummary } from '$lib/apis/files';
 	import { generateAutoCompletion } from '$lib/apis';
 	import { deleteFileById } from '$lib/apis/files';
 
@@ -645,6 +645,29 @@
 					fileItem.url = `${WEBUI_API_BASE_URL}/files/${uploadedFile.id}`;
 
 					files = files;
+
+					// FI-TS_custom 13.09.2025: Auto-generate content summary after successful upload
+					try {
+						// Check if content summary feature is enabled
+						if (($config as any)?.features?.enable_file_content_summary) {
+							console.log('File summary started:', {
+								id: uploadedFile.id,
+								name: fileItem.name
+							});
+							await generateFileContentSummary(localStorage.token, uploadedFile.id);
+							console.log('File summary completed:', {
+								id: uploadedFile.id,
+								name: fileItem.name
+							});
+						}
+					} catch (error) {
+						// Handle errors gracefully without breaking file upload
+						console.error('File summary failed:', {
+							id: uploadedFile.id,
+							name: fileItem.name,
+							error: error
+						});
+					}
 				} else {
 					files = files.filter((item) => item?.itemId !== tempItemId);
 				}

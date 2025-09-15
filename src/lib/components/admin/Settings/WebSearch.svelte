@@ -117,7 +117,7 @@
 								</Tooltip>
 							</div>
 							<div class="flex items-center relative">
-								<Switch bind:state={webConfig.ENABLE_AUTO_WEB_SEARCH} />
+								<Switch bind:state={webConfig.Was } />
 							</div>
 						</div>
 					{/if}

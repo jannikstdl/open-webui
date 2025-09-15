@@ -682,6 +682,7 @@
 		}
 	};
 
+
 	const uploadWeb = async (url) => {
 		console.log(url);
 
@@ -1778,49 +1779,11 @@ const initNewChat = async () => {
 		// FI-TS_custom 12.09.2025: Auto web search decision
 		let autoWebSearchEnabled = false;
 		
-		// FI-TS_custom 12.09.2025: Auto file search decision
+		// FI-TS_custom 13.09.2025: Sequential Decision Making - File Search first, then Web Search only if needed
 		let autoFileSearchEnabled = true; // Default: enable file search if files are attached
-		if (!webSearchEnabled && 
-			$config?.features?.enable_web_search && 
-			($user?.role === 'admin' || $user?.permissions?.features?.web_search)) {
-			
-			try {
-				const lastUserMessage = messages.filter(m => m.role === 'user').pop();
-				if (lastUserMessage?.content) {
-					console.log('🔍 Checking if web search would be beneficial...');
-					
-					const decisionResponse = await fetch(`${WEBUI_BASE_URL}/api/v1/tasks/agent/web_search_decision`, {
-						method: 'POST',
-						headers: {
-							'Content-Type': 'application/json',
-							'Authorization': `Bearer ${localStorage.token}`
-						},
-						body: JSON.stringify({
-							model: model.id,
-							messages: messages,
-							chat_id: $chatId
-						})
-					});
-					
-					if (decisionResponse.ok) {
-						const decision = await decisionResponse.json();
-						console.log('🔍 Auto web search decision:', decision);
-						
-						if (decision.web_search_needed) {
-							console.log('✅ Auto-enabling web search for this request only');
-							autoWebSearchEnabled = true;
-							// No toast notification - silent activation
-							// Don't modify webSearchEnabled - keep button state unchanged
-						}
-					}
-				}
-			} catch (error) {
-				console.log('⚠️ Auto web search decision failed:', error);
-				// Continue without web search
-			}
-		}
-
-		// FI-TS_custom 12.09.2025: Auto file search decision
+		let fileSearchDecisionMade = false;
+		
+		// STEP 1: File Search Decision (if files are available)
 		if ((files?.length ?? 0) > 0 && 
 			$config?.features?.enable_auto_file_search) {
 			
@@ -1846,16 +1809,62 @@ const initNewChat = async () => {
 					if (decisionResponse.ok) {
 						const decision = await decisionResponse.json();
 						console.log('📁 Auto file search decision:', decision);
+						fileSearchDecisionMade = true;
 						
 						if (!decision.file_search_needed) {
 							console.log('❌ Auto-disabling file search for this request only');
 							autoFileSearchEnabled = false;
+						} else {
+							console.log('✅ File search will be used - skipping web search decision');
 						}
 					}
 				}
 			} catch (error) {
 				console.log('⚠️ Auto file search decision failed:', error);
 				// Continue with file search enabled by default
+			}
+		}
+
+		// STEP 2: Web Search Decision (only if file search is not needed or no files available)
+		if (!fileSearchDecisionMade || !autoFileSearchEnabled) {
+			if (!webSearchEnabled && 
+				$config?.features?.enable_web_search && 
+				($user?.role === 'admin' || $user?.permissions?.features?.web_search)) {
+				
+				try {
+					const lastUserMessage = messages.filter(m => m.role === 'user').pop();
+					if (lastUserMessage?.content) {
+						console.log('🔍 Checking if web search would be beneficial...');
+						
+						const decisionResponse = await fetch(`${WEBUI_BASE_URL}/api/v1/tasks/agent/web_search_decision`, {
+							method: 'POST',
+							headers: {
+								'Content-Type': 'application/json',
+								'Authorization': `Bearer ${localStorage.token}`
+							},
+							body: JSON.stringify({
+								model: model.id,
+								messages: messages,
+								chat_id: $chatId
+							})
+						});
+						
+						if (decisionResponse.ok) {
+							const decision = await decisionResponse.json();
+							console.log('🔍 Auto web search decision:', decision);
+							
+							if (decision.web_search_needed) {
+								console.log('✅ Auto-enabling web search for this request only');
+								autoWebSearchEnabled = true;
+								// No toast notification - silent activation
+								// Don't modify webSearchEnabled - keep button state unchanged
+							}
+						}
+					}
+				} catch (error) {
+					console.log('⚠️ Auto web search decision failed:', error);
+					// Continue without web search
+				}
 			}
 		}
 

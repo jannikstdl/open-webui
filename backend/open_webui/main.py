@@ -269,6 +269,11 @@ from open_webui.config import (
     AUTO_WEB_SEARCH_DECISION_PROMPT_TEMPLATE,
     ENABLE_AUTO_FILE_SEARCH,
     AUTO_FILE_SEARCH_DECISION_PROMPT_TEMPLATE,
+    # File Content Summary
+    ENABLE_FILE_CONTENT_SUMMARY,
+    FILE_CONTENT_SUMMARY_MAX_CHARS,
+    FILE_CONTENT_SUMMARY_PROMPT_TEMPLATE,
+    DEFAULT_FILE_CONTENT_SUMMARY_PROMPT_TEMPLATE,
     WEB_SEARCH_ENGINE,
     BYPASS_WEB_SEARCH_EMBEDDING_AND_RETRIEVAL,
     BYPASS_WEB_SEARCH_WEB_LOADER,
@@ -893,6 +898,10 @@ app.state.config.ENABLE_AUTO_WEB_SEARCH = ENABLE_AUTO_WEB_SEARCH
 app.state.config.AUTO_WEB_SEARCH_DECISION_PROMPT_TEMPLATE = AUTO_WEB_SEARCH_DECISION_PROMPT_TEMPLATE
 app.state.config.ENABLE_AUTO_FILE_SEARCH = ENABLE_AUTO_FILE_SEARCH
 app.state.config.AUTO_FILE_SEARCH_DECISION_PROMPT_TEMPLATE = AUTO_FILE_SEARCH_DECISION_PROMPT_TEMPLATE
+# FI-TS_custom 12.09.2025: File content summary configuration
+app.state.config.ENABLE_FILE_CONTENT_SUMMARY = ENABLE_FILE_CONTENT_SUMMARY
+app.state.config.FILE_CONTENT_SUMMARY_MAX_CHARS = FILE_CONTENT_SUMMARY_MAX_CHARS
+app.state.config.FILE_CONTENT_SUMMARY_PROMPT_TEMPLATE = FILE_CONTENT_SUMMARY_PROMPT_TEMPLATE
 app.state.config.WEB_SEARCH_ENGINE = WEB_SEARCH_ENGINE
 app.state.config.WEB_SEARCH_DOMAIN_FILTER_LIST = WEB_SEARCH_DOMAIN_FILTER_LIST
 app.state.config.WEB_SEARCH_RESULT_COUNT = WEB_SEARCH_RESULT_COUNT
@@ -1767,6 +1776,7 @@ async def get_app_config(request: Request):
                     "enable_user_webhooks": app.state.config.ENABLE_USER_WEBHOOKS,
                     "enable_admin_export": ENABLE_ADMIN_EXPORT,
                     "enable_admin_chat_access": ENABLE_ADMIN_CHAT_ACCESS,
+                    "enable_file_content_summary": app.state.config.ENABLE_FILE_CONTENT_SUMMARY,
                     "enable_google_drive_integration": app.state.config.ENABLE_GOOGLE_DRIVE_INTEGRATION,
                     "enable_onedrive_integration": app.state.config.ENABLE_ONEDRIVE_INTEGRATION,
                 }
