@@ -2886,14 +2886,6 @@ ENABLE_AUTO_FULL_CONTEXT = PersistentConfig(
     os.getenv("ENABLE_AUTO_FULL_CONTEXT", "False").lower() == "true",
 )
 
-# FI-TS_custom 15.09.2025: Configuration for auto full context query generation template
-AUTO_FULL_CONTEXT_QUERY_GENERATION_PROMPT_TEMPLATE = PersistentConfig(
-    "AUTO_FULL_CONTEXT_QUERY_GENERATION_PROMPT_TEMPLATE",
-    "task.query.full_context.prompt_template",
-    os.environ.get("AUTO_FULL_CONTEXT_QUERY_GENERATION_PROMPT_TEMPLATE", ""),
-)
-
-
 # You can provide a list of your own websites to filter after performing a web search.
 # This ensures the highest level of safety and reliability of the information sources.
 WEB_SEARCH_DOMAIN_FILTER_LIST = PersistentConfig(
