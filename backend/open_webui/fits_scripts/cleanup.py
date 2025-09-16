@@ -1,12 +1,30 @@
+import os
+
+# Disable Chroma telemetry for this maintenance script to avoid
+# importing the optional posthog dependency with incompatible stubs.
+os.environ.setdefault("ANONYMIZED_TELEMETRY", "False")
+
+try:
+    import posthog  # type: ignore
+except Exception:  # pragma: no cover - optional dependency
+    posthog = None
+else:
+    if hasattr(posthog, "capture"):
+        def _noop_capture(*_args, **_kwargs):
+            return None
+
+        posthog.capture = _noop_capture  # type: ignore[attr-defined]
+
 import sqlite3
 import chromadb
-import re
 import itertools
 import json
 import argparse
-import os
-import pathlib
+import re
 import shutil
+
+
+DELETE_BATCH_SIZE = int(os.environ.get("CLEANUP_VECTOR_DELETE_BATCH_SIZE", "40000"))
 
 
 def get_ids(path):
@@ -148,12 +166,18 @@ def main():
 
     # Delete collections from chromadb
     if chroma_entries_to_delete and args.delete_vectors:
+        batch_size = max(1, DELETE_BATCH_SIZE)
         for collection in chroma_entries_to_delete:
             coll = client.get_collection(f'file-{collection}')
             ids = coll.get()['ids']
+            print(f"Deleting collection file-{collection} with {len(ids)} embeddings…")
             if ids:
-                coll.delete(ids)
+                for index in range(0, len(ids), batch_size):
+                    chunk = ids[index:index + batch_size]
+                    print(f"  - Removing embeddings {index + 1}-{index + len(chunk)}")
+                    coll.delete(ids=chunk)
             del coll
+            print(f"  - Dropping collection container file-{collection}")
             client.delete_collection(name=f"file-{collection}")
         print(f"Deleted {len(chroma_entries_to_delete)} collections from vector store.")
 
@@ -165,17 +189,20 @@ def main():
         dangling_folders = set(vector_folders).difference(held_ids)
         if dangling_folders:
             for folder in dangling_folders:
+                print(f"  - Removing vector folder: {folder}")
                 shutil.rmtree(os.path.join(chroma_path, folder))
             print(f"Deleted {len(dangling_folders)} dangling vector folders.")
 
     # Delete files from storage
     if files_to_delete and args.delete_files:
         for file_path in files_to_delete:
+            print(f"Deleting file from storage: {file_path}")
             os.remove(file_path)
         print(f"Deleted {len(files_to_delete)} files from uploads directory.")
 
     # Delete orphaned DB entries
     if ids_to_delete and args.delete_db_entries:
+        print(f"Deleting {len(ids_to_delete)} entries from 'file' table…")
         placeholders = ", ".join(["?"] * len(ids_to_delete))
         cursor.execute(f"DELETE FROM file WHERE id IN ({placeholders})", list(ids_to_delete))
         conn.commit()
