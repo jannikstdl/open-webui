@@ -24,7 +24,8 @@ import re
 import shutil
 
 
-DELETE_BATCH_SIZE = int(os.environ.get("CLEANUP_VECTOR_DELETE_BATCH_SIZE", "40000"))
+DELETE_BATCH_SIZE = int(os.environ.get("CLEANUP_VECTOR_DELETE_BATCH_SIZE", "20000"))
+DB_DELETE_BATCH_SIZE = int(os.environ.get("CLEANUP_DB_DELETE_BATCH_SIZE", "500"))
 
 
 def get_ids(path):
@@ -105,7 +106,8 @@ def main():
     referenced_ids_set = chat_file_ids_set.union(knowledge_ids_set)
 
     # Orphaned file entries in DB
-    ids_to_delete = webuidb_file_ids_set.difference(referenced_ids_set)
+    ids_to_delete_set = webuidb_file_ids_set.difference(referenced_ids_set)
+    ids_to_delete = sorted(ids_to_delete_set)
 
     print(f"Found {len(knowledge_ids_set)} files in knowledge, "
           f"{len(chat_file_ids_set)} files in chat. Total referenced: {len(referenced_ids_set)}")
@@ -130,7 +132,7 @@ def main():
         file_path = os.path.join(uploads_dir, file_name)
         if file_id not in referenced_ids_set:
             files_to_delete.append(file_path)
-            if file_id not in ids_to_delete:
+            if file_id not in ids_to_delete_set:
                 unknown_files.append(file_path)
 
     print(f"{len(files_to_delete)} files can be deleted from storage. "
@@ -203,9 +205,13 @@ def main():
     # Delete orphaned DB entries
     if ids_to_delete and args.delete_db_entries:
         print(f"Deleting {len(ids_to_delete)} entries from 'file' table…")
-        placeholders = ", ".join(["?"] * len(ids_to_delete))
-        cursor.execute(f"DELETE FROM file WHERE id IN ({placeholders})", list(ids_to_delete))
-        conn.commit()
+        batch_size = max(1, DB_DELETE_BATCH_SIZE)
+        for index in range(0, len(ids_to_delete), batch_size):
+            chunk = ids_to_delete[index:index + batch_size]
+            placeholders = ", ".join(["?"] * len(chunk))
+            print(f"  - Removing DB entries {index + 1}-{index + len(chunk)}")
+            cursor.execute(f"DELETE FROM file WHERE id IN ({placeholders})", chunk)
+            conn.commit()
         print(f"Deleted {len(ids_to_delete)} entries from 'file' table.")
 
     conn.close()
