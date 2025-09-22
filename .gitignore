@@ -313,4 +313,4 @@ cypress/screenshots
 .vscode/settings.json
 
 # Assistant files
-CLAUDE
+CLAUDE.md
