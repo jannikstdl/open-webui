@@ -7,18 +7,21 @@ import redis
 
 from datetime import datetime
 from pathlib import Path
-from typing import Generic, Optional, TypeVar
+from typing import Generic, Union, Optional, TypeVar
 from urllib.parse import urlparse
 
 import requests
 from pydantic import BaseModel
 from sqlalchemy import JSON, Column, DateTime, Integer, func
+from authlib.integrations.starlette_client import OAuth
+
 
 from open_webui.env import (
     DATA_DIR,
     DATABASE_URL,
     ENV,
     REDIS_URL,
+    REDIS_KEY_PREFIX,
     REDIS_SENTINEL_HOSTS,
     REDIS_SENTINEL_PORT,
     FRONTEND_BUILD_DIR,
@@ -112,43 +115,6 @@ DEFAULT_CONFIG = {
     "version": 0,
     "ui": {
         "default_locale": "de-DE", 
-        "prompt_suggestions": [
-            {
-			"title": ["Hilf mir beim Lernen", "Englisch-Vokabeln für Fortgeschrittene"],
-			"content": "Help me learn English vocabulary for C2 (Proficiency): write a sentence for me to fill the grammatical gap, and I will try to choose the correct option. If I get it wrong, give me hints the first time, and the solution with an explanation the second time. Then create a new task."
-		},
-		{
-			"title": [
-				"Kurzgeschichte erstellen",
-				"zu einem beliebigen Thema in meinem Lieblingsgenre"
-			],
-			"content": "Gestalten wir eine fesselnde Kurzgeschichte. Kannst du mich zunächst nach meinem Lieblingsgenre und einem Thema oder Element fragen, das enthalten sein sollte?"
-		},
-		{
-			"title": ["Erzähle mir einen interessanten Fakt", "über das Römische Reich"],
-			"content": "Erzähle mir einen zufälligen, interessanten Fakt über das Römische Reich."
-		},
-		{
-			"title": ["Entspannungstag planen", "plane einen Entspannungstag"],
-			"content": "Kannst du mir helfen, einen Entspannungstag zu planen, bei dem entspannende Aktivitäten im Mittelpunkt stehen? Frage mich zunächst, wie ich mich am liebsten entspanne."
-		},
-		{
-			"title": ["Textformulierung", "formuliere folgenden Satz um"],
-			"content": "Formuliere folgenden Text in \"[Stil]\" um: \"[Text]\""
-		},
-		{
-			"title": ["Codegenerierung", "generiere folgenden Code"],
-			"content": "Gib mir den Code für ein \"[Programmiersprache]\" Programm, welches \"[Zweck]\" erfüllt bzw. kann."
-		},
-		{
-			"title": ["Rechtschreibprüfung", "schreibe einen Text um"],
-			"content": "Überprüfe den folgenden Text auf Grammatik- und Rechtschreibfehler: \"[Text]\". Schreibe diesen Text um, während du die ursprüngliche Bedeutung beibehältst."
-		},
-		{
-			"title": ["Technische Fehleranalyse", "gib mir Tipps, um einen Fehler zu beheben"],
-			"content": "Ich bekomme in \"[Anwendung]\" folgenden Fehler: \"[Fehlerbeschreibung]\". Woran kann das liegen?"
-		},
-        ],
     },
 }
 
@@ -205,9 +171,19 @@ class PersistentConfig(Generic[T]):
         self.config_path = config_path
         self.env_value = env_value
         self.config_value = get_config_value(config_path)
+
         if self.config_value is not None and ENABLE_PERSISTENT_CONFIG:
-            log.info(f"'{env_name}' loaded from the latest database entry")
-            self.value = self.config_value
+            if (
+                self.config_path.startswith("oauth.")
+                and not ENABLE_OAUTH_PERSISTENT_CONFIG
+            ):
+                log.info(
+                    f"Skipping loading of '{env_name}' as OAuth persistent config is disabled"
+                )
+                self.value = env_value
+            else:
+                log.info(f"'{env_name}' loaded from the latest database entry")
+                self.value = self.config_value
         else:
             self.value = env_value
 
@@ -250,16 +226,27 @@ class PersistentConfig(Generic[T]):
 
 class AppConfig:
     _state: dict[str, PersistentConfig]
-    _redis: Optional[redis.Redis] = None
+    _redis: Union[redis.Redis, redis.cluster.RedisCluster] = None
+    _redis_key_prefix: str
 
     def __init__(
-        self, redis_url: Optional[str] = None, redis_sentinels: Optional[list] = []
+        self,
+        redis_url: Optional[str] = None,
+        redis_sentinels: Optional[list] = [],
+        redis_cluster: Optional[bool] = False,
+        redis_key_prefix: str = "open-webui",
     ):
         super().__setattr__("_state", {})
+        super().__setattr__("_redis_key_prefix", redis_key_prefix)
         if redis_url:
             super().__setattr__(
                 "_redis",
-                get_redis_connection(redis_url, redis_sentinels, decode_responses=True),
+                get_redis_connection(
+                    redis_url,
+                    redis_sentinels,
+                    redis_cluster,
+                    decode_responses=True,
+                ),
             )
 
     def __setattr__(self, key, value):
@@ -270,7 +257,7 @@ class AppConfig:
             self._state[key].save()
 
             if self._redis:
-                redis_key = f"open-webui:config:{key}"
+                redis_key = f"{self._redis_key_prefix}:config:{key}"
                 self._redis.set(redis_key, json.dumps(self._state[key].value))
 
     def __getattr__(self, key):
@@ -279,7 +266,7 @@ class AppConfig:
 
         # If Redis is available, check for an updated value
         if self._redis:
-            redis_key = f"open-webui:config:{key}"
+            redis_key = f"{self._redis_key_prefix}:config:{key}"
             redis_value = self._redis.get(redis_key)
 
             if redis_value is not None:
@@ -328,6 +315,9 @@ JWT_EXPIRES_IN = PersistentConfig(
 # OAuth config
 ####################################
 
+ENABLE_OAUTH_PERSISTENT_CONFIG = (
+    os.environ.get("ENABLE_OAUTH_PERSISTENT_CONFIG", "False").lower() == "true"
+)
 
 ENABLE_OAUTH_SIGNUP = PersistentConfig(
     "ENABLE_OAUTH_SIGNUP",
@@ -471,6 +461,18 @@ OAUTH_SCOPES = PersistentConfig(
     os.environ.get("OAUTH_SCOPES", "openid email profile"),
 )
 
+OAUTH_TIMEOUT = PersistentConfig(
+    "OAUTH_TIMEOUT",
+    "oauth.oidc.oauth_timeout",
+    os.environ.get("OAUTH_TIMEOUT", ""),
+)
+
+OAUTH_TOKEN_ENDPOINT_AUTH_METHOD = PersistentConfig(
+    "OAUTH_TOKEN_ENDPOINT_AUTH_METHOD",
+    "oauth.oidc.token_endpoint_auth_method",
+    os.environ.get("OAUTH_TOKEN_ENDPOINT_AUTH_METHOD", None),
+)
+
 OAUTH_CODE_CHALLENGE_METHOD = PersistentConfig(
     "OAUTH_CODE_CHALLENGE_METHOD",
     "oauth.oidc.code_challenge_method",
@@ -481,6 +483,12 @@ OAUTH_PROVIDER_NAME = PersistentConfig(
     "OAUTH_PROVIDER_NAME",
     "oauth.oidc.provider_name",
     os.environ.get("OAUTH_PROVIDER_NAME", "SSO"),
+)
+
+OAUTH_SUB_CLAIM = PersistentConfig(
+    "OAUTH_SUB_CLAIM",
+    "oauth.oidc.sub_claim",
+    os.environ.get("OAUTH_SUB_CLAIM", None),
 )
 
 OAUTH_USERNAME_CLAIM = PersistentConfig(
@@ -505,7 +513,7 @@ OAUTH_EMAIL_CLAIM = PersistentConfig(
 OAUTH_GROUPS_CLAIM = PersistentConfig(
     "OAUTH_GROUPS_CLAIM",
     "oauth.oidc.group_claim",
-    os.environ.get("OAUTH_GROUP_CLAIM", "groups"),
+    os.environ.get("OAUTH_GROUPS_CLAIM", os.environ.get("OAUTH_GROUP_CLAIM", "groups")),
 )
 
 ENABLE_OAUTH_ROLE_MANAGEMENT = PersistentConfig(
@@ -574,13 +582,20 @@ def load_oauth_providers():
     OAUTH_PROVIDERS.clear()
     if GOOGLE_CLIENT_ID.value and GOOGLE_CLIENT_SECRET.value:
 
-        def google_oauth_register(client):
+        def google_oauth_register(client: OAuth):
             client.register(
                 name="google",
                 client_id=GOOGLE_CLIENT_ID.value,
                 client_secret=GOOGLE_CLIENT_SECRET.value,
                 server_metadata_url="https://accounts.google.com/.well-known/openid-configuration",
-                client_kwargs={"scope": GOOGLE_OAUTH_SCOPE.value},
+                client_kwargs={
+                    "scope": GOOGLE_OAUTH_SCOPE.value,
+                    **(
+                        {"timeout": int(OAUTH_TIMEOUT.value)}
+                        if OAUTH_TIMEOUT.value
+                        else {}
+                    ),
+                },
                 redirect_uri=GOOGLE_REDIRECT_URI.value,
             )
 
@@ -595,7 +610,7 @@ def load_oauth_providers():
         and MICROSOFT_CLIENT_TENANT_ID.value
     ):
 
-        def microsoft_oauth_register(client):
+        def microsoft_oauth_register(client: OAuth):
             client.register(
                 name="microsoft",
                 client_id=MICROSOFT_CLIENT_ID.value,
@@ -603,6 +618,11 @@ def load_oauth_providers():
                 server_metadata_url=f"{MICROSOFT_CLIENT_LOGIN_BASE_URL.value}/{MICROSOFT_CLIENT_TENANT_ID.value}/v2.0/.well-known/openid-configuration?appid={MICROSOFT_CLIENT_ID.value}",
                 client_kwargs={
                     "scope": MICROSOFT_OAUTH_SCOPE.value,
+                    **(
+                        {"timeout": int(OAUTH_TIMEOUT.value)}
+                        if OAUTH_TIMEOUT.value
+                        else {}
+                    ),
                 },
                 redirect_uri=MICROSOFT_REDIRECT_URI.value,
             )
@@ -615,7 +635,7 @@ def load_oauth_providers():
 
     if GITHUB_CLIENT_ID.value and GITHUB_CLIENT_SECRET.value:
 
-        def github_oauth_register(client):
+        def github_oauth_register(client: OAuth):
             client.register(
                 name="github",
                 client_id=GITHUB_CLIENT_ID.value,
@@ -624,7 +644,14 @@ def load_oauth_providers():
                 authorize_url="https://github.com/login/oauth/authorize",
                 api_base_url="https://api.github.com",
                 userinfo_endpoint="https://api.github.com/user",
-                client_kwargs={"scope": GITHUB_CLIENT_SCOPE.value},
+                client_kwargs={
+                    "scope": GITHUB_CLIENT_SCOPE.value,
+                    **(
+                        {"timeout": int(OAUTH_TIMEOUT.value)}
+                        if OAUTH_TIMEOUT.value
+                        else {}
+                    ),
+                },
                 redirect_uri=GITHUB_CLIENT_REDIRECT_URI.value,
             )
 
@@ -636,13 +663,23 @@ def load_oauth_providers():
 
     if (
         OAUTH_CLIENT_ID.value
-        and OAUTH_CLIENT_SECRET.value
+        and (OAUTH_CLIENT_SECRET.value or OAUTH_CODE_CHALLENGE_METHOD.value)
         and OPENID_PROVIDER_URL.value
     ):
 
-        def oidc_oauth_register(client):
+        def oidc_oauth_register(client: OAuth):
             client_kwargs = {
                 "scope": OAUTH_SCOPES.value,
+                **(
+                    {
+                        "token_endpoint_auth_method": OAUTH_TOKEN_ENDPOINT_AUTH_METHOD.value
+                    }
+                    if OAUTH_TOKEN_ENDPOINT_AUTH_METHOD.value
+                    else {}
+                ),
+                **(
+                    {"timeout": int(OAUTH_TIMEOUT.value)} if OAUTH_TIMEOUT.value else {}
+                ),
             }
 
             if (
@@ -671,6 +708,23 @@ def load_oauth_providers():
             "register": oidc_oauth_register,
         }
 
+    configured_providers = []
+    if GOOGLE_CLIENT_ID.value:
+        configured_providers.append("Google")
+    if MICROSOFT_CLIENT_ID.value:
+        configured_providers.append("Microsoft")
+    if GITHUB_CLIENT_ID.value:
+        configured_providers.append("GitHub")
+
+    if configured_providers and not OPENID_PROVIDER_URL.value:
+        provider_list = ", ".join(configured_providers)
+        log.warning(
+            f"⚠️  OAuth providers configured ({provider_list}) but OPENID_PROVIDER_URL not set - logout will not work!"
+        )
+        log.warning(
+            f"Set OPENID_PROVIDER_URL to your OAuth provider's OpenID Connect discovery endpoint to fix logout functionality."
+        )
+
 
 load_oauth_providers()
 
@@ -679,6 +733,17 @@ load_oauth_providers()
 ####################################
 
 STATIC_DIR = Path(os.getenv("STATIC_DIR", OPEN_WEBUI_DIR / "static")).resolve()
+
+try:
+    if STATIC_DIR.exists():
+        for item in STATIC_DIR.iterdir():
+            if item.is_file() or item.is_symlink():
+                try:
+                    item.unlink()
+                except Exception as e:
+                    pass
+except Exception as e:
+    pass
 
 for file_path in (FRONTEND_BUILD_DIR / "static").glob("**/*"):
     if file_path.is_file():
@@ -760,12 +825,6 @@ CUSTOM_NAME = os.environ.get("CUSTOM_NAME", "FI-TS AI Chat")
 
 
 ####################################
-# LICENSE_KEY
-####################################
-
-LICENSE_KEY = os.environ.get("LICENSE_KEY", "")
-
-####################################
 # STORAGE PROVIDER
 ####################################
 
@@ -815,7 +874,7 @@ CACHE_DIR.mkdir(parents=True, exist_ok=True)
 ENABLE_DIRECT_CONNECTIONS = PersistentConfig(
     "ENABLE_DIRECT_CONNECTIONS",
     "direct.enable",
-    os.environ.get("ENABLE_DIRECT_CONNECTIONS", "True").lower() == "true",
+    os.environ.get("ENABLE_DIRECT_CONNECTIONS", "False").lower() == "true",
 )
 
 ####################################
@@ -897,6 +956,9 @@ GEMINI_API_BASE_URL = os.environ.get("GEMINI_API_BASE_URL", "")
 
 if OPENAI_API_BASE_URL == "":
     OPENAI_API_BASE_URL = "https://api.openai.com/v1"
+else:
+    if OPENAI_API_BASE_URL.endswith("/"):
+        OPENAI_API_BASE_URL = OPENAI_API_BASE_URL[:-1]
 
 OPENAI_API_KEYS = os.environ.get("OPENAI_API_KEYS", "")
 OPENAI_API_KEYS = OPENAI_API_KEYS if OPENAI_API_KEYS != "" else OPENAI_API_KEY
@@ -934,6 +996,18 @@ try:
 except Exception:
     pass
 OPENAI_API_BASE_URL = "https://api.openai.com/v1"
+
+
+####################################
+# MODELS
+####################################
+
+ENABLE_BASE_MODELS_CACHE = PersistentConfig(
+    "ENABLE_BASE_MODELS_CACHE",
+    "models.base_models_cache",
+    os.environ.get("ENABLE_BASE_MODELS_CACHE", "False").lower() == "true",
+)
+
 
 ####################################
 # TOOL_SERVERS
@@ -1125,8 +1199,16 @@ USER_PERMISSIONS_CHAT_CONTROLS = (
     os.environ.get("USER_PERMISSIONS_CHAT_CONTROLS", "True").lower() == "true"
 )
 
+USER_PERMISSIONS_CHAT_VALVES = (
+    os.environ.get("USER_PERMISSIONS_CHAT_VALVES", "True").lower() == "true"
+)
+
 USER_PERMISSIONS_CHAT_SYSTEM_PROMPT = (
     os.environ.get("USER_PERMISSIONS_CHAT_SYSTEM_PROMPT", "True").lower() == "true"
+)
+
+USER_PERMISSIONS_CHAT_PARAMS = (
+    os.environ.get("USER_PERMISSIONS_CHAT_PARAMS", "True").lower() == "true"
 )
 
 USER_PERMISSIONS_CHAT_FILE_UPLOAD = (
@@ -1135,6 +1217,23 @@ USER_PERMISSIONS_CHAT_FILE_UPLOAD = (
 
 USER_PERMISSIONS_CHAT_DELETE = (
     os.environ.get("USER_PERMISSIONS_CHAT_DELETE", "True").lower() == "true"
+)
+
+USER_PERMISSIONS_CHAT_DELETE_MESSAGE = (
+    os.environ.get("USER_PERMISSIONS_CHAT_DELETE_MESSAGE", "True").lower() == "true"
+)
+
+USER_PERMISSIONS_CHAT_CONTINUE_RESPONSE = (
+    os.environ.get("USER_PERMISSIONS_CHAT_CONTINUE_RESPONSE", "True").lower() == "true"
+)
+
+USER_PERMISSIONS_CHAT_REGENERATE_RESPONSE = (
+    os.environ.get("USER_PERMISSIONS_CHAT_REGENERATE_RESPONSE", "True").lower()
+    == "true"
+)
+
+USER_PERMISSIONS_CHAT_RATE_RESPONSE = (
+    os.environ.get("USER_PERMISSIONS_CHAT_RATE_RESPONSE", "True").lower() == "true"
 )
 
 USER_PERMISSIONS_CHAT_EDIT = (
@@ -1214,9 +1313,15 @@ DEFAULT_USER_PERMISSIONS = {
     },
     "chat": {
         "controls": USER_PERMISSIONS_CHAT_CONTROLS,
+        "valves": USER_PERMISSIONS_CHAT_VALVES,
         "system_prompt": USER_PERMISSIONS_CHAT_SYSTEM_PROMPT,
+        "params": USER_PERMISSIONS_CHAT_PARAMS,
         "file_upload": USER_PERMISSIONS_CHAT_FILE_UPLOAD,
         "delete": USER_PERMISSIONS_CHAT_DELETE,
+        "delete_message": USER_PERMISSIONS_CHAT_DELETE_MESSAGE,
+        "continue_response": USER_PERMISSIONS_CHAT_CONTINUE_RESPONSE,
+        "regenerate_response": USER_PERMISSIONS_CHAT_REGENERATE_RESPONSE,
+        "rate_response": USER_PERMISSIONS_CHAT_RATE_RESPONSE,
         "edit": USER_PERMISSIONS_CHAT_EDIT,
         "share": USER_PERMISSIONS_CHAT_SHARE,
         "export": USER_PERMISSIONS_CHAT_EXPORT,
@@ -1281,6 +1386,18 @@ WEBHOOK_URL = PersistentConfig(
 
 ENABLE_ADMIN_EXPORT = os.environ.get("ENABLE_ADMIN_EXPORT", "False").lower() == "true"
 
+ENABLE_ADMIN_WORKSPACE_CONTENT_ACCESS = (
+    os.environ.get("ENABLE_ADMIN_WORKSPACE_CONTENT_ACCESS", "True").lower() == "true"
+)
+
+BYPASS_ADMIN_ACCESS_CONTROL = (
+    os.environ.get(
+        "BYPASS_ADMIN_ACCESS_CONTROL",
+        os.environ.get("ENABLE_ADMIN_WORKSPACE_CONTENT_ACCESS", "True"),
+    ).lower()
+    == "true"
+)
+
 ENABLE_ADMIN_CHAT_ACCESS = (
     os.environ.get("ENABLE_ADMIN_CHAT_ACCESS", "False").lower() == "true"
 )
@@ -1319,10 +1436,11 @@ if THREAD_POOL_SIZE is not None and isinstance(THREAD_POOL_SIZE, str):
 def validate_cors_origin(origin):
     parsed_url = urlparse(origin)
 
-    # Check if the scheme is either http or https
-    if parsed_url.scheme not in ["http", "https"]:
+    # Check if the scheme is either http or https, or a custom scheme
+    schemes = ["http", "https"] + CORS_ALLOW_CUSTOM_SCHEME
+    if parsed_url.scheme not in schemes:
         raise ValueError(
-            f"Invalid scheme in CORS_ALLOW_ORIGIN: '{origin}'. Only 'http' and 'https' are allowed."
+            f"Invalid scheme in CORS_ALLOW_ORIGIN: '{origin}'. Only 'http' and 'https' and CORS_ALLOW_CUSTOM_SCHEME are allowed."
         )
 
     # Ensure that the netloc (domain + port) is present, indicating it's a valid URL
@@ -1336,6 +1454,11 @@ def validate_cors_origin(origin):
 # CORS_ALLOW_ORIGIN=http://localhost:5173;http://localhost:8080
 # in your .env file depending on your frontend port, 5173 in this case.
 CORS_ALLOW_ORIGIN = os.environ.get("CORS_ALLOW_ORIGIN", "*").split(";")
+
+# Allows custom URL schemes (e.g., app://) to be used as origins for CORS.
+# Useful for local development or desktop clients with schemes like app:// or other custom protocols.
+# Provide a semicolon-separated list of allowed schemes in the environment variable CORS_ALLOW_CUSTOM_SCHEMES.
+CORS_ALLOW_CUSTOM_SCHEME = os.environ.get("CORS_ALLOW_CUSTOM_SCHEME", "").split(";")
 
 if CORS_ALLOW_ORIGIN == ["*"]:
     log.warning(
@@ -1538,6 +1661,51 @@ QUERY_GENERATION_PROMPT_TEMPLATE = PersistentConfig(
     os.environ.get("QUERY_GENERATION_PROMPT_TEMPLATE", ""),
 )
 
+WEB_SEARCH_QUERY_GENERATION_PROMPT_TEMPLATE = PersistentConfig(
+    "WEB_SEARCH_QUERY_GENERATION_PROMPT_TEMPLATE",
+    "task.query.web_search.prompt_template",
+    os.environ.get("WEB_SEARCH_QUERY_GENERATION_PROMPT_TEMPLATE", ""),
+)
+
+# FI-TS_custom 12.09.2025: Configuration for automatic web search decision prompt
+AUTO_WEB_SEARCH_DECISION_PROMPT_TEMPLATE = PersistentConfig(
+    "AUTO_WEB_SEARCH_DECISION_PROMPT_TEMPLATE",
+    "task.query.web_search.auto_decision.prompt_template",
+    os.environ.get("AUTO_WEB_SEARCH_DECISION_PROMPT_TEMPLATE", ""),
+)
+
+# FI-TS_custom 12.09.2025: Configuration for automatic file search decision prompt
+AUTO_FILE_SEARCH_DECISION_PROMPT_TEMPLATE = PersistentConfig(
+    "AUTO_FILE_SEARCH_DECISION_PROMPT_TEMPLATE",
+    "task.query.file_search.auto_decision.prompt_template",
+    os.environ.get("AUTO_FILE_SEARCH_DECISION_PROMPT_TEMPLATE", ""),
+)
+
+# FI-TS_custom 12.09.2025: Configuration for file content summary generation
+ENABLE_FILE_CONTENT_SUMMARY = PersistentConfig(
+    "ENABLE_FILE_CONTENT_SUMMARY",
+    "rag.file.content.summary.enable",
+    os.getenv("ENABLE_FILE_CONTENT_SUMMARY", "False").lower() == "true",
+)
+
+FILE_CONTENT_SUMMARY_MAX_CHARS = PersistentConfig(
+    "FILE_CONTENT_SUMMARY_MAX_CHARS",
+    "rag.file.content.summary.max_chars",
+    int(os.getenv("FILE_CONTENT_SUMMARY_MAX_CHARS", "50000")),
+)
+
+FILE_CONTENT_SUMMARY_PROMPT_TEMPLATE = PersistentConfig(
+    "FILE_CONTENT_SUMMARY_PROMPT_TEMPLATE",
+    "rag.file.content.summary.prompt_template",
+    os.environ.get("FILE_CONTENT_SUMMARY_PROMPT_TEMPLATE", ""),
+)
+
+RETRIEVAL_QUERY_GENERATION_PROMPT_TEMPLATE = PersistentConfig(
+    "RETRIEVAL_QUERY_GENERATION_PROMPT_TEMPLATE",
+    "task.query.retrieval.prompt_template", 
+    os.environ.get("RETRIEVAL_QUERY_GENERATION_PROMPT_TEMPLATE", ""),
+)
+
 DEFAULT_QUERY_GENERATION_PROMPT_TEMPLATE = """### Task:
 Analyze the chat history to determine the necessity of generating search queries, in the given language. By default, **prioritize generating 1-3 broad and relevant search queries** unless it is absolutely certain that no additional information is required. The aim is to retrieve comprehensive, updated, and valuable information even with minimal uncertainty. If no search is unequivocally needed, return an empty list.
 
@@ -1549,6 +1717,160 @@ Analyze the chat history to determine the necessity of generating search queries
 - Be concise and focused on composing high-quality search queries, avoiding unnecessary elaboration, commentary, or assumptions.
 - Today's date is: {{CURRENT_DATE}}.
 - Always prioritize providing actionable and broad queries that maximize informational coverage.
+
+### Output:
+Strictly return in JSON format: 
+{
+  "queries": ["query1", "query2"]
+}
+
+### Chat History:
+<chat_history>
+{{MESSAGES:END:6}}
+</chat_history>
+"""
+
+DEFAULT_WEB_SEARCH_QUERY_GENERATION_PROMPT_TEMPLATE = """### Task:
+Analyze the chat history to generate effective web search queries that will find relevant, current information online in the same language as the user query. Generate **1-3 broad and specific search queries** optimized for web search engines unless it is absolutely certain that no web search is needed. Focus on generating queries that will find recent news, current information, or comprehensive online resources.
+
+### Guidelines:
+- Respond **EXCLUSIVELY** with a JSON object. Any form of extra commentary, explanation, or additional text is strictly prohibited.
+- You get the chat history as context, but use the latest user message as the primary source of intent. Use earlier messages **only if necessary** to resolve ambiguity.
+- Generate search queries optimized for web search engines (Google, Bing, etc.)
+- Focus on finding current information, recent developments, news, or comprehensive online resources
+- Use keywords and phrases that work well with search engines
+- Consider synonyms and alternative phrasings to maximize search coverage
+- Incorporate web search operators (e.g., `site:`, `filetype:`, `intitle:`, `-keyword`, `before:YYYY-MM-DD`, `AROUND(n)`) where appropriate to refine or broaden results
+- If the user gives you a specific website or source, generate only the in queries for the targeted links (e.g., `site:example.com`)
+- Respond in the format: { "queries": ["query1", "query2"] }, ensuring each query is distinct and effective for web search
+- If no web search is needed, return: { "queries": [] }
+- Today's date is: {{CURRENT_DATE}}.
+
+### Output:
+Strictly return in JSON format: 
+{
+  "queries": ["query1", "query2"]
+}
+
+### Chat History:
+<chat_history>
+{{MESSAGES:END:6}}
+</chat_history>
+"""
+
+# FI-TS_custom 12.09.2025: Prompt template for automatic web search decision
+DEFAULT_AUTO_WEB_SEARCH_DECISION_PROMPT_TEMPLATE = """### Task:
+Analyze the user's request and determine if a web search is NECESSARY for accurate information. **Be conservative - only use web search when the question explicitly requires current data, specific recent information, or when you are uncertain about specific factual claims.** The user may ask in any language (multilingual support).
+
+### When web search IS necessary:
+- **Explicit search requests**: "Search for X", "Can you search for Y?", "Find current information about Z"
+- **Questions with time indicators**: "currently", "latest", "recent", "now", "this year", "today"
+- **Real-time data**: Live stock prices, current weather, breaking news, today's events
+- **Very recent developments**: Product launches from this month, latest technology updates, recent company news
+- **Person queries when context suggests current info needed**: If conversation history shows need for recent information about public figures
+- **Specific current events**: Election results, recent sports outcomes, breaking news topics
+- **UNCERTAINTY ABOUT SPECIFIC FACTS**: When you cannot confidently provide specific details about movies, books, products, companies, or other factual information - SEARCH rather than guess or fabricate details
+- **User corrections indicating wrong information**: If user says your previous response was incorrect about specific facts
+
+### When web search is NOT needed (use general knowledge):
+- **General knowledge questions**: "What are popular travel destinations?", "What's the capital of Germany?"
+- **Broad informational queries**: "What are popular winter destinations for Germans?" - this can be answered with general knowledge about established travel patterns
+- **Historical facts**: Well-established past events, basic concepts, common definitions
+- **Creative tasks**: Writing, brainstorming, storytelling
+- **Personal opinions**: Subjective advice, recommendations based on preferences
+- **Math/calculations**: Computational problems that don't need external data
+- **Technical explanations**: Programming concepts, scientific principles
+- **Simple acknowledgments**: "Thanks", "OK", "I understand"
+- **Questions without time context**: If no indicators suggest need for current information
+
+### Critical Rule:
+**NEVER fabricate or guess specific details about movies, books, products, people, or companies. If uncertain about specific factual information, use web search instead of potentially providing incorrect details.**
+- **Comparative questions**: "What's better X or Y?" unless specifically about recent comparisons
+- **How-to questions**: General instructions or explanations that don't require current data
+- **Definition questions**: Explaining concepts, terms, or processes
+
+### Key Decision Points:
+1. **Does the question contain time indicators?** (currently, latest, recent, now, etc.) → Consider web search
+2. **Can this be answered with established general knowledge?** → Don't use web search
+3. **Is this an explicit search request?** → Use web search
+4. **Would the answer change based on current events or recent data?** → Consider web search
+5. **Is this about general trends, patterns, or established facts?** → Don't use web search
+
+### Response Format:
+Return ONLY a JSON object with this structure:
+{
+  "web_search_needed": boolean
+}
+
+### Chat History:
+{{MESSAGES}}
+
+### Current User Query:
+{{QUERY}}"""
+
+# FI-TS_custom 12.09.2025: Prompt template for automatic file search decision
+DEFAULT_AUTO_FILE_SEARCH_DECISION_PROMPT_TEMPLATE = """### Task:
+Analyze the user's request in context and determine if searching attached files/collections would provide relevant information. Consider both the explicit request and the nature of attached files. The user may ask in any language (multilingual support).
+
+**CRITICAL FOR FOLLOW-UP QUESTIONS**: Pay special attention to conversational context. Follow-up questions like "Und sonst noch?" (And what else?), "Was noch?" (What more?), "Anything else?", "Tell me more", or similar phrases typically refer to the same topic discussed previously and should continue using the same information source (files/collections) that was relevant for the previous question.
+
+### Available Files/Collections Context:
+{{FILE_CONTEXT}}
+
+**Important**: When files have content summaries available, use these summaries to assess relevance. A file might be relevant to a query even if the filename doesn't obviously match - the content summary reveals the actual subject matter.
+
+### Chat History Analysis:
+{{MESSAGES}}
+
+**Context Analysis**: Review the chat history to understand:
+1. **Topic Continuity**: Is the current query a follow-up to a previous question about the same subject?
+2. **Information Source**: Was the previous answer based on file/collection content?
+3. **Conversational Flow**: Does the user expect more information from the same source?
+
+### When file search IS beneficial:
+- **Direct file references**: "What's in the file?", "Analyze the document", "What does the file say about X?"
+- **Knowledge base queries**: "What's in your knowledge?", "What files do you have?", "Show me the collection"
+- **Collection references**: "What's in the collection?", "Search the collection", "What's in the knowledge base?"
+- **Content-specific queries**: Questions that could be answered by the attached file content, **especially when content summaries indicate relevant information**
+- **Data analysis requests**: "What are the sales figures?", "Show me the budget breakdown"
+- **Document summarization**: "Summarize the report", "Key points from the document"
+- **Search within files**: "Find references to X", "What section talks about Y?"
+- **Questions about file content/domain**: If file content summaries indicate relevance to the user's question domain
+- **Subject-matter queries**: When user asks about specific topics, organizations, or concepts that appear in the content summaries
+- **Internal knowledge queries**: "What do you know about..." when files are attached
+- **File listing/overview**: "What documents do you have?", "List attached files"
+- **Cross-reference queries**: Questions about entities, organizations, contacts, or topics mentioned in content summaries
+- **FOLLOW-UP QUESTIONS**: If the previous question was answered using file content and the current query is asking for more information on the same topic ("Was noch?", "Und sonst noch?", "What else?", "Tell me more", "Any other details?", etc.)
+- **CONTINUATION QUERIES**: Questions that logically extend previous file-based answers ("Was hat er noch gemacht?", "Where else did he work?", "What other projects?")
+
+### When file search is NOT needed:
+- **General knowledge**: "What's the weather?", "What's the capital of Germany?"
+- **Unrelated topics**: Questions clearly unrelated to file content or domain AND not following up on previous file-based answers
+- **Simple acknowledgments**: "Thanks", "OK", "I understand" (unless asking for more information)
+- **Creative tasks**: Writing, brainstorming unrelated to file content
+- **Technical help**: Programming questions unrelated to attached files
+- **Personal opinions**: Subjective advice not based on file content
+- **Questions clearly outside file scope**: If file is about marketing but user asks about cooking (unless it's a follow-up)
+
+### Response Format:
+Return ONLY a JSON object with this structure:
+{
+  "file_search_needed": boolean
+}
+
+### Current User Query:
+{{QUERY}}"""
+
+DEFAULT_RETRIEVAL_QUERY_GENERATION_PROMPT_TEMPLATE = """### Task:
+Analyze the chat history to generate effective retrieval queries that capture the user's information need in the same language as the user query. Use the chat history **only if the latest message clearly depends on prior context**. Generate 1–3 high-quality, semantically meaningful queries. The goal is to retrieve relevant knowledge from a vector database.
+
+### Guidelines:
+- Respond **EXCLUSIVELY** with a JSON object. Any form of extra commentary, explanation, or additional text is strictly prohibited.
+- Each query should be a clear, information-rich sentence or phrase that captures the user's intent.
+- Provide a **mixture of full-sentence queries and concise keyword-style queries** (e.g. entity-based or phrase-based).
+- Avoid overly verbose or irrelevant queries. Be concise.
+- Use the latest user message as the primary source of intent. Use earlier messages **only if necessary** to resolve ambiguity.
+- If no retrieval is needed, return: { "queries": [] }
 
 ### Output:
 Strictly return in JSON format: 
@@ -1777,6 +2099,11 @@ CODE_INTERPRETER_JUPYTER_TIMEOUT = PersistentConfig(
     ),
 )
 
+CODE_INTERPRETER_BLOCKED_MODULES = [
+    library.strip()
+    for library in os.environ.get("CODE_INTERPRETER_BLOCKED_MODULES", "").split(",")
+    if library.strip()
+]
 
 DEFAULT_CODE_INTERPRETER_PROMPT = """
 #### Tools Available
@@ -1842,11 +2169,14 @@ MILVUS_IVF_FLAT_NLIST = int(os.environ.get("MILVUS_IVF_FLAT_NLIST", "128"))
 QDRANT_URI = os.environ.get("QDRANT_URI", None)
 QDRANT_API_KEY = os.environ.get("QDRANT_API_KEY", None)
 QDRANT_ON_DISK = os.environ.get("QDRANT_ON_DISK", "false").lower() == "true"
-QDRANT_PREFER_GRPC = os.environ.get("QDRANT_PREFER_GRPC", "False").lower() == "true"
+QDRANT_PREFER_GRPC = os.environ.get("QDRANT_PREFER_GRPC", "false").lower() == "true"
 QDRANT_GRPC_PORT = int(os.environ.get("QDRANT_GRPC_PORT", "6334"))
+QDRANT_TIMEOUT = int(os.environ.get("QDRANT_TIMEOUT", "5"))
+QDRANT_HNSW_M = int(os.environ.get("QDRANT_HNSW_M", "16"))
 ENABLE_QDRANT_MULTITENANCY_MODE = (
-    os.environ.get("ENABLE_QDRANT_MULTITENANCY_MODE", "false").lower() == "true"
+    os.environ.get("ENABLE_QDRANT_MULTITENANCY_MODE", "true").lower() == "true"
 )
+QDRANT_COLLECTION_PREFIX = os.environ.get("QDRANT_COLLECTION_PREFIX", "open-webui")
 
 # OpenSearch
 OPENSEARCH_URI = os.environ.get("OPENSEARCH_URI", "https://localhost:9200")
@@ -1878,12 +2208,54 @@ PGVECTOR_INITIALIZE_MAX_VECTOR_LENGTH = int(
     os.environ.get("PGVECTOR_INITIALIZE_MAX_VECTOR_LENGTH", "1536")
 )
 
+PGVECTOR_CREATE_EXTENSION = (
+    os.getenv("PGVECTOR_CREATE_EXTENSION", "true").lower() == "true"
+)
 PGVECTOR_PGCRYPTO = os.getenv("PGVECTOR_PGCRYPTO", "false").lower() == "true"
 PGVECTOR_PGCRYPTO_KEY = os.getenv("PGVECTOR_PGCRYPTO_KEY", None)
 if PGVECTOR_PGCRYPTO and not PGVECTOR_PGCRYPTO_KEY:
     raise ValueError(
         "PGVECTOR_PGCRYPTO is enabled but PGVECTOR_PGCRYPTO_KEY is not set. Please provide a valid key."
     )
+
+
+PGVECTOR_POOL_SIZE = os.environ.get("PGVECTOR_POOL_SIZE", None)
+
+if PGVECTOR_POOL_SIZE != None:
+    try:
+        PGVECTOR_POOL_SIZE = int(PGVECTOR_POOL_SIZE)
+    except Exception:
+        PGVECTOR_POOL_SIZE = None
+
+PGVECTOR_POOL_MAX_OVERFLOW = os.environ.get("PGVECTOR_POOL_MAX_OVERFLOW", 0)
+
+if PGVECTOR_POOL_MAX_OVERFLOW == "":
+    PGVECTOR_POOL_MAX_OVERFLOW = 0
+else:
+    try:
+        PGVECTOR_POOL_MAX_OVERFLOW = int(PGVECTOR_POOL_MAX_OVERFLOW)
+    except Exception:
+        PGVECTOR_POOL_MAX_OVERFLOW = 0
+
+PGVECTOR_POOL_TIMEOUT = os.environ.get("PGVECTOR_POOL_TIMEOUT", 30)
+
+if PGVECTOR_POOL_TIMEOUT == "":
+    PGVECTOR_POOL_TIMEOUT = 30
+else:
+    try:
+        PGVECTOR_POOL_TIMEOUT = int(PGVECTOR_POOL_TIMEOUT)
+    except Exception:
+        PGVECTOR_POOL_TIMEOUT = 30
+
+PGVECTOR_POOL_RECYCLE = os.environ.get("PGVECTOR_POOL_RECYCLE", 3600)
+
+if PGVECTOR_POOL_RECYCLE == "":
+    PGVECTOR_POOL_RECYCLE = 3600
+else:
+    try:
+        PGVECTOR_POOL_RECYCLE = int(PGVECTOR_POOL_RECYCLE)
+    except Exception:
+        PGVECTOR_POOL_RECYCLE = 3600
 
 # Pinecone
 PINECONE_API_KEY = os.environ.get("PINECONE_API_KEY", None)
@@ -1892,6 +2264,37 @@ PINECONE_INDEX_NAME = os.getenv("PINECONE_INDEX_NAME", "open-webui-index")
 PINECONE_DIMENSION = int(os.getenv("PINECONE_DIMENSION", 1536))  # or 3072, 1024, 768
 PINECONE_METRIC = os.getenv("PINECONE_METRIC", "cosine")
 PINECONE_CLOUD = os.getenv("PINECONE_CLOUD", "aws")  # or "gcp" or "azure"
+
+# ORACLE23AI (Oracle23ai Vector Search)
+
+ORACLE_DB_USE_WALLET = os.environ.get("ORACLE_DB_USE_WALLET", "false").lower() == "true"
+ORACLE_DB_USER = os.environ.get("ORACLE_DB_USER", None)  #
+ORACLE_DB_PASSWORD = os.environ.get("ORACLE_DB_PASSWORD", None)  #
+ORACLE_DB_DSN = os.environ.get("ORACLE_DB_DSN", None)  #
+ORACLE_WALLET_DIR = os.environ.get("ORACLE_WALLET_DIR", None)
+ORACLE_WALLET_PASSWORD = os.environ.get("ORACLE_WALLET_PASSWORD", None)
+ORACLE_VECTOR_LENGTH = os.environ.get("ORACLE_VECTOR_LENGTH", 768)
+
+ORACLE_DB_POOL_MIN = int(os.environ.get("ORACLE_DB_POOL_MIN", 2))
+ORACLE_DB_POOL_MAX = int(os.environ.get("ORACLE_DB_POOL_MAX", 10))
+ORACLE_DB_POOL_INCREMENT = int(os.environ.get("ORACLE_DB_POOL_INCREMENT", 1))
+
+
+if VECTOR_DB == "oracle23ai":
+    if not ORACLE_DB_USER or not ORACLE_DB_PASSWORD or not ORACLE_DB_DSN:
+        raise ValueError(
+            "Oracle23ai requires setting ORACLE_DB_USER, ORACLE_DB_PASSWORD, and ORACLE_DB_DSN."
+        )
+    if ORACLE_DB_USE_WALLET and (not ORACLE_WALLET_DIR or not ORACLE_WALLET_PASSWORD):
+        raise ValueError(
+            "Oracle23ai requires setting ORACLE_WALLET_DIR and ORACLE_WALLET_PASSWORD when using wallet authentication."
+        )
+
+log.info(f"VECTOR_DB: {VECTOR_DB}")
+
+# S3 Vector
+S3_VECTOR_BUCKET_NAME = os.environ.get("S3_VECTOR_BUCKET_NAME", None)
+S3_VECTOR_REGION = os.environ.get("S3_VECTOR_REGION", None)
 
 ####################################
 # Information Retrieval (RAG)
@@ -1954,10 +2357,16 @@ DATALAB_MARKER_API_KEY = PersistentConfig(
     os.environ.get("DATALAB_MARKER_API_KEY", ""),
 )
 
-DATALAB_MARKER_LANGS = PersistentConfig(
-    "DATALAB_MARKER_LANGS",
-    "rag.datalab_marker_langs",
-    os.environ.get("DATALAB_MARKER_LANGS", ""),
+DATALAB_MARKER_API_BASE_URL = PersistentConfig(
+    "DATALAB_MARKER_API_BASE_URL",
+    "rag.datalab_marker_api_base_url",
+    os.environ.get("DATALAB_MARKER_API_BASE_URL", ""),
+)
+
+DATALAB_MARKER_ADDITIONAL_CONFIG = PersistentConfig(
+    "DATALAB_MARKER_ADDITIONAL_CONFIG",
+    "rag.datalab_marker_additional_config",
+    os.environ.get("DATALAB_MARKER_ADDITIONAL_CONFIG", ""),
 )
 
 DATALAB_MARKER_USE_LLM = PersistentConfig(
@@ -1997,6 +2406,12 @@ DATALAB_MARKER_DISABLE_IMAGE_EXTRACTION = PersistentConfig(
     == "true",
 )
 
+DATALAB_MARKER_FORMAT_LINES = PersistentConfig(
+    "DATALAB_MARKER_FORMAT_LINES",
+    "rag.datalab_marker_format_lines",
+    os.environ.get("DATALAB_MARKER_FORMAT_LINES", "false").lower() == "true",
+)
+
 DATALAB_MARKER_OUTPUT_FORMAT = PersistentConfig(
     "DATALAB_MARKER_OUTPUT_FORMAT",
     "rag.datalab_marker_output_format",
@@ -2027,6 +2442,18 @@ DOCLING_SERVER_URL = PersistentConfig(
     os.getenv("DOCLING_SERVER_URL", "http://docling:5001"),
 )
 
+DOCLING_DO_OCR = PersistentConfig(
+    "DOCLING_DO_OCR",
+    "rag.docling_do_ocr",
+    os.getenv("DOCLING_DO_OCR", "True").lower() == "true",
+)
+
+DOCLING_FORCE_OCR = PersistentConfig(
+    "DOCLING_FORCE_OCR",
+    "rag.docling_force_ocr",
+    os.getenv("DOCLING_FORCE_OCR", "False").lower() == "true",
+)
+
 DOCLING_OCR_ENGINE = PersistentConfig(
     "DOCLING_OCR_ENGINE",
     "rag.docling_ocr_engine",
@@ -2037,6 +2464,24 @@ DOCLING_OCR_LANG = PersistentConfig(
     "DOCLING_OCR_LANG",
     "rag.docling_ocr_lang",
     os.getenv("DOCLING_OCR_LANG", "eng,fra,deu,spa"),
+)
+
+DOCLING_PDF_BACKEND = PersistentConfig(
+    "DOCLING_PDF_BACKEND",
+    "rag.docling_pdf_backend",
+    os.getenv("DOCLING_PDF_BACKEND", "dlparse_v4"),
+)
+
+DOCLING_TABLE_MODE = PersistentConfig(
+    "DOCLING_TABLE_MODE",
+    "rag.docling_table_mode",
+    os.getenv("DOCLING_TABLE_MODE", "accurate"),
+)
+
+DOCLING_PIPELINE = PersistentConfig(
+    "DOCLING_PIPELINE",
+    "rag.docling_pipeline",
+    os.getenv("DOCLING_PIPELINE", "standard"),
 )
 
 DOCLING_DO_PICTURE_DESCRIPTION = PersistentConfig(
@@ -2395,6 +2840,13 @@ ENABLE_WEB_SEARCH = PersistentConfig(
     os.getenv("ENABLE_WEB_SEARCH", "False").lower() == "true",
 )
 
+# FI-TS_custom 12.09.2025: Add automatic web search decision feature
+ENABLE_AUTO_WEB_SEARCH = PersistentConfig(
+    "ENABLE_AUTO_WEB_SEARCH",
+    "rag.web.search.auto.enable",
+    os.getenv("ENABLE_AUTO_WEB_SEARCH", "False").lower() == "true",
+)
+
 WEB_SEARCH_ENGINE = PersistentConfig(
     "WEB_SEARCH_ENGINE",
     "rag.web.search.engine",
@@ -2420,6 +2872,19 @@ WEB_SEARCH_RESULT_COUNT = PersistentConfig(
     int(os.getenv("WEB_SEARCH_RESULT_COUNT", "3")),
 )
 
+# FI-TS_custom 12.09.2025: Add automatic file search decision feature
+ENABLE_AUTO_FILE_SEARCH = PersistentConfig(
+    "ENABLE_AUTO_FILE_SEARCH",
+    "rag.file.search.auto.enable",
+    os.getenv("ENABLE_AUTO_FILE_SEARCH", "False").lower() == "true",
+)
+
+# FI-TS_custom 15.09.2025: Add automatic full context decision with auto file selection
+ENABLE_AUTO_FULL_CONTEXT = PersistentConfig(
+    "ENABLE_AUTO_FULL_CONTEXT",
+    "rag.full.context.auto.enable",
+    os.getenv("ENABLE_AUTO_FULL_CONTEXT", "False").lower() == "true",
+)
 
 # You can provide a list of your own websites to filter after performing a web search.
 # This ensures the highest level of safety and reliability of the information sources.
@@ -2445,6 +2910,14 @@ WEB_LOADER_ENGINE = PersistentConfig(
     "rag.web.loader.engine",
     os.environ.get("WEB_LOADER_ENGINE", ""),
 )
+
+
+WEB_LOADER_CONCURRENT_REQUESTS = PersistentConfig(
+    "WEB_LOADER_CONCURRENT_REQUESTS",
+    "rag.web.loader.concurrent_requests",
+    int(os.getenv("WEB_LOADER_CONCURRENT_REQUESTS", "10")),
+)
+
 
 ENABLE_WEB_LOADER_SSL_VERIFICATION = PersistentConfig(
     "ENABLE_WEB_LOADER_SSL_VERIFICATION",
@@ -2887,6 +3360,12 @@ IMAGES_OPENAI_API_BASE_URL = PersistentConfig(
     "image_generation.openai.api_base_url",
     os.getenv("IMAGES_OPENAI_API_BASE_URL", OPENAI_API_BASE_URL),
 )
+IMAGES_OPENAI_API_VERSION = PersistentConfig(
+    "IMAGES_OPENAI_API_VERSION",
+    "image_generation.openai.api_version",
+    os.getenv("IMAGES_OPENAI_API_VERSION", ""),
+)
+
 IMAGES_OPENAI_API_KEY = PersistentConfig(
     "IMAGES_OPENAI_API_KEY",
     "image_generation.openai.api_key",
@@ -3180,3 +3659,30 @@ LDAP_ATTRIBUTE_FOR_GROUPS = PersistentConfig(
     "ldap.server.attribute_for_groups",
     os.environ.get("LDAP_ATTRIBUTE_FOR_GROUPS", "memberOf"),
 )
+
+# FI-TS_custom 12.09.2025: Prompt template for file content summary generation
+DEFAULT_FILE_CONTENT_SUMMARY_PROMPT_TEMPLATE = """### Task:
+Generate a document-style summary that describes what this file contains and its purpose. Start with "This document..." and identify the document type when possible. Support multilingual content by responding in the same language as the input content.
+
+### Guidelines:
+- Write 60-100 words (approximately 500 characters)
+- Begin with document identification: "This [document type] covers..." 
+- Use document type indicators when identifiable: PDF document, presentation, spreadsheet, report, manual, etc.
+- Focus on main topics, key information, and entities (organizations, people, concepts)
+- Include specific details that would help match user queries (e.g., "contains UNESCO contact information")
+- Be factual and specific, avoid generic descriptions
+- If the content contains contact information, dates, specific data, or procedures, mention them
+- Include key technical terms, names, locations, and other searchable content
+- Use plain text format (no Markdown, no formatting)
+- IMPORTANT: Match the language of the input content exactly (multilingual support)
+
+### Examples:
+- "This PDF document covers bird species of Bavaria and contains detailed information about UNESCO protected areas as well as contact details of regional representatives."
+- "This presentation covers quarterly sales results for 2024 and includes detailed financial data, budget breakdowns, and performance metrics for the European market."
+- "This spreadsheet shows budget data for 2025 with breakdowns by departments and cost centers."
+- "This document provides a comprehensive user manual for the new software system with step-by-step installation and configuration instructions."
+
+### File Content:
+{{CONTENT}}
+
+### Content Summary (respond in the same language as the content above):"""

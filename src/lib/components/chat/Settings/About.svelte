@@ -39,7 +39,9 @@
 			return '';
 		});
 
-		checkForVersionUpdates();
+		if ($config?.features?.enable_version_update_check) {
+			checkForVersionUpdates();
+		}
 	});
 </script>
 

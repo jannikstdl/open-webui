@@ -1,0 +1,91 @@
+Defpipeline {
+  agent {
+    kubernetes {
+      label 'kaniko-builder'
+      defaultContainer 'jnlp'
+      yaml """
+apiVersion: v1
+kind: Pod
+spec:
+  serviceAccountName: jenkins-kaniko-sa
+  containers:
+  - name: kaniko
+    image: gcr.io/kaniko-project/executor:debug
+    entrypoint: [""]
+    tty: true
+  volumeMounts:
+    - name: kaniko-secret
+      mountPath: /kaniko/.docker
+  volumes:
+    - name: kaniko-secret
+      secret:
+        secretName: gitlab-imagerepo-test-secret
+"""
+    }
+  }
+
+  environment {
+    REGISTRY = 'registry.fits.cloud/fits-ai-services/fits-test'
+    APP = 'fits-test'
+  }
+
+  stages {
+    stage('Checkout') {
+      steps {
+        checkout scm
+      }
+    }
+
+    stage('Set variables') {
+      steps {
+        echo "Will build ${IMAGE}"
+        script {
+          COMMIT = sh(returnStdout: true, script: 'git rev-parse --short=8 HEAD').trim()
+          IMAGE_TAG = "${COMMIT}"
+          IMAGE = "${REGISTRY}/${APP}:${IMAGE_TAG}"
+        }
+      }
+    }
+
+    stage('Build & Push (kaniko)') {
+      steps {
+        container('kaniko') {
+          sh """
+            /kaniko/executor \
+              --context=. \
+              --dockerfile=Dockerfile \
+              --destination=${IMAGE} \
+              --cache=true \
+              --verbosity=info
+          """
+        }
+      }
+    }
+
+    stage('Scan image (Trivy)') {
+      steps {
+        container('kaniko') { // alternatively run a trivy container; keep simple
+          sh 'echo "Hier Trivy scan einbauen (Container starten und --input ${IMAGE})"'
+        }
+      }
+    }
+
+    stage('Notify / Set output') {
+      steps {
+        echo "Image pushed: ${IMAGE}"
+        // Optional: write image tag to a file for downstream pipelines
+        writeFile file: 'image.txt', text: IMAGE
+        archiveArtifacts artifacts: 'image.txt', onlyIfSuccessful: true
+      }
+    }
+  }
+
+  post {
+    success {
+      echo "Build erfolgreich: ${IMAGE}"
+    }
+    failure {
+      echo "Build fehlgeschlagen"
+    }
+  }
+}

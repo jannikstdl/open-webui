@@ -1,3 +1,5 @@
+x.py
+yarn.lock
 .DS_Store
 node_modules
 /build
@@ -12,7 +14,9 @@ vite.config.ts.timestamp-*
 __pycache__/
 *.py[cod]
 *$py.class
-
+.nvmrc
+CLAUDE.md
+.claude
 # C extensions
 *.so
 
@@ -307,3 +311,6 @@ dist
 cypress/videos
 cypress/screenshots
 .vscode/settings.json
+
+# Assistant files
+CLAUDE.md

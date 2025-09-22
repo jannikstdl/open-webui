@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.0.0] - xx.xx.xxxx
+
+### Added
+
+- **✨ Suchanfragen für Web und Dokumentensuchen**: Bei Web- und Vektor(Dokument)-Suchen werden in der UI jetzt die verwendeten Suchstrings angezeigt, um dir ein besseres Verständnis darüber zu geben, wonach genau gesucht wurde. Die Oberfläche wurde dafür ebenfalls überarbeitet.
+- **📁 Projekt-Ordner**: In Ordnern können jetzt Projekte angelegt werden mit eigenen Dateien und Instruktionen, wie das Modell antworten soll.
+- **🔄 Erweiterte Regenerier-Optionen**: Beim Neu-generieren einer Antwort kannst du nun konkret angeben, wie das Modell antworten soll.
+- **📏 Erheblich längere Input-Länge**: Das Modell hat nun eine erheblich längere Input-Länge und kann daher mehr Text bearbeiten.
+- **🔍 Verbesserte Chat-Suche**: Die Suchfunktionalität wurde überarbeitet und ist übersichtlicher.
+- **👁️ Fokus-Modus**: Die Seitenleiste kann jetzt in einem Fokusmodus minimiert werden.
+
+### Fixed
+
+- **🔧 Bug Fixes**: Mehrere Bugfixes, um eine reibungslose Benutzererfahrung zu ermöglichen.
+
 ## [3.0.0] - 01.07.2025
 
 ### Added

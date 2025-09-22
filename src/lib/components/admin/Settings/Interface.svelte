@@ -40,11 +40,13 @@
 		ENABLE_TAGS_GENERATION: true,
 		ENABLE_SEARCH_QUERY_GENERATION: true,
 		ENABLE_RETRIEVAL_QUERY_GENERATION: true,
-		QUERY_GENERATION_PROMPT_TEMPLATE: '',
+		QUERY_GENERATION_PROMPT_TEMPLATE: '', // FI-TS_custom 2025-01-11: keeping for backward compatibility
+		WEB_SEARCH_QUERY_GENERATION_PROMPT_TEMPLATE: '',
+		RETRIEVAL_QUERY_GENERATION_PROMPT_TEMPLATE: '',
 		TOOLS_FUNCTION_CALLING_PROMPT_TEMPLATE: ''
 	};
 
-	let promptSuggestions: Array<{ content: string; title: [string, string] }> = [];
+	let promptSuggestions = [];
 	let banners: Banner[] = [];
 
 	const updateInterfaceHandler = async () => {
@@ -57,17 +59,8 @@
 		await config.set(await getBackendConfig());
 	};
 
-	onMount(async () => {
-		await init();
-		taskConfig = await getTaskConfig(localStorage.token);
-
-		promptSuggestions = $config?.default_prompt_suggestions ?? [];
-		banners = await getBanners(localStorage.token);
-	});
-
 	const updateBanners = async () => {
-		const updatedBanners = await setBanners(localStorage.token, banners);
-		_banners.set(updatedBanners ?? []);
+		_banners.set(await setBanners(localStorage.token, banners));
 	};
 
 	let workspaceModels = null;
@@ -76,6 +69,10 @@
 	let models = null;
 
 	const init = async () => {
+		taskConfig = await getTaskConfig(localStorage.token);
+		promptSuggestions = $config?.default_prompt_suggestions ?? [];
+		banners = await getBanners(localStorage.token);
+
 		workspaceModels = await getBaseModels(localStorage.token);
 		baseModels = await getModels(localStorage.token, null, false);
 
@@ -100,6 +97,10 @@
 
 		console.debug('models', models);
 	};
+
+	onMount(async () => {
+		await init();
+	});
 </script>
 
 {#if models !== null && taskConfig}
@@ -306,15 +307,32 @@
 					<Switch bind:state={taskConfig.ENABLE_SEARCH_QUERY_GENERATION} />
 				</div>
 
+				<!-- FI-TS_custom 2025-01-11: Separate prompt templates for web search and retrieval -->
 				<div class="mb-2.5">
-					<div class=" mb-1 text-xs font-medium">{$i18n.t('Query Generation Prompt')}</div>
+					<div class=" mb-1 text-xs font-medium">{$i18n.t('Web Search Query Generation Prompt')}</div>
 
 					<Tooltip
 						content={$i18n.t('Leave empty to use the default prompt, or enter a custom prompt')}
 						placement="top-start"
 					>
 						<Textarea
-							bind:value={taskConfig.QUERY_GENERATION_PROMPT_TEMPLATE}
+							bind:value={taskConfig.WEB_SEARCH_QUERY_GENERATION_PROMPT_TEMPLATE}
+							placeholder={$i18n.t(
+								'Leave empty to use the default prompt, or enter a custom prompt'
+							)}
+						/>
+					</Tooltip>
+				</div>
+
+				<div class="mb-2.5">
+					<div class=" mb-1 text-xs font-medium">{$i18n.t('Retrieval Query Generation Prompt')}</div>
+
+					<Tooltip
+						content={$i18n.t('Leave empty to use the default prompt, or enter a custom prompt')}
+						placement="top-start"
+					>
+						<Textarea
+							bind:value={taskConfig.RETRIEVAL_QUERY_GENERATION_PROMPT_TEMPLATE}
 							placeholder={$i18n.t(
 								'Leave empty to use the default prompt, or enter a custom prompt'
 							)}
@@ -391,7 +409,7 @@
 
 				<div class="mb-2.5">
 					<div class="flex w-full justify-between">
-						<div class=" self-center text-sm">
+						<div class=" self-center text-xs">
 							{$i18n.t('Banners')}
 						</div>
 
@@ -433,7 +451,7 @@
 				{#if $user?.role === 'admin'}
 					<div class=" space-y-3">
 						<div class="flex w-full justify-between mb-2">
-							<div class=" self-center text-sm">
+							<div class=" self-center text-xs">
 								{$i18n.t('Default Prompt Suggestions')}
 							</div>
 
@@ -461,25 +479,27 @@
 						<div class="grid lg:grid-cols-2 flex-col gap-1.5">
 							{#each promptSuggestions as prompt, promptIdx}
 								<div
-									class=" flex border border-gray-100 dark:border-none dark:bg-gray-850 rounded-xl py-1.5"
+									class=" flex border rounded-xl border-gray-50 dark:border-none dark:bg-gray-850 py-1.5"
 								>
 									<div class="flex flex-col flex-1 pl-1">
-										<div class="flex border-b border-gray-100 dark:border-gray-850 w-full">
+										<div class="py-1 gap-1">
 											<input
-												class="px-3 py-1.5 text-xs w-full bg-transparent outline-hidden border-r border-gray-100 dark:border-gray-850"
+												class="px-3 text-sm font-medium w-full bg-transparent outline-hidden"
 												placeholder={$i18n.t('Title (e.g. Tell me a fun fact)')}
 												bind:value={prompt.title[0]}
 											/>
 
 											<input
-												class="px-3 py-1.5 text-xs w-full bg-transparent outline-hidden border-r border-gray-100 dark:border-gray-850"
+												class="px-3 text-xs w-full bg-transparent outline-hidden text-gray-600 dark:text-gray-400"
 												placeholder={$i18n.t('Subtitle (e.g. about the Roman Empire)')}
 												bind:value={prompt.title[1]}
 											/>
 										</div>
 
+										<hr class="border-gray-50 dark:border-gray-850 my-1" />
+
 										<textarea
-											class="px-3 py-1.5 text-xs w-full bg-transparent outline-hidden border-r border-gray-100 dark:border-gray-850 resize-none"
+											class="px-3 py-1.5 text-xs w-full bg-transparent outline-hidden resize-none"
 											placeholder={$i18n.t(
 												'Prompt (e.g. Tell me a fun fact about the Roman Empire)'
 											)}
@@ -488,25 +508,27 @@
 										/>
 									</div>
 
-									<button
-										class="px-3"
-										type="button"
-										on:click={() => {
-											promptSuggestions.splice(promptIdx, 1);
-											promptSuggestions = promptSuggestions;
-										}}
-									>
-										<svg
-											xmlns="http://www.w3.org/2000/svg"
-											viewBox="0 0 20 20"
-											fill="currentColor"
-											class="w-4 h-4"
+									<div class="">
+										<button
+											class="p-3"
+											type="button"
+											on:click={() => {
+												promptSuggestions.splice(promptIdx, 1);
+												promptSuggestions = promptSuggestions;
+											}}
 										>
-											<path
-												d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z"
-											/>
-										</svg>
-									</button>
+											<svg
+												xmlns="http://www.w3.org/2000/svg"
+												viewBox="0 0 20 20"
+												fill="currentColor"
+												class="w-4 h-4"
+											>
+												<path
+													d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z"
+												/>
+											</svg>
+										</button>
+									</div>
 								</div>
 							{/each}
 						</div>
@@ -637,6 +659,6 @@
 	</form>
 {:else}
 	<div class=" h-full w-full flex justify-center items-center">
-		<Spinner />
+		<Spinner className="size-5" />
 	</div>
 {/if}
