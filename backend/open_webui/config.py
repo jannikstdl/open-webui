@@ -516,6 +516,30 @@ OAUTH_GROUPS_CLAIM = PersistentConfig(
     os.environ.get("OAUTH_GROUPS_CLAIM", os.environ.get("OAUTH_GROUP_CLAIM", "groups")),
 )
 
+FEISHU_CLIENT_ID = PersistentConfig(
+    "FEISHU_CLIENT_ID",
+    "oauth.feishu.client_id",
+    os.environ.get("FEISHU_CLIENT_ID", ""),
+)
+
+FEISHU_CLIENT_SECRET = PersistentConfig(
+    "FEISHU_CLIENT_SECRET",
+    "oauth.feishu.client_secret",
+    os.environ.get("FEISHU_CLIENT_SECRET", ""),
+)
+
+FEISHU_OAUTH_SCOPE = PersistentConfig(
+    "FEISHU_OAUTH_SCOPE",
+    "oauth.feishu.scope",
+    os.environ.get("FEISHU_OAUTH_SCOPE", "contact:user.base:readonly"),
+)
+
+FEISHU_REDIRECT_URI = PersistentConfig(
+    "FEISHU_REDIRECT_URI",
+    "oauth.feishu.redirect_uri",
+    os.environ.get("FEISHU_REDIRECT_URI", ""),
+)
+
 ENABLE_OAUTH_ROLE_MANAGEMENT = PersistentConfig(
     "ENABLE_OAUTH_ROLE_MANAGEMENT",
     "oauth.enable_role_mapping",
@@ -708,6 +732,33 @@ def load_oauth_providers():
             "register": oidc_oauth_register,
         }
 
+    if FEISHU_CLIENT_ID.value and FEISHU_CLIENT_SECRET.value:
+
+        def feishu_oauth_register(client: OAuth):
+            client.register(
+                name="feishu",
+                client_id=FEISHU_CLIENT_ID.value,
+                client_secret=FEISHU_CLIENT_SECRET.value,
+                access_token_url="https://open.feishu.cn/open-apis/authen/v2/oauth/token",
+                authorize_url="https://accounts.feishu.cn/open-apis/authen/v1/authorize",
+                api_base_url="https://open.feishu.cn/open-apis",
+                userinfo_endpoint="https://open.feishu.cn/open-apis/authen/v1/user_info",
+                client_kwargs={
+                    "scope": FEISHU_OAUTH_SCOPE.value,
+                    **(
+                        {"timeout": int(OAUTH_TIMEOUT.value)}
+                        if OAUTH_TIMEOUT.value
+                        else {}
+                    ),
+                },
+                redirect_uri=FEISHU_REDIRECT_URI.value,
+            )
+
+        OAUTH_PROVIDERS["feishu"] = {
+            "register": feishu_oauth_register,
+            "sub_claim": "user_id",
+        }
+
     configured_providers = []
     if GOOGLE_CLIENT_ID.value:
         configured_providers.append("Google")
@@ -715,6 +766,8 @@ def load_oauth_providers():
         configured_providers.append("Microsoft")
     if GITHUB_CLIENT_ID.value:
         configured_providers.append("GitHub")
+    if FEISHU_CLIENT_ID.value:
+        configured_providers.append("Feishu")
 
     if configured_providers and not OPENID_PROVIDER_URL.value:
         provider_list = ", ".join(configured_providers)
@@ -1810,47 +1863,47 @@ Return ONLY a JSON object with this structure:
 
 # FI-TS_custom 12.09.2025: Prompt template for automatic file search decision
 DEFAULT_AUTO_FILE_SEARCH_DECISION_PROMPT_TEMPLATE = """### Task:
-Analyze the user's request in context and determine if searching attached files/collections would provide relevant information. Consider both the explicit request and the nature of attached files. The user may ask in any language (multilingual support).
+Analyze the user's request in context and determine if searching attached files/collections, internal notes, or previous chats would provide relevant information. Consider both the explicit request and the nature of attached content sources. The user may ask in any language (multilingual support).
 
-**CRITICAL FOR FOLLOW-UP QUESTIONS**: Pay special attention to conversational context. Follow-up questions like "Und sonst noch?" (And what else?), "Was noch?" (What more?), "Anything else?", "Tell me more", or similar phrases typically refer to the same topic discussed previously and should continue using the same information source (files/collections) that was relevant for the previous question.
+**CRITICAL FOR FOLLOW-UP QUESTIONS**: Pay special attention to conversational context. Follow-up questions like "Und sonst noch?" (And what else?), "Was noch?" (What more?), "Anything else?", "Tell me more", or similar phrases typically refer to the same topic discussed previously and should continue using the same information source (files/collections/notes/chats) that was relevant for the previous question.
 
-### Available Files/Collections Context:
+### Available Files/Collections/Notes/Chats Context:
 {{FILE_CONTEXT}}
 
-**Important**: When files have content summaries available, use these summaries to assess relevance. A file might be relevant to a query even if the filename doesn't obviously match - the content summary reveals the actual subject matter.
+**Important**: When files, notes, or chats have content summaries available, use these summaries to assess relevance. A source might be relevant to a query even if the title doesn't obviously match - the content summary reveals the actual subject matter.
 
 ### Chat History Analysis:
 {{MESSAGES}}
 
 **Context Analysis**: Review the chat history to understand:
 1. **Topic Continuity**: Is the current query a follow-up to a previous question about the same subject?
-2. **Information Source**: Was the previous answer based on file/collection content?
+2. **Information Source**: Was the previous answer based on file/collection/notes/chat content?
 3. **Conversational Flow**: Does the user expect more information from the same source?
 
-### When file search IS beneficial:
-- **Direct file references**: "What's in the file?", "Analyze the document", "What does the file say about X?"
-- **Knowledge base queries**: "What's in your knowledge?", "What files do you have?", "Show me the collection"
-- **Collection references**: "What's in the collection?", "Search the collection", "What's in the knowledge base?"
-- **Content-specific queries**: Questions that could be answered by the attached file content, **especially when content summaries indicate relevant information**
-- **Data analysis requests**: "What are the sales figures?", "Show me the budget breakdown"
-- **Document summarization**: "Summarize the report", "Key points from the document"
-- **Search within files**: "Find references to X", "What section talks about Y?"
-- **Questions about file content/domain**: If file content summaries indicate relevance to the user's question domain
+### When search IS beneficial:
+- **Direct content references**: "What's in the file?", "Analyze the document", "What does the note say about X?", "Show me that chat"
+- **Knowledge base queries**: "What's in your knowledge?", "What files do you have?", "Show me the collection", "What notes do I have?"
+- **Collection/notes/chat references**: "What's in the collection?", "Search the collection", "What's in the knowledge base?", "Search my notes", "Find in previous chats"
+- **Content-specific queries**: Questions that could be answered by the attached files, notes, or chat content, **especially when content summaries indicate relevant information**
+- **Data analysis requests**: "What are the sales figures?", "Show me the budget breakdown", "What did we discuss about the project?"
+- **Content summarization**: "Summarize the report", "Key points from the document", "Summarize my notes", "What were the main points from our last chat?"
+- **Search within content**: "Find references to X", "What section talks about Y?", "Did I write anything about Z?", "When did we discuss this?"
+- **Questions about content domain**: If file/notes/chat content summaries indicate relevance to the user's question domain
 - **Subject-matter queries**: When user asks about specific topics, organizations, or concepts that appear in the content summaries
-- **Internal knowledge queries**: "What do you know about..." when files are attached
-- **File listing/overview**: "What documents do you have?", "List attached files"
+- **Internal knowledge queries**: "What do you know about..." when files, notes, or previous chats are available
+- **Content listing/overview**: "What documents do you have?", "List attached files", "Show me my notes", "What have we discussed before?"
 - **Cross-reference queries**: Questions about entities, organizations, contacts, or topics mentioned in content summaries
-- **FOLLOW-UP QUESTIONS**: If the previous question was answered using file content and the current query is asking for more information on the same topic ("Was noch?", "Und sonst noch?", "What else?", "Tell me more", "Any other details?", etc.)
-- **CONTINUATION QUERIES**: Questions that logically extend previous file-based answers ("Was hat er noch gemacht?", "Where else did he work?", "What other projects?")
+- **FOLLOW-UP QUESTIONS**: If the previous question was answered using content and the current query is asking for more information on the same topic ("Was noch?", "Und sonst noch?", "What else?", "Tell me more", "Any other details?", etc.)
+- **CONTINUATION QUERIES**: Questions that logically extend previous content-based answers ("Was hat er noch gemacht?", "Where else did he work?", "What other projects?", "What else did I note about this?")
 
-### When file search is NOT needed:
+### When search is NOT needed:
 - **General knowledge**: "What's the weather?", "What's the capital of Germany?"
-- **Unrelated topics**: Questions clearly unrelated to file content or domain AND not following up on previous file-based answers
+- **Unrelated topics**: Questions clearly unrelated to available content (files/notes/chats) AND not following up on previous content-based answers
 - **Simple acknowledgments**: "Thanks", "OK", "I understand" (unless asking for more information)
-- **Creative tasks**: Writing, brainstorming unrelated to file content
-- **Technical help**: Programming questions unrelated to attached files
-- **Personal opinions**: Subjective advice not based on file content
-- **Questions clearly outside file scope**: If file is about marketing but user asks about cooking (unless it's a follow-up)
+- **Creative tasks**: Writing, brainstorming unrelated to available content
+- **Technical help**: Programming questions unrelated to available content
+- **Personal opinions**: Subjective advice not based on available content
+- **Questions clearly outside content scope**: If available content is about marketing but user asks about cooking (unless it's a follow-up)
 
 ### Response Format:
 Return ONLY a JSON object with this structure:
@@ -2324,6 +2377,12 @@ ENABLE_ONEDRIVE_INTEGRATION = PersistentConfig(
     "ENABLE_ONEDRIVE_INTEGRATION",
     "onedrive.enable",
     os.getenv("ENABLE_ONEDRIVE_INTEGRATION", "False").lower() == "true",
+)
+ENABLE_ONEDRIVE_PERSONAL = (
+    os.environ.get("ENABLE_ONEDRIVE_PERSONAL", "True").lower() == "true"
+)
+ENABLE_ONEDRIVE_BUSINESS = (
+    os.environ.get("ENABLE_ONEDRIVE_BUSINESS", "True").lower() == "true"
 )
 
 ONEDRIVE_CLIENT_ID = PersistentConfig(

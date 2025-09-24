@@ -520,6 +520,8 @@
 				</div>
 			</button>
 
+			<hr class="border-gray-50 dark:border-gray-850 my-1" />
+
 			{#if $config?.features.enable_admin_export ?? true}
 				<hr class="border-gray-100 dark:border-gray-850 my-1" />
 				<div class="  flex w-full justify-between">
@@ -1182,14 +1184,4 @@
 			</div>
 		</div>
 	</div>
-
-	<!-- <div class="flex justify-end pt-3 text-sm font-medium">
-		<button
-			class=" px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-gray-100 transition rounded-lg"
-			type="submit"
-		>
-			{$i18n.t('Save')}
-		</button>
-
-	</div> -->
 </form>

@@ -65,9 +65,15 @@ class ERROR_MESSAGES(str, Enum):
     INCORRECT_FORMAT = lambda err="": f"Ungültiges Format. Bitte verwende das korrekte Format{err} Bei Fragen wende dich gerne an ZZG-FITS-AI-Services@f-i-ts.de"
     RATE_LIMIT_EXCEEDED = "API-Ratenlimit überschritten Bei Fragen wende dich gerne an ZZG-FITS-AI-Services@f-i-ts.de"
 
-    MODEL_NOT_FOUND = lambda name="": f"Modell '{name}' wurde nicht gefunden Bei Fragen wende dich gerne an ZZG-FITS-AI-Services@f-i-ts.de"
-    OPENAI_NOT_FOUND = lambda name="": "OpenAI API wurde nicht gefunden Bei Fragen wende dich gerne an ZZG-FITS-AI-Services@f-i-ts.de"
-    OLLAMA_NOT_FOUND = "WebUI konnte keine Verbindung zu Ollama herstellen Bei Fragen wende dich gerne an ZZG-FITS-AI-Services@f-i-ts.de"
+    MODEL_NOT_FOUND = (
+        lambda name="": f"Modell '{name}' wurde nicht gefunden. Bitte versuchen Sie es erneut. Servicestatus unter https://status.ai-demo.officelan-izb. Falls sich der Fehler langfristig wiederholt, erstellen Sie gerne ein Ticket an 55021."
+    )
+    OPENAI_NOT_FOUND = (
+        lambda name="": "OpenAI API wurde nicht gefunden. Bitte versuchen Sie es erneut. Servicestatus unter https://status.ai-demo.officelan-izb. Falls sich der Fehler langfristig wiederholt, erstellen Sie gerne ein Ticket an 55021."
+    )
+    OLLAMA_NOT_FOUND = (
+        "WebUI konnte keine Verbindung zu Ollama herstellen. Bitte versuchen Sie es erneut. Servicestatus unter https://status.ai-demo.officelan-izb. Falls sich der Fehler langfristig wiederholt, erstellen Sie gerne ein Ticket an 55021."
+    )
     CREATE_API_KEY_ERROR = "Etwas ist schief gelaufen beim Erstellen deines API-Schlüssels. Bitte versuche es später erneut. Wenn das Problem weiterhin besteht, kontaktiere den Support für Unterstützung. Bei Fragen wende dich gerne an ZZG-FITS-AI-Services@f-i-ts.de"
     API_KEY_CREATION_NOT_ALLOWED = "Die API-Schlüssel-Erstellung ist nicht erlaubt in der Umgebung. Bei Fragen wende dich gerne an ZZG-FITS-AI-Services@f-i-ts.de"
     
@@ -78,9 +84,13 @@ class ERROR_MESSAGES(str, Enum):
 
     INVALID_URL = "Die von dir angegebene URL ist ungültig. Bitte überprüfe sie und versuche es erneut. Bei Fragen wende dich gerne an ZZG-FITS-AI-Services@f-i-ts.de"
 
-    WEB_SEARCH_ERROR = lambda err="": f"{err if err else 'Etwas ist schief gelaufen bei der Websuche.'} Bei Fragen wende dich gerne an ZZG-FITS-AI-Services@f-i-ts.de"
+    WEB_SEARCH_ERROR = (
+        lambda err="": f"{err if err else 'Etwas ist schief gelaufen bei der Websuche.'} Bitte versuchen Sie es erneut. Servicestatus unter https://status.ai-demo.officelan-izb. Falls sich der Fehler langfristig wiederholt, erstellen Sie gerne ein Ticket an 55021."
+    )
 
-    OLLAMA_API_DISABLED = "Die Ollama API ist deaktiviert. Bitte aktiviere sie, um diese Funktion zu nutzen. Bei Fragen wende dich gerne an ZZG-FITS-AI-Services@f-i-ts.de"
+    OLLAMA_API_DISABLED = (
+        "Die Ollama API ist deaktiviert. Bitte aktiviere sie, um diese Funktion zu nutzen. Bitte versuchen Sie es erneut. Servicestatus unter https://status.ai-demo.officelan-izb. Falls sich der Fehler langfristig wiederholt, erstellen Sie gerne ein Ticket an 55021."
+    )
 
     FILE_TOO_LARGE = lambda size="": f"Die Datei, die du hochladen möchtest, ist zu groß. Bitte lade eine Datei hoch, die kleiner als {size} ist. Bei Fragen wende dich gerne an ZZG-FITS-AI-Services@f-i-ts.de"
 

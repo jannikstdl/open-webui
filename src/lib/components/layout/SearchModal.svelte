@@ -9,13 +9,11 @@
 	import Spinner from '../common/Spinner.svelte';
 
 	import dayjs from '$lib/dayjs';
-	import calendar from 'dayjs/plugin/calendar';
 	import Loader from '../common/Loader.svelte';
-	import { createMessagesList } from '$lib/utils';
+	import { createMessagesList, formatDate } from '$lib/utils';
 	import { user } from '$lib/stores';
 	import Messages from '../chat/Messages.svelte';
 	import { goto } from '$app/navigation';
-	dayjs.extend(calendar);
 
 	export let show = false;
 	export let onClose = () => {};
@@ -251,7 +249,7 @@
 			/>
 		</div>
 
-		<!-- <hr class="border-gray-100 dark:border-gray-850 my-1" /> -->
+		<!-- <hr class="border-gray-50 dark:border-gray-850 my-1" /> -->
 
 		<div class="flex px-3 pb-1">
 			<div
@@ -316,9 +314,14 @@
 								</div>
 							</div>
 
-							<div class=" pl-3 shrink-0 text-gray-500 dark:text-gray-400 text-xs">
-								{dayjs(chat?.updated_at * 1000).calendar()}
-							</div>
+				<div class=" pl-3 shrink-0 text-gray-500 dark:text-gray-400 text-xs">
+					{chat?.updated_at
+						? $i18n.t(formatDate(chat?.updated_at * 1000), {
+								LOCALIZED_TIME: dayjs(chat?.updated_at * 1000).format('LT'),
+								LOCALIZED_DATE: dayjs(chat?.updated_at * 1000).format('L')
+							})
+						: ''}
+				</div>
 						</a>
 					{/each}
 
