@@ -1,9 +1,9 @@
 pipeline {
-    agent {
-        kubernetes {
-            label 'kaniko-builder'
-            defaultContainer 'jnlp'
-            yaml """
+  agent {
+    kubernetes {
+      label 'kaniko-builder'
+      defaultContainer 'jnlp'
+      yaml """
 apiVersion: v1
 kind: Pod
 spec:
@@ -22,8 +22,8 @@ spec:
       secret:
         secretName: gitlab-imagerepo-test-secret
 """
-        }
     }
+  }
 
   environment {
     REGISTRY = 'registry.fits.cloud/fits-ai-services/fits-test'
@@ -39,37 +39,32 @@ spec:
 
     stage('Set variables') {
       steps {
-        echo "Will build ${IMAGE}"
         script {
-          COMMIT = sh(returnStdout: true, script: 'git rev-parse --short=8 HEAD').trim()
-          IMAGE_TAG = "${COMMIT}"
-          IMAGE = "${REGISTRY}/${APP}:${IMAGE_TAG}"
+          env.COMMIT = sh(returnStdout: true, script: 'git rev-parse --short=8 HEAD').trim()
+          env.IMAGE_TAG = env.COMMIT
+          env.IMAGE = "${env.REGISTRY}/${env.APP}:${env.IMAGE_TAG}"
+        }
+        echo "Will build ${IMAGE}"
+      }
+    }
+
+    stage('Build & Push Docker Image') {
+      steps {
+        container('kaniko') {
+          sh """
+          /kaniko/executor \
+            --dockerfile=Dockerfile \
+            --context=dir://. \
+            --destination=${IMAGE} \
+            --verbosity=debug
+          """
         }
       }
     }
 
-    stages {
-        stage('Build & Push Docker Image') {
-            steps {
-                container('kaniko') {
-                    script {
-                        // Kaniko Build-Befehl
-                        sh """
-                        /kaniko/executor \
-                            --dockerfile=Dockerfile \
-                            --context=dir://. \
-                            --destination=registry.example.com/my-image:latest \
-                            --verbosity=debug
-                        """
-                    }
-                }
-            }
-        }
-    }
-
     stage('Scan image (Trivy)') {
       steps {
-        container('kaniko') { // alternatively run a trivy container; keep simple
+        container('kaniko') {
           sh 'echo "Hier Trivy scan einbauen (Container starten und --input ${IMAGE})"'
         }
       }
@@ -78,7 +73,6 @@ spec:
     stage('Notify / Set output') {
       steps {
         echo "Image pushed: ${IMAGE}"
-        // Optional: write image tag to a file for downstream pipelines
         writeFile file: 'image.txt', text: IMAGE
         archiveArtifacts artifacts: 'image.txt', onlyIfSuccessful: true
       }
