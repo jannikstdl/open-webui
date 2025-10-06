@@ -43,8 +43,8 @@ spec:
           env.COMMIT = sh(returnStdout: true, script: 'git rev-parse --short=8 HEAD').trim()
           env.IMAGE_TAG = env.COMMIT
           env.IMAGE = "${env.REGISTRY}/${env.APP}:${env.IMAGE_TAG}"
-        }
-        echo "Will build ${IMAGE}"
+          echo "Will build ${env.IMAGE}"
+          }
       }
     }
 
@@ -55,7 +55,7 @@ spec:
           /kaniko/executor \
             --dockerfile=Dockerfile \
             --context=dir://. \
-            --destination=${IMAGE} \
+            --destination=env.IMAGE \
             --verbosity=debug
           """
         }
@@ -65,14 +65,14 @@ spec:
     stage('Scan image (Trivy)') {
       steps {
         container('kaniko') {
-          sh 'echo "Hier Trivy scan einbauen (Container starten und --input ${IMAGE})"'
+          sh 'echo "Hier Trivy scan einbauen (Container starten und --input env.IMAGE)"'
         }
       }
     }
 
     stage('Notify / Set output') {
       steps {
-        echo "Image pushed: ${IMAGE}"
+        echo "Image pushed: env.IMAGE"
         writeFile file: 'image.txt', text: IMAGE
         archiveArtifacts artifacts: 'image.txt', onlyIfSuccessful: true
       }
@@ -81,7 +81,7 @@ spec:
 
   post {
     success {
-      echo "Build erfolgreich: ${IMAGE}"
+      echo "Build erfolgreich: env.IMAGE"
     }
     failure {
       echo "Build fehlgeschlagen"
