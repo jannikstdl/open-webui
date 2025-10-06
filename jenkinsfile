@@ -1,28 +1,29 @@
-Defpipeline {
-  agent {
-    kubernetes {
-      label 'kaniko-builder'
-      defaultContainer 'jnlp'
-      yaml """
+pipeline {
+    agent {
+        kubernetes {
+            label 'kaniko-builder'
+            defaultContainer 'jnlp'
+            yaml """
 apiVersion: v1
 kind: Pod
 spec:
   serviceAccountName: jenkins-kaniko-sa
+  restartPolicy: Never
   containers:
   - name: kaniko
     image: gcr.io/kaniko-project/executor:debug
-    entrypoint: [""]
-    tty: true
-  volumeMounts:
-    - name: kaniko-secret
-      mountPath: /kaniko/.docker
+    command: ["sleep"]
+    args: ["infinity"]
+    volumeMounts:
+      - name: kaniko-secret
+        mountPath: /kaniko/.docker
   volumes:
     - name: kaniko-secret
       secret:
         secretName: gitlab-imagerepo-test-secret
 """
+        }
     }
-  }
 
   environment {
     REGISTRY = 'registry.fits.cloud/fits-ai-services/fits-test'
@@ -47,19 +48,23 @@ spec:
       }
     }
 
-    stage('Build & Push (kaniko)') {
-      steps {
-        container('kaniko') {
-          sh """
-            /kaniko/executor \
-              --context=. \
-              --dockerfile=Dockerfile \
-              --destination=${IMAGE} \
-              --cache=true \
-              --verbosity=info
-          """
+    stages {
+        stage('Build & Push Docker Image') {
+            steps {
+                container('kaniko') {
+                    script {
+                        // Kaniko Build-Befehl
+                        sh """
+                        /kaniko/executor \
+                            --dockerfile=Dockerfile \
+                            --context=dir://. \
+                            --destination=registry.example.com/my-image:latest \
+                            --verbosity=debug
+                        """
+                    }
+                }
+            }
         }
-      }
     }
 
     stage('Scan image (Trivy)') {
