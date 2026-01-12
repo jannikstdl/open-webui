@@ -1010,34 +1010,6 @@
 							</div>
 						</div>
 
-						<!-- FI-TS_custom 12.09.2025: Auto file search decision toggle -->
-						<div class="  mb-2.5 flex w-full justify-between">
-							<div class=" self-center text-xs font-medium">
-								<Tooltip content="Automatically decide when file search would improve the response" placement="top-start">
-									<span class="cursor-help">
-										{$i18n.t('Auto File Search')}
-									</span>
-								</Tooltip>
-							</div>
-							<div class="flex items-center relative">
-								<Switch bind:state={RAGConfig.ENABLE_AUTO_FILE_SEARCH} />
-							</div>
-						</div>
-
-						<!-- FI-TS_custom 12.09.2025: File content summary toggle -->
-						<div class="  mb-2.5 flex w-full justify-between">
-							<div class=" self-center text-xs font-medium">
-								<Tooltip content="Generate content summaries for uploaded files to improve search relevance" placement="top-start">
-									<span class="cursor-help">
-										{$i18n.t('File Content Summary')}
-									</span>
-								</Tooltip>
-							</div>
-							<div class="flex items-center relative">
-								<Switch bind:state={RAGConfig.ENABLE_FILE_CONTENT_SUMMARY} />
-							</div>
-						</div>
-
 						{#if !RAGConfig.RAG_FULL_CONTEXT}
 							<div class="  mb-2.5 flex w-full justify-between">
 								<div class=" self-center text-xs font-medium">{$i18n.t('Hybrid Search')}</div>

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { v4 as uuidv4 } from 'uuid';
 	import { toast } from 'svelte-sonner';
+	import mermaid from 'mermaid';
 	import { PaneGroup, Pane, PaneResizer } from 'paneforge';
 
 	import { getContext, onDestroy, onMount, tick } from 'svelte';
@@ -36,7 +37,6 @@
 		showArtifacts,
 		tools,
 		toolServers,
-		functions,
 		selectedFolder,
 		pinnedChats
 	} from '$lib/stores';
@@ -88,8 +88,6 @@
     import Spinner from '../common/Spinner.svelte';
 	import Tooltip from '../common/Tooltip.svelte';
 	import Sidebar from '../icons/Sidebar.svelte';
-	import { getFunctions } from '$lib/apis/functions';
-	import Image from '../common/Image.svelte';
 
 	export let chatIdProp = '';
 
@@ -241,58 +239,33 @@
 	};
 
 	const resetInput = () => {
-		selectedToolIds = [];
+		console.debug('resetInput');
+		setToolIds();
+
 		selectedFilterIds = [];
 		webSearchEnabled = false;
 		imageGenerationEnabled = false;
 		codeInterpreterEnabled = false;
-
-		setDefaults();
 	};
 
-	const setDefaults = async () => {
+	const setToolIds = async () => {
 		if (!$tools) {
 			tools.set(await getTools(localStorage.token));
 		}
-		if (!$functions) {
-			functions.set(await getFunctions(localStorage.token));
-		}
+
 		if (selectedModels.length !== 1 && !atSelectedModel) {
 			return;
 		}
 
 		const model = atSelectedModel ?? $models.find((m) => m.id === selectedModels[0]);
-		if (model) {
-			// Set Default Tools
-			if (model?.info?.meta?.toolIds) {
-				selectedToolIds = [
-					...new Set(
-						[...(model?.info?.meta?.toolIds ?? [])].filter((id) => $tools.find((t) => t.id === id))
-					)
-				];
-			}
-
-			// Set Default Filters (Toggleable only)
-			if (model?.info?.meta?.defaultFilterIds) {
-				selectedFilterIds = model.info.meta.defaultFilterIds.filter((id) =>
-					model?.filters?.find((f) => f.id === id)
-				);
-			}
-
-			// Set Default Features
-			if (model?.info?.meta?.defaultFeatureIds) {
-				if (model.info?.meta?.capabilities?.['image_generation']) {
-					imageGenerationEnabled = model.info.meta.defaultFeatureIds.includes('image_generation');
-				}
-
-				if (model.info?.meta?.capabilities?.['web_search']) {
-					webSearchEnabled = model.info.meta.defaultFeatureIds.includes('web_search');
-				}
-
-				if (model.info?.meta?.capabilities?.['code_interpreter']) {
-					codeInterpreterEnabled = model.info.meta.defaultFeatureIds.includes('code_interpreter');
-				}
-			}
+		if (model && model?.info?.meta?.toolIds) {
+			selectedToolIds = [
+				...new Set(
+					[...(model?.info?.meta?.toolIds ?? [])].filter((id) => $tools.find((t) => t.id === id))
+				)
+			];
+		} else {
+			selectedToolIds = [];
 		}
 	};
 
@@ -708,7 +681,6 @@
 			);
 		}
 	};
-
 
 	const uploadWeb = async (url) => {
 		console.log(url);
@@ -1498,11 +1470,19 @@ const initNewChat = async () => {
 		prompt = '';
 
 		const messages = createMessagesList(history, history.currentId);
-		const _files = JSON.parse(JSON.stringify(files));
 
-		chatFiles.push(
-			..._files.filter((item) => ['doc', 'text', 'file', 'collection'].includes(item.type))
-		);
+		// Reset chat input textarea
+		if (!($settings?.richTextInput ?? true)) {
+			const chatInputElement = document.getElementById('chat-input');
+
+			if (chatInputElement) {
+				await tick();
+				chatInputElement.style.height = '';
+			}
+		}
+
+		const _files = JSON.parse(JSON.stringify(files));
+		chatFiles.push(..._files.filter((item) => ['doc', 'file', 'collection'].includes(item.type)));
 		chatFiles = chatFiles.filter(
 			// Remove duplicates
 			(item, index, array) =>
@@ -1693,7 +1673,7 @@ const initNewChat = async () => {
 				(model) => $models.find((m) => m.id === model)?.info?.meta?.capabilities?.web_search ?? true
 			).length === currentModels.length
 		) {
-			if ($config?.features?.enable_web_search && ($settings?.webSearch ?? false) === 'always') {
+			if (($settings?.webSearch ?? false) === 'always') {
 				features = { ...features, web_search: true };
 			}
 		}
@@ -1722,7 +1702,7 @@ const initNewChat = async () => {
 		let files = JSON.parse(JSON.stringify(chatFiles));
 		files.push(
 			...(userMessage?.files ?? []).filter((item) =>
-				['doc', 'text', 'file', 'note', 'chat', 'collection'].includes(item.type)
+				['doc', 'text', 'file', 'note', 'collection'].includes(item.type)
 			)
 		);
 		// Remove duplicates
@@ -1797,21 +1777,16 @@ const initNewChat = async () => {
 
 		// FI-TS_custom 12.09.2025: Auto web search decision
 		let autoWebSearchEnabled = false;
-		
-		// FI-TS_custom 13.09.2025: Sequential Decision Making - File Search first, then Web Search only if needed
-		let autoFileSearchEnabled = true; // Default: enable file search if files are attached
-		let fileSearchDecisionMade = false;
-		
-		// STEP 1: File Search Decision (if files are available)
-		if ((files?.length ?? 0) > 0 && 
-			$config?.features?.enable_auto_file_search) {
+		if (!webSearchEnabled && 
+			$config?.features?.enable_web_search && 
+			($user?.role === 'admin' || $user?.permissions?.features?.web_search)) {
 			
 			try {
 				const lastUserMessage = messages.filter(m => m.role === 'user').pop();
 				if (lastUserMessage?.content) {
-					console.log('📁 Checking if file search would be beneficial...');
+					console.log('🔍 Checking if web search would be beneficial...');
 					
-					const decisionResponse = await fetch(`${WEBUI_BASE_URL}/api/v1/tasks/agent/file_search_decision`, {
+					const decisionResponse = await fetch(`${WEBUI_BASE_URL}/api/v1/tasks/agent/web_search_decision`, {
 						method: 'POST',
 						headers: {
 							'Content-Type': 'application/json',
@@ -1820,88 +1795,25 @@ const initNewChat = async () => {
 						body: JSON.stringify({
 							model: model.id,
 							messages: messages,
-							files: files,
 							chat_id: $chatId
 						})
 					});
 					
 					if (decisionResponse.ok) {
 						const decision = await decisionResponse.json();
-						console.log('📁 Auto file search decision:', decision);
-						fileSearchDecisionMade = true;
+						console.log('🔍 Auto web search decision:', decision);
 						
-						if (!decision.file_search_needed) {
-							console.log('❌ Auto-disabling file search for this request only');
-							autoFileSearchEnabled = false;
-						} else {
-							console.log('✅ File search will be used - skipping web search decision');
+						if (decision.web_search_needed) {
+							console.log('✅ Auto-enabling web search for this request only');
+							autoWebSearchEnabled = true;
+							// No toast notification - silent activation
+							// Don't modify webSearchEnabled - keep button state unchanged
 						}
 					}
 				}
 			} catch (error) {
-				console.log('⚠️ Auto file search decision failed:', error);
-				// Continue with file search enabled by default
-			}
-		}
-
-		// STEP 2: Web Search Decision (only if file search is not needed or no files available)
-		if (!fileSearchDecisionMade || !autoFileSearchEnabled) {
-			if (
-				!webSearchEnabled &&
-				$config?.features?.enable_web_search &&
-				($user?.role === 'admin' || $user?.permissions?.features?.web_search)
-			) {
-				try {
-					const lastUserMessage = messages.filter((m) => m.role === 'user').pop();
-					if (lastUserMessage?.content) {
-						console.log('🔍 Checking if web search would be beneficial...');
-
-						const decisionResponse = await fetch(`${WEBUI_BASE_URL}/api/v1/tasks/agent/web_search_decision`, {
-							method: 'POST',
-							headers: {
-								'Content-Type': 'application/json',
-								'Authorization': `Bearer ${localStorage.token}`
-							},
-							body: JSON.stringify({
-								model: model.id,
-								messages: messages,
-								chat_id: $chatId
-							})
-						});
-
-						if (decisionResponse.ok) {
-							const decision = await decisionResponse.json();
-							console.log('🔍 Auto web search decision:', decision);
-
-							if (decision.web_search_needed) {
-								console.log('✅ Auto-enabling web search for this request only');
-								autoWebSearchEnabled = true;
-								// No toast notification - silent activation
-								// Don't modify webSearchEnabled - keep button state unchanged
-							}
-						}
-					}
-				} catch (error) {
-					console.log('⚠️ Auto web search decision failed:', error);
-					// Continue without web search
-				}
-			}
-		}
-
-		const toolIds = [];
-		const toolServerIds = [];
-
-		for (const toolId of selectedToolIds) {
-			if (toolId.startsWith('direct_server:')) {
-				let serverId = toolId.replace('direct_server:', '');
-				// Check if serverId is a number
-				if (!isNaN(parseInt(serverId))) {
-					toolServerIds.push(parseInt(serverId));
-				} else {
-					toolServerIds.push(serverId);
-				}
-			} else {
-				toolIds.push(toolId);
+				console.log('⚠️ Auto web search decision failed:', error);
+				// Continue without web search
 			}
 		}
 
@@ -1922,7 +1834,7 @@ const initNewChat = async () => {
 							: undefined
 				},
 
-				files: (files?.length ?? 0) > 0 && autoFileSearchEnabled ? files : undefined,
+				files: (files?.length ?? 0) > 0 ? files : undefined,
 
 				filter_ids: selectedFilterIds.length > 0 ? selectedFilterIds : undefined,
 				tool_ids: selectedToolIds.length > 0 ? selectedToolIds : undefined,
@@ -2365,18 +2277,7 @@ const initNewChat = async () => {
 >
 	{#if !loading}
 		<div in:fade={{ duration: 50 }} class="w-full h-full flex flex-col">
-			{#if $selectedFolder && $selectedFolder?.meta?.background_image_url}
-				<div
-					class="absolute {$showSidebar
-						? 'md:max-w-[calc(100%-260px)] md:translate-x-[260px]'
-						: ''} top-0 left-0 w-full h-full bg-cover bg-center bg-no-repeat"
-					style="background-image: url({$selectedFolder?.meta?.background_image_url})  "
-				/>
-
-				<div
-					class="absolute top-0 left-0 w-full h-full bg-linear-to-t from-white to-white/85 dark:from-gray-900 dark:to-gray-900/90 z-0"
-				/>
-			{:else if $settings?.backgroundImageUrl ?? $config?.license_metadata?.background_image_url ?? null}
+			{#if $settings?.backgroundImageUrl ?? $config?.license_metadata?.background_image_url ?? null}
 				<div
 					class="absolute {$showSidebar
 						? 'md:max-w-[calc(100%-260px)] md:translate-x-[260px]'
@@ -2391,7 +2292,7 @@ const initNewChat = async () => {
 			{/if}
 
 			<PaneGroup direction="horizontal" class="w-full h-full">
-				<Pane defaultSize={50} minSize={30} class="h-full flex relative max-w-full flex-col">
+				<Pane defaultSize={50} class="h-full flex relative max-w-full flex-col">
 					<Navbar
 						bind:this={navbarElement}
 						chat={{
@@ -2410,6 +2311,7 @@ const initNewChat = async () => {
 						bind:selectedModels
 						shareEnabled={!!history.currentId}
 						{initNewChat}
+						showBanners={!showCommands}
 						archiveChatHandler={() => {}}
 						{moveChatHandler}
 						onSaveTempChat={async () => {
@@ -2530,7 +2432,11 @@ const initNewChat = async () => {
 										if (e.detail || files.length > 0) {
 											await tick();
 
-											submitPrompt(e.detail.replaceAll('\n\n', '\n'));
+											submitPrompt(
+												($settings?.richTextInput ?? true)
+													? e.detail.replaceAll('\n\n', '\n')
+													: e.detail
+											);
 										}
 									}}
 								/>
@@ -2580,7 +2486,11 @@ const initNewChat = async () => {
 										clearDraft();
 										if (e.detail || files.length > 0) {
 											await tick();
-											submitPrompt(e.detail.replaceAll('\n\n', '\n'));
+											submitPrompt(
+												($settings?.richTextInput ?? true)
+													? e.detail.replaceAll('\n\n', '\n')
+													: e.detail
+											);
 										}
 									}}
                             />

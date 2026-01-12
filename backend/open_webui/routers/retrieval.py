@@ -403,10 +403,6 @@ async def get_rag_config(request: Request, user=Depends(get_admin_user)):
         "TOP_K": request.app.state.config.TOP_K,
         "BYPASS_EMBEDDING_AND_RETRIEVAL": request.app.state.config.BYPASS_EMBEDDING_AND_RETRIEVAL,
         "RAG_FULL_CONTEXT": request.app.state.config.RAG_FULL_CONTEXT,
-        # FI-TS_custom 12.09.2025: Auto file search decision
-        "ENABLE_AUTO_FILE_SEARCH": request.app.state.config.ENABLE_AUTO_FILE_SEARCH,
-        # FI-TS_custom 12.09.2025: File content summary generation
-        "ENABLE_FILE_CONTENT_SUMMARY": request.app.state.config.ENABLE_FILE_CONTENT_SUMMARY,
         # Hybrid search settings
         "ENABLE_RAG_HYBRID_SEARCH": request.app.state.config.ENABLE_RAG_HYBRID_SEARCH,
         "TOP_K_RERANKER": request.app.state.config.TOP_K_RERANKER,
@@ -581,12 +577,6 @@ class ConfigForm(BaseModel):
     TOP_K: Optional[int] = None
     BYPASS_EMBEDDING_AND_RETRIEVAL: Optional[bool] = None
     RAG_FULL_CONTEXT: Optional[bool] = None
-    
-    # FI-TS_custom 12.09.2025: Auto file search decision
-    ENABLE_AUTO_FILE_SEARCH: Optional[bool] = None
-    
-    # FI-TS_custom 12.09.2025: File content summary generation
-    ENABLE_FILE_CONTENT_SUMMARY: Optional[bool] = None
 
     # Hybrid search settings
     ENABLE_RAG_HYBRID_SEARCH: Optional[bool] = None
@@ -678,20 +668,6 @@ async def update_rag_config(
         form_data.RAG_FULL_CONTEXT
         if form_data.RAG_FULL_CONTEXT is not None
         else request.app.state.config.RAG_FULL_CONTEXT
-    )
-    
-    # FI-TS_custom 12.09.2025: Auto file search decision
-    request.app.state.config.ENABLE_AUTO_FILE_SEARCH = (
-        form_data.ENABLE_AUTO_FILE_SEARCH
-        if form_data.ENABLE_AUTO_FILE_SEARCH is not None
-        else request.app.state.config.ENABLE_AUTO_FILE_SEARCH
-    )
-    
-    # FI-TS_custom 12.09.2025: File content summary generation
-    request.app.state.config.ENABLE_FILE_CONTENT_SUMMARY = (
-        form_data.ENABLE_FILE_CONTENT_SUMMARY
-        if form_data.ENABLE_FILE_CONTENT_SUMMARY is not None
-        else request.app.state.config.ENABLE_FILE_CONTENT_SUMMARY
     )
 
     # Hybrid search settings
@@ -1101,10 +1077,6 @@ async def update_rag_config(
         "TOP_K": request.app.state.config.TOP_K,
         "BYPASS_EMBEDDING_AND_RETRIEVAL": request.app.state.config.BYPASS_EMBEDDING_AND_RETRIEVAL,
         "RAG_FULL_CONTEXT": request.app.state.config.RAG_FULL_CONTEXT,
-        # FI-TS_custom 12.09.2025: Auto file search decision
-        "ENABLE_AUTO_FILE_SEARCH": request.app.state.config.ENABLE_AUTO_FILE_SEARCH,
-        # FI-TS_custom 12.09.2025: File content summary generation
-        "ENABLE_FILE_CONTENT_SUMMARY": request.app.state.config.ENABLE_FILE_CONTENT_SUMMARY,
         # Hybrid search settings
         "ENABLE_RAG_HYBRID_SEARCH": request.app.state.config.ENABLE_RAG_HYBRID_SEARCH,
         "TOP_K_RERANKER": request.app.state.config.TOP_K_RERANKER,
@@ -1366,7 +1338,7 @@ def save_docs_to_vector_db(
                 )
                 return True
 
-        log.info(f"generating embeddings for {collection_name}")
+        log.info(f"adding to collection {collection_name}")
         embedding_function = get_embedding_function(
             request.app.state.config.RAG_EMBEDDING_ENGINE,
             request.app.state.config.RAG_EMBEDDING_MODEL,
@@ -1402,7 +1374,6 @@ def save_docs_to_vector_db(
             prefix=RAG_EMBEDDING_CONTENT_PREFIX,
             user=user,
         )
-        log.info(f"embeddings generated {len(embeddings)} for {len(texts)} items")
 
         items = [
             {
@@ -1414,13 +1385,11 @@ def save_docs_to_vector_db(
             for idx, text in enumerate(texts)
         ]
 
-        log.info(f"adding to collection {collection_name}")
         VECTOR_DB_CLIENT.insert(
             collection_name=collection_name,
             items=items,
         )
 
-        log.info(f"added {len(items)} items to collection {collection_name}")
         return True
     except Exception as e:
         log.exception(e)
@@ -1579,20 +1548,13 @@ def process_file(
         log.debug(f"text_content: {text_content}")
         Files.update_file_data_by_id(
             file.id,
-            {"content": text_content},
+            {"status": "completed", "content": text_content},
         )
+
         hash = calculate_sha256_string(text_content)
         Files.update_file_hash_by_id(file.id, hash)
 
-        if request.app.state.config.BYPASS_EMBEDDING_AND_RETRIEVAL:
-            Files.update_file_data_by_id(file.id, {"status": "completed"})
-            return {
-                "status": True,
-                "collection_name": None,
-                "filename": file.filename,
-                "content": text_content,
-            }
-        else:
+        if not request.app.state.config.BYPASS_EMBEDDING_AND_RETRIEVAL:
             try:
                 result = save_docs_to_vector_db(
                     request,
@@ -1606,7 +1568,6 @@ def process_file(
                     add=(True if form_data.collection_name else False),
                     user=user,
                 )
-                log.info(f"added {len(docs)} items to collection {collection_name}")
 
                 if result:
                     Files.update_file_metadata_by_id(
@@ -1616,21 +1577,21 @@ def process_file(
                         },
                     )
 
-                    Files.update_file_data_by_id(
-                        file.id,
-                        {"status": "completed"},
-                    )
-
                     return {
                         "status": True,
                         "collection_name": collection_name,
                         "filename": file.filename,
                         "content": text_content,
                     }
-                else:
-                    raise Exception("Error saving document to vector database")
             except Exception as e:
                 raise e
+        else:
+            return {
+                "status": True,
+                "collection_name": None,
+                "filename": file.filename,
+                "content": text_content,
+            }
 
     except Exception as e:
         log.exception(e)

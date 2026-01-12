@@ -122,7 +122,6 @@
 						</div>
 					{/if}
 
-
 					<div class="  mb-2.5 flex w-full justify-between">
 						<div class=" self-center text-xs font-medium">
 							{$i18n.t('Web Search Engine')}
