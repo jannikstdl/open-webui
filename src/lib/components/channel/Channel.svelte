@@ -120,6 +120,21 @@
 			if (type === 'message') {
 				if ((data?.parent_id ?? null) === null) {
 					const tempId = data?.temp_id ?? null;
+
+					// FI-TS_custom 2026-01-12: Show typing indicator for model messages with empty content
+					if (data?.meta?.model_id && (data?.content ?? '').trim() === '') {
+						// Add model to typing users
+						const modelName = data?.meta?.model_name ?? data?.meta?.model_id;
+						const modelId = `model_${data?.meta?.model_id}`;
+
+						if (!typingUsers.find((user) => user.id === modelId)) {
+							typingUsers = [...typingUsers, { id: modelId, name: modelName }];
+						}
+
+						// Don't add the empty message to the messages list yet
+						return;
+					}
+
 					messages = [
 						{ ...data, temp_id: null },
 						...messages.filter((m) => !tempId || m?.temp_id !== tempId)
@@ -137,8 +152,17 @@
 			} else if (type === 'message:update') {
 				const idx = messages.findIndex((message) => message.id === data.id);
 
+				// FI-TS_custom 2026-01-12: Remove model from typing users when content arrives
+				if (data?.meta?.model_id && (data?.content ?? '').trim() !== '') {
+					const modelId = `model_${data?.meta?.model_id}`;
+					typingUsers = typingUsers.filter((user) => user.id !== modelId);
+				}
+
 				if (idx !== -1) {
 					messages[idx] = data;
+				} else if (data?.meta?.model_id && (data?.content ?? '').trim() !== '') {
+					// FI-TS_custom 2026-01-12: Add the message if it wasn't in the list (was hidden during typing)
+					messages = [data, ...messages];
 				}
 			} else if (type === 'message:delete') {
 				messages = messages.filter((message) => message.id !== data.id);

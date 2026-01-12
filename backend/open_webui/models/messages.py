@@ -438,6 +438,41 @@ class MessageTable:
             )
             return MessageModel.model_validate(message) if message else None
 
+    # FI-TS_custom 2026-01-12: Get all messages (main + threads) for channel context
+    def get_all_channel_messages_for_context(
+        self,
+        channel_id: str,
+        limit: int = 0,
+        db: Optional[Session] = None,
+    ) -> list[MessageModel]:
+        """
+        Retrieve all messages in a channel (both main and thread replies)
+        ordered chronologically for LLM context building.
+
+        Args:
+            channel_id: The channel ID to fetch messages from
+            limit: Maximum messages to fetch (0 = no limit, fetch all)
+            db: Optional database session
+
+        Returns:
+            List of MessageModel objects in chronological order (oldest first)
+        """
+        with get_db_context(db) as db:
+            query = (
+                db.query(Message)
+                .filter_by(channel_id=channel_id)
+                .order_by(Message.created_at.desc())
+            )
+
+            # Only apply LIMIT if explicitly set
+            if limit > 0:
+                query = query.limit(limit)
+
+            all_messages = query.all()
+
+            # Reverse to get chronological order (oldest first)
+            return [MessageModel.model_validate(msg) for msg in reversed(all_messages)]
+
     def get_pinned_messages_by_channel_id(
         self,
         channel_id: str,

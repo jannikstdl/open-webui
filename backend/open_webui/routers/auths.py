@@ -1024,6 +1024,8 @@ async def get_admin_config(request: Request, user=Depends(get_admin_user)):
         "PENDING_USER_OVERLAY_TITLE": request.app.state.config.PENDING_USER_OVERLAY_TITLE,
         "PENDING_USER_OVERLAY_CONTENT": request.app.state.config.PENDING_USER_OVERLAY_CONTENT,
         "RESPONSE_WATERMARK": request.app.state.config.RESPONSE_WATERMARK,
+        "CHANNEL_LLM_MAX_MESSAGES": request.app.state.config.CHANNEL_LLM_MAX_MESSAGES,
+        "CHANNEL_LLM_MAX_TOKENS": request.app.state.config.CHANNEL_LLM_MAX_TOKENS,
     }
 
 
@@ -1050,6 +1052,8 @@ class AdminConfig(BaseModel):
     PENDING_USER_OVERLAY_TITLE: Optional[str] = None
     PENDING_USER_OVERLAY_CONTENT: Optional[str] = None
     RESPONSE_WATERMARK: Optional[str] = None
+    CHANNEL_LLM_MAX_MESSAGES: Optional[int] = 0
+    CHANNEL_LLM_MAX_TOKENS: Optional[int] = 0
 
 
 @router.post("/admin/config")
@@ -1105,6 +1109,10 @@ async def update_admin_config(
 
     request.app.state.config.RESPONSE_WATERMARK = form_data.RESPONSE_WATERMARK
 
+    # FI-TS_custom 2026-01-12: Update channel LLM settings
+    request.app.state.config.CHANNEL_LLM_MAX_MESSAGES = form_data.CHANNEL_LLM_MAX_MESSAGES
+    request.app.state.config.CHANNEL_LLM_MAX_TOKENS = form_data.CHANNEL_LLM_MAX_TOKENS
+
     return {
         "SHOW_ADMIN_DETAILS": request.app.state.config.SHOW_ADMIN_DETAILS,
         "ADMIN_EMAIL": request.app.state.config.ADMIN_EMAIL,
@@ -1128,6 +1136,8 @@ async def update_admin_config(
         "PENDING_USER_OVERLAY_TITLE": request.app.state.config.PENDING_USER_OVERLAY_TITLE,
         "PENDING_USER_OVERLAY_CONTENT": request.app.state.config.PENDING_USER_OVERLAY_CONTENT,
         "RESPONSE_WATERMARK": request.app.state.config.RESPONSE_WATERMARK,
+        "CHANNEL_LLM_MAX_MESSAGES": request.app.state.config.CHANNEL_LLM_MAX_MESSAGES,
+        "CHANNEL_LLM_MAX_TOKENS": request.app.state.config.CHANNEL_LLM_MAX_TOKENS,
     }
 
 

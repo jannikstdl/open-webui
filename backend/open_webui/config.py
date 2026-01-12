@@ -2995,6 +2995,19 @@ CHUNK_OVERLAP = PersistentConfig(
     int(os.environ.get("CHUNK_OVERLAP", "100")),
 )
 
+# FI-TS_custom 2026-01-12: Channel LLM context control settings (default: no limits)
+CHANNEL_LLM_MAX_MESSAGES = PersistentConfig(
+    "CHANNEL_LLM_MAX_MESSAGES",
+    "channels.llm.max_messages",
+    int(os.environ.get("CHANNEL_LLM_MAX_MESSAGES", "0")),
+)
+
+CHANNEL_LLM_MAX_TOKENS = PersistentConfig(
+    "CHANNEL_LLM_MAX_TOKENS",
+    "channels.llm.max_tokens",
+    int(os.environ.get("CHANNEL_LLM_MAX_TOKENS", "0")),
+)
+
 DEFAULT_RAG_TEMPLATE = """### Task:
 Respond to the user query using the provided context, incorporating inline citations in the format [id] **only when the <source> tag includes an explicit id attribute** (e.g., <source id="1">).
 

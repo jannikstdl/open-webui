@@ -67,6 +67,7 @@ from open_webui.utils.access_control import (
 )
 from open_webui.utils.webhook import post_webhook
 from open_webui.utils.channels import extract_mentions, replace_mentions
+from open_webui.fits_scripts.channel_context import build_channel_context
 from open_webui.internal.db import get_session
 from sqlalchemy.orm import Session
 
@@ -996,21 +997,33 @@ async def model_response_handler(request, channel, message, user, db=None):
 
         if model:
             try:
-                # reverse to get in chronological order
-                thread_messages = Messages.get_messages_by_parent_id(
-                    channel.id,
-                    message.parent_id if message.parent_id else message.id,
-                    db=db,
-                )[::-1]
+                # FI-TS_custom 2026-01-12: Get all channel messages with configurable limits
+                max_messages = request.app.state.config.CHANNEL_LLM_MAX_MESSAGES  # 0 = no limit
+                max_tokens = request.app.state.config.CHANNEL_LLM_MAX_TOKENS      # 0 = no limit
 
+                # Fetch messages with SQL LIMIT only if max_messages > 0
+                all_messages = Messages.get_all_channel_messages_for_context(
+                    channel.id,
+                    limit=max_messages if max_messages > 0 else 0,  # 0 = fetch all
+                    db=db,
+                )
+
+                # Build context with token limits
+                thread_history, images = build_channel_context(
+                    all_messages,
+                    max_messages,
+                    max_tokens,
+                    MODELS,
+                    db,
+                )
+
+                # FI-TS_custom 2026-01-12: Respond in main channel (no threading)
                 response_message, channel = await new_message_handler(
                     request,
                     channel.id,
                     MessageForm(
                         **{
-                            "parent_id": (
-                                message.parent_id if message.parent_id else message.id
-                            ),
+                            "parent_id": None,
                             "content": f"",
                             "data": {},
                             "meta": {
@@ -1023,53 +1036,13 @@ async def model_response_handler(request, channel, message, user, db=None):
                     db,
                 )
 
-                thread_history = []
-                images = []
-                message_users = {}
-
-                for thread_message in thread_messages:
-                    message_user = None
-                    if thread_message.user_id not in message_users:
-                        message_user = Users.get_user_by_id(
-                            thread_message.user_id, db=db
-                        )
-                        message_users[thread_message.user_id] = message_user
-                    else:
-                        message_user = message_users[thread_message.user_id]
-
-                    if thread_message.meta and thread_message.meta.get(
-                        "model_id", None
-                    ):
-                        # If the message was sent by a model, use the model name
-                        message_model_id = thread_message.meta.get("model_id", None)
-                        message_model = MODELS.get(message_model_id, None)
-                        username = (
-                            message_model.get("name", message_model_id)
-                            if message_model
-                            else message_model_id
-                        )
-                    else:
-                        username = message_user.name if message_user else "Unknown"
-
-                    thread_history.append(
-                        f"{username}: {replace_mentions(thread_message.content)}"
-                    )
-
-                    thread_message_files = thread_message.data.get("files", [])
-                    for file in thread_message_files:
-                        if file.get("type", "") == "image":
-                            images.append(file.get("url", ""))
-                        elif file.get("content_type", "").startswith("image/"):
-                            image = get_image_base64_from_file_id(file.get("id", ""))
-                            if image:
-                                images.append(image)
-
+                # FI-TS_custom 2026-01-12: Updated system message for non-threaded channel context
                 thread_history_string = "\n\n".join(thread_history)
                 system_message = {
                     "role": "system",
-                    "content": f"You are {model.get('name', model_id)}, participating in a threaded conversation. Be concise and conversational."
+                    "content": f"You are {model.get('name', model_id)}, participating in a channel conversation. Messages marked with [Thread] are from thread discussions. Be concise and conversational."
                     + (
-                        f"Here's the thread history:\n\n\n{thread_history_string}\n\n\nContinue the conversation naturally as {model.get('name', model_id)}, addressing the most recent message while being aware of the full context."
+                        f"\n\nHere's the conversation history:\n\n{thread_history_string}\n\nContinue the conversation naturally."
                         if thread_history
                         else ""
                     ),

@@ -741,6 +741,43 @@
 						<Switch bind:state={adminConfig.ENABLE_CHANNELS} />
 					</div>
 
+					<!-- FI-TS_custom 2026-01-12: Channel LLM context settings -->
+					{#if adminConfig.ENABLE_CHANNELS}
+						<div class="mb-2.5">
+							<div class="self-center text-xs font-medium mb-2">
+								{$i18n.t('Channel LLM Max Messages')}
+							</div>
+							<input
+								class="w-full rounded-lg py-2 px-4 text-sm bg-gray-50 dark:text-gray-300 dark:bg-gray-850"
+								type="number"
+								min="0"
+								max="500"
+								placeholder="0 (no limit)"
+								bind:value={adminConfig.CHANNEL_LLM_MAX_MESSAGES}
+							/>
+							<div class="mt-1 text-xs text-gray-400 dark:text-gray-500">
+								{$i18n.t('Maximum number of recent messages to include in LLM context (0 = no limit)')}
+							</div>
+						</div>
+
+						<div class="mb-2.5">
+							<div class="self-center text-xs font-medium mb-2">
+								{$i18n.t('Channel LLM Max Tokens')}
+							</div>
+							<input
+								class="w-full rounded-lg py-2 px-4 text-sm bg-gray-50 dark:text-gray-300 dark:bg-gray-850"
+								type="number"
+								min="0"
+								max="100000"
+								placeholder="0 (no limit)"
+								bind:value={adminConfig.CHANNEL_LLM_MAX_TOKENS}
+							/>
+							<div class="mt-1 text-xs text-gray-400 dark:text-gray-500">
+								{$i18n.t('Maximum token count for LLM context (0 = no limit)')}
+							</div>
+						</div>
+					{/if}
+
 					<div class="mb-2.5 flex w-full items-center justify-between pr-2">
 						<div class=" self-center text-xs font-medium">
 							{$i18n.t('Memories')} ({$i18n.t('Beta')})

@@ -274,10 +274,11 @@
 			<div class={`shrink-0 mr-1 w-9`}>
 				{#if showUserProfile}
 					{#if message?.meta?.model_id}
+						<!-- FI-TS_custom 2026-01-12: Match user image rounding (rounded-md instead of rounded-full) -->
 						<img
 							src={`${WEBUI_API_BASE_URL}/models/model/profile/image?id=${message.meta.model_id}`}
 							alt={message.meta.model_name ?? message.meta.model_id}
-							class="size-8 translate-y-1 ml-0.5 object-cover rounded-full"
+							class="size-8 translate-y-1 ml-0.5 object-cover rounded-md"
 						/>
 					{:else}
 						<ProfilePreview user={message.user}>
