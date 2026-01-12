@@ -446,6 +446,30 @@ GITHUB_CLIENT_REDIRECT_URI = PersistentConfig(
     os.environ.get("GITHUB_CLIENT_REDIRECT_URI", ""),
 )
 
+FEISHU_CLIENT_ID = PersistentConfig(
+    "FEISHU_CLIENT_ID",
+    "oauth.feishu.client_id",
+    os.environ.get("FEISHU_CLIENT_ID", ""),
+)
+
+FEISHU_CLIENT_SECRET = PersistentConfig(
+    "FEISHU_CLIENT_SECRET",
+    "oauth.feishu.client_secret",
+    os.environ.get("FEISHU_CLIENT_SECRET", ""),
+)
+
+FEISHU_OAUTH_SCOPE = PersistentConfig(
+    "FEISHU_OAUTH_SCOPE",
+    "oauth.feishu.scope",
+    os.environ.get("FEISHU_OAUTH_SCOPE", "contact:user.email:readonly contact:user.id:readonly"),
+)
+
+FEISHU_REDIRECT_URI = PersistentConfig(
+    "FEISHU_REDIRECT_URI",
+    "oauth.feishu.redirect_uri",
+    os.environ.get("FEISHU_REDIRECT_URI", ""),
+)
+
 OAUTH_CLIENT_ID = PersistentConfig(
     "OAUTH_CLIENT_ID",
     "oauth.oidc.client_id",
