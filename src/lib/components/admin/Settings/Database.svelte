@@ -118,7 +118,7 @@
 			// 2. Role is pending
 			// 3. Domain is not internal or external
 			return (
-				email === $user?.email ||
+				email === currentUserEmail ||
 				user.role === 'pending' ||
 				(domain !== MAIL_DOMAIN_INTERNAL && domain !== MAIL_DOMAIN_EXTERNAL)
 			);
@@ -131,6 +131,8 @@
 	 * Get reason why a user is invalid
 	 */
 	function getInvalidUserReason(user: any): string {
+		// Get current user email at top level to avoid store subscription issues
+		const currentUserEmail = $user?.email;
 		const email = user.email;
 		if (!email) return 'Keine E-Mail-Adresse vorhanden';
 
@@ -139,7 +141,7 @@
 
 		const domain = email.substring(atIndex + 1);
 
-		if (email === $user?.email) return 'Eigener Account (wird ausgeschlossen)';
+		if (email === currentUserEmail) return 'Eigener Account (wird ausgeschlossen)';
 		if (user.role === 'pending') return 'Status: pending (wird ausgeschlossen)';
 		if (domain !== MAIL_DOMAIN_INTERNAL && domain !== MAIL_DOMAIN_EXTERNAL) {
 			return `Ungültige Domain: ${domain} (nur @f-i-ts.de und @extern.f-i-ts.de erlaubt)`;
