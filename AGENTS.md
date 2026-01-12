@@ -1,0 +1,10 @@
+- This is a fork of OpenWebUI with custom changes for FI-TS (our company).
+- All custom changes in this repo must be commented with "FI-TS_custom [date]: [change explanation]"
+- Also, if possible, change branting to "FI-TS" in relevant places.
+- For scripts and FI-TS specific code theres a folder "fits-scripts" under /backend/open_webui/
+- Do not comment if the file doesn't allow comments like json, etc.
+- be careful when merging updates from OpenWebUI to not overwrite FI-TS custom changes, if you are not sure ask the user.
+- For text fields in the Frontend always use the n18n internationalization files to allow easy translation later. Also if you add new text fields, please add them to the german i18n json as german is set to the dafault language in the FI-TS fork.
+- Only make minimal and maintainable custom changes to the original OpenWebUI code for easier future merges.
+- the GitLab remote it the FI-TS fork
+- We have a custom Landingpage design under /scr/lib/components/fi-ts_landingpage
