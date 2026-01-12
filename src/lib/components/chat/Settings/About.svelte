@@ -49,7 +49,7 @@
 <!-- FI-TS_custom 27.06.2025 - Open Source Acknowledgements -->
 
 <div id="tab-about" class="flex flex-col h-full justify-between space-y-3 text-sm mb-6">
-	<div class=" space-y-3 overflow-y-scroll max-h-[28rem] lg:max-h-full">
+	<div class=" space-y-3 overflow-y-scroll max-h-[28rem] md:max-h-full">
 		<div>
 			<div class="mb-2.5 text-sm font-medium flex space-x-2 items-center">
 				<div>
@@ -99,7 +99,7 @@
 
 		<!-- FI-TS_custom 21.02.2025 - Dont show ollama version 
 		{#if ollamaVersion}
-			<hr class="dark:border-gray-850" />
+			<hr class=" border-gray-100/30 dark:border-gray-850/30" />
 
 			<div>
 				<div class="mb-2.5 text-sm font-medium">Ollama Version</div>
@@ -138,6 +138,13 @@
 					</span>
 				</span>
 			{/if}
+
+		<div class="mt-2 text-xs text-gray-400 dark:text-gray-500">
+			Emoji graphics provided by
+			<a href="https://github.com/jdecked/twemoji" target="_blank">Twemoji</a>, licensed under
+			<a href="https://creativecommons.org/licenses/by/4.0/" target="_blank">CC-BY 4.0</a>.
+		</div>
+	
 		</div>
 	</div>
 </div>

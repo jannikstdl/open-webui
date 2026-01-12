@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { v4 as uuidv4 } from 'uuid';
 	import { toast } from 'svelte-sonner';
-	import mermaid from 'mermaid';
 	import { PaneGroup, Pane, PaneResizer } from 'paneforge';
 
 	import { getContext, onDestroy, onMount, tick } from 'svelte';
+	import { fade } from 'svelte/transition';
 	const i18n: Writable<i18nType> = getContext('i18n');
 
 	import { goto } from '$app/navigation';
@@ -27,6 +27,7 @@
 		banners,
 		user,
 		socket,
+		audioQueue,
 		showControls,
 		showCallOverlay,
 		currentChatPage,
@@ -35,11 +36,15 @@
 		showOverview,
 		chatTitle,
 		showArtifacts,
+		artifactContents,
 		tools,
 		toolServers,
+		functions,
 		selectedFolder,
-		pinnedChats
+		pinnedChats,
+		showEmbeds
 	} from '$lib/stores';
+
 	import {
 		convertMessagesToHistory,
 		copyToClipboard,
@@ -47,8 +52,11 @@
 		createMessagesList,
 		getPromptVariables,
 		processDetails,
-		removeAllDetails
+		removeAllDetails,
+		getCodeBlockContents,
+		isYoutubeUrl
 	} from '$lib/utils';
+	import { AudioQueue } from '$lib/utils/audio';
 
 	import {
 		createNewChat,
@@ -74,8 +82,8 @@
 	import { getTools } from '$lib/apis/tools';
 	import { uploadFile } from '$lib/apis/files';
 	import { createOpenAITextStream } from '$lib/apis/streaming';
-
-	import { fade, fly } from 'svelte/transition'; // FI-TS_custom 24.02.2025 - Input slide transitions
+	import { getFunctions } from '$lib/apis/functions';
+	import { updateFolderById } from '$lib/apis/folders';
 
 	import Banner from '../common/Banner.svelte';
 	import MessageInput from '$lib/components/chat/MessageInput.svelte';
@@ -85,9 +93,10 @@
 	import EventConfirmDialog from '../common/ConfirmDialog.svelte';
 	import Placeholder from './Placeholder.svelte';
 	import NotificationToast from '../NotificationToast.svelte';
-    import Spinner from '../common/Spinner.svelte';
+	import Spinner from '../common/Spinner.svelte';
 	import Tooltip from '../common/Tooltip.svelte';
 	import Sidebar from '../icons/Sidebar.svelte';
+	import Image from '../common/Image.svelte';
 
 	export let chatIdProp = '';
 
@@ -113,15 +122,16 @@
 	let eventConfirmationInputValue = '';
 	let eventCallback = null;
 
-	// FI-TS_custom 24.02.2025 - Force remount of Placeholder to retrigger transitions
-	let placeholderKey = 0;
-
 	let chatIdUnsubscriber: Unsubscriber | undefined;
 
 	let selectedModels = [''];
 	let atSelectedModel: Model | undefined;
 	let selectedModelIds = [];
-	$: selectedModelIds = atSelectedModel !== undefined ? [atSelectedModel.id] : selectedModels;
+	$: if (atSelectedModel !== undefined) {
+		selectedModelIds = [atSelectedModel.id];
+	} else {
+		selectedModelIds = selectedModels;
+	}
 
 	let selectedToolIds = [];
 	let selectedFilterIds = [];
@@ -191,6 +201,8 @@
 						codeInterpreterEnabled = input.codeInterpreterEnabled;
 					}
 				} catch (e) {}
+			} else {
+				await setDefaults();
 			}
 
 			const chatInput = document.getElementById('chat-input');
@@ -219,10 +231,15 @@
 	}
 
 	const saveSessionSelectedModels = () => {
-		if (selectedModels.length === 0 || (selectedModels.length === 1 && selectedModels[0] === '')) {
+		const selectedModelsString = JSON.stringify(selectedModels);
+		if (
+			selectedModels.length === 0 ||
+			(selectedModels.length === 1 && selectedModels[0] === '') ||
+			sessionStorage.selectedModels === selectedModelsString
+		) {
 			return;
 		}
-		sessionStorage.selectedModels = JSON.stringify(selectedModels);
+		sessionStorage.selectedModels = selectedModelsString;
 		console.log('saveSessionSelectedModels', selectedModels, sessionStorage.selectedModels);
 	};
 
@@ -232,44 +249,69 @@
 	}
 
 	const onSelectedModelIdsChange = () => {
-		if (oldSelectedModelIds.filter((id) => id).length > 0) {
-			resetInput();
-		}
-		oldSelectedModelIds = selectedModelIds;
+		resetInput();
+		oldSelectedModelIds = JSON.parse(JSON.stringify(selectedModelIds));
 	};
 
 	const resetInput = () => {
-		console.debug('resetInput');
-		setToolIds();
-
+		selectedToolIds = [];
 		selectedFilterIds = [];
 		webSearchEnabled = false;
 		imageGenerationEnabled = false;
 		codeInterpreterEnabled = false;
+
+		if (selectedModelIds.filter((id) => id).length > 0) {
+			setDefaults();
+		}
 	};
 
-	const setToolIds = async () => {
+	const setDefaults = async () => {
 		if (!$tools) {
 			tools.set(await getTools(localStorage.token));
 		}
-
+		if (!$functions) {
+			functions.set(await getFunctions(localStorage.token));
+		}
 		if (selectedModels.length !== 1 && !atSelectedModel) {
 			return;
 		}
 
 		const model = atSelectedModel ?? $models.find((m) => m.id === selectedModels[0]);
-		if (model && model?.info?.meta?.toolIds) {
-			selectedToolIds = [
-				...new Set(
-					[...(model?.info?.meta?.toolIds ?? [])].filter((id) => $tools.find((t) => t.id === id))
-				)
-			];
-		} else {
-			selectedToolIds = [];
+		if (model) {
+			// Set Default Tools
+			if (model?.info?.meta?.toolIds) {
+				selectedToolIds = [
+					...new Set(
+						[...(model?.info?.meta?.toolIds ?? [])].filter((id) => $tools.find((t) => t.id === id))
+					)
+				];
+			}
+
+			// Set Default Filters (Toggleable only)
+			if (model?.info?.meta?.defaultFilterIds) {
+				selectedFilterIds = model.info.meta.defaultFilterIds.filter((id) =>
+					model?.filters?.find((f) => f.id === id)
+				);
+			}
+
+			// Set Default Features
+			if (model?.info?.meta?.defaultFeatureIds) {
+				if (model.info?.meta?.capabilities?.['image_generation']) {
+					imageGenerationEnabled = model.info.meta.defaultFeatureIds.includes('image_generation');
+				}
+
+				if (model.info?.meta?.capabilities?.['web_search']) {
+					webSearchEnabled = model.info.meta.defaultFeatureIds.includes('web_search');
+				}
+
+				if (model.info?.meta?.capabilities?.['code_interpreter']) {
+					codeInterpreterEnabled = model.info.meta.defaultFeatureIds.includes('code_interpreter');
+				}
+			}
 		}
 	};
 
-	const showMessage = async (message) => {
+	const showMessage = async (message, ignoreSettings = false) => {
 		await tick();
 
 		const _chatId = JSON.parse(JSON.stringify($chatId));
@@ -295,7 +337,7 @@
 		await tick();
 		await tick();
 
-		if ($settings?.scrollOnBranchChange ?? true) {
+		if (($settings?.scrollOnBranchChange ?? true) || ignoreSettings) {
 			const messageElement = document.getElementById(`message-${message.id}`);
 			if (messageElement) {
 				messageElement.scrollIntoView({ behavior: 'smooth' });
@@ -323,7 +365,6 @@
 					} else {
 						message.statusHistory = [data];
 					}
-					message.status = data;
 				} else if (type === 'chat:completion') {
 					chatCompletionEventHandler(data, message, event.chat_id);
 				} else if (type === 'chat:tasks:cancel') {
@@ -339,6 +380,8 @@
 					message.content = data.content;
 				} else if (type === 'chat:message:files' || type === 'files') {
 					message.files = data.files;
+				} else if (type === 'chat:message:embeds' || type === 'embeds') {
+					message.embeds = data.embeds;
 				} else if (type === 'chat:message:error') {
 					message.error = data.error;
 				} else if (type === 'chat:message:follow_ups') {
@@ -347,6 +390,9 @@
 					if (autoScroll) {
 						scrollToBottom('smooth');
 					}
+				} else if (type === 'chat:message:favorite') {
+					// Update message favorite status
+					message.favorite = data.favorite;
 				} else if (type === 'chat:title') {
 					chatTitle.set(data);
 					currentChatPage.set(1);
@@ -442,6 +488,15 @@
 			return;
 		}
 
+		if (event.data.type === 'action:submit') {
+			console.debug(event.data.text);
+
+			if (prompt !== '') {
+				await tick();
+				submitPrompt(prompt);
+			}
+		}
+
 		// Replace with your iframe's origin
 		if (event.data.type === 'input:prompt') {
 			console.debug(event.data.text);
@@ -451,15 +506,6 @@
 			if (inputElement) {
 				messageInput?.setText(event.data.text);
 				inputElement.focus();
-			}
-		}
-
-		if (event.data.type === 'action:submit') {
-			console.debug(event.data.text);
-
-			if (prompt !== '') {
-				await tick();
-				submitPrompt(prompt);
 			}
 		}
 
@@ -473,18 +519,50 @@
 		}
 	};
 
+	const savedModelIds = async () => {
+		if (
+			$selectedFolder &&
+			selectedModels.filter((modelId) => modelId !== '').length > 0 &&
+			JSON.stringify($selectedFolder?.data?.model_ids) !== JSON.stringify(selectedModels)
+		) {
+			const res = await updateFolderById(localStorage.token, $selectedFolder.id, {
+				data: {
+					model_ids: selectedModels
+				}
+			});
+		}
+	};
+
+	$: if (selectedModels !== null) {
+		savedModelIds();
+	}
+
 	let pageSubscribe = null;
+	let showControlsSubscribe = null;
+	let selectedFolderSubscribe = null;
+
+	const stopAudio = () => {
+		try {
+			speechSynthesis.cancel();
+			$audioQueue.stop();
+		} catch {}
+	};
+
 	onMount(async () => {
 		loading = true;
 		console.log('mounted');
 		window.addEventListener('message', onMessageHandler);
-		$socket?.on('chat-events', chatEventHandler);
+		$socket?.on('events', chatEventHandler);
+
+		audioQueue.set(new AudioQueue(document.getElementById('audioElement')));
 
 		pageSubscribe = page.subscribe(async (p) => {
 			if (p.url.pathname === '/') {
 				await tick();
 				initNewChat();
 			}
+
+			stopAudio();
 		});
 
 		const storageChatInput = sessionStorage.getItem(
@@ -522,7 +600,7 @@
 			} catch (e) {}
 		}
 
-		showControls.subscribe(async (value) => {
+		showControlsSubscribe = showControls.subscribe(async (value) => {
 			if (controlPane && !$mobile) {
 				try {
 					if (value) {
@@ -539,20 +617,37 @@
 				showCallOverlay.set(false);
 				showOverview.set(false);
 				showArtifacts.set(false);
+				showEmbeds.set(false);
+			}
+		});
+
+		selectedFolderSubscribe = selectedFolder.subscribe(async (folder) => {
+			if (
+				folder?.data?.model_ids &&
+				JSON.stringify(selectedModels) !== JSON.stringify(folder.data.model_ids)
+			) {
+				selectedModels = folder.data.model_ids;
+
+				console.log('Set selectedModels from folder data:', selectedModels);
 			}
 		});
 
 		const chatInput = document.getElementById('chat-input');
 		chatInput?.focus();
-
-		chats.subscribe(() => {});
 	});
 
 	onDestroy(() => {
-		pageSubscribe();
-		chatIdUnsubscriber?.();
-		window.removeEventListener('message', onMessageHandler);
-		$socket?.off('chat-events', chatEventHandler);
+		try {
+			pageSubscribe();
+			showControlsSubscribe();
+			selectedFolderSubscribe();
+			chatIdUnsubscriber?.();
+			window.removeEventListener('message', onMessageHandler);
+			$socket?.off('events', chatEventHandler);
+			$audioQueue?.destroy();
+		} catch (e) {
+			console.error(e);
+		}
 	});
 
 	// File upload functions
@@ -667,7 +762,7 @@
 			fileItem.id = uploadedFile.id;
 			fileItem.size = file.size;
 			fileItem.collection_name = uploadedFile?.meta?.collection_name;
-			fileItem.url = `${WEBUI_API_BASE_URL}/files/${uploadedFile.id}`;
+			fileItem.url = `${uploadedFile.id}`;
 
 			files = files;
 			toast.success($i18n.t('File uploaded successfully'));
@@ -682,79 +777,121 @@
 		}
 	};
 
-	const uploadWeb = async (url) => {
-		console.log(url);
-
-		const fileItem = {
-			type: 'text',
-			name: url,
-			collection_name: '',
-			status: 'uploading',
-			url: url,
-			error: ''
-		};
-
-		try {
-			files = [...files, fileItem];
-			const res = await processWeb(localStorage.token, '', url);
-
-			if (res) {
-				fileItem.status = 'uploaded';
-				fileItem.collection_name = res.collection_name;
-				fileItem.file = {
-					...res.file,
-					...fileItem.file
-				};
-
-				files = files;
-			}
-		} catch (e) {
-			// Remove the failed doc from the files array
-			files = files.filter((f) => f.name !== url);
-			toast.error(JSON.stringify(e));
+	const uploadWeb = async (urls) => {
+		if (!Array.isArray(urls)) {
+			urls = [urls];
 		}
-	};
 
-	const uploadYoutubeTranscription = async (url) => {
-		console.log(url);
-
-		const fileItem = {
+		// Create file items first
+		const fileItems = urls.map((url) => ({
 			type: 'text',
 			name: url,
 			collection_name: '',
 			status: 'uploading',
 			context: 'full',
-			url: url,
+			url,
 			error: ''
-		};
+		}));
 
-		try {
-			files = [...files, fileItem];
-			const res = await processYoutubeVideo(localStorage.token, url);
+		// Display all items at once
+		files = [...files, ...fileItems];
 
-			if (res) {
-				fileItem.status = 'uploaded';
-				fileItem.collection_name = res.collection_name;
-				fileItem.file = {
-					...res.file,
-					...fileItem.file
-				};
-				files = files;
+		for (const fileItem of fileItems) {
+			try {
+				const res = isYoutubeUrl(fileItem.url)
+					? await processYoutubeVideo(localStorage.token, fileItem.url)
+					: await processWeb(localStorage.token, '', fileItem.url);
+
+				if (res) {
+					fileItem.status = 'uploaded';
+					fileItem.collection_name = res.collection_name;
+					fileItem.file = {
+						...res.file,
+						...fileItem.file
+					};
+				}
+
+				files = [...files];
+			} catch (e) {
+				files = files.filter((f) => f.name !== url);
+				toast.error(`${e}`);
 			}
-		} catch (e) {
-			// Remove the failed doc from the files array
-			files = files.filter((f) => f.name !== url);
-			toast.error(`${e}`);
 		}
+	};
+
+	const onUpload = async (event) => {
+		const { type, data } = event;
+
+		if (type === 'google-drive') {
+			await uploadGoogleDriveFile(data);
+		} else if (type === 'web') {
+			await uploadWeb(data);
+		}
+	};
+
+	$: if (history) {
+		getContents();
+	} else {
+		artifactContents.set([]);
+	}
+
+	const getContents = () => {
+		const messages = history ? createMessagesList(history, history.currentId) : [];
+		let contents = [];
+		messages.forEach((message) => {
+			if (message?.role !== 'user' && message?.content) {
+				const {
+					codeBlocks: codeBlocks,
+					html: htmlContent,
+					css: cssContent,
+					js: jsContent
+				} = getCodeBlockContents(message.content);
+
+				if (htmlContent || cssContent || jsContent) {
+					const renderedContent = `
+                        <!DOCTYPE html>
+                        <html lang="en">
+                        <head>
+                            <meta charset="UTF-8">
+                            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+							<${''}style>
+								body {
+									background-color: white; /* Ensure the iframe has a white background */
+								}
+
+								${cssContent}
+							</${''}style>
+                        </head>
+                        <body>
+                            ${htmlContent}
+
+							<${''}script>
+                            	${jsContent}
+							</${''}script>
+                        </body>
+                        </html>
+                    `;
+					contents = [...contents, { type: 'iframe', content: renderedContent }];
+				} else {
+					// Check for SVG content
+					for (const block of codeBlocks) {
+						if (block.lang === 'svg' || (block.lang === 'xml' && block.code.includes('<svg'))) {
+							contents = [...contents, { type: 'svg', content: block.code }];
+						}
+					}
+				}
+			}
+		});
+
+		artifactContents.set(contents);
 	};
 
 	//////////////////////////
 	// Web functions
 	//////////////////////////
 
-const initNewChat = async () => {
-    // FI-TS_custom 24.02.2025 - Bump key so Placeholder re-mounts and plays in: transitions
-    placeholderKey += 1;
+	const initNewChat = async () => {
+		console.log('initNewChat');
 		if ($user?.role !== 'admin' && $user?.permissions?.chat?.temporary_enforced) {
 			await temporaryChatEnabled.set(true);
 		}
@@ -768,9 +905,15 @@ const initNewChat = async () => {
 			}
 		}
 
+		if ($user?.role !== 'admin' && !$user?.permissions?.chat?.temporary) {
+			await temporaryChatEnabled.set(false);
+		}
+
 		const availableModels = $models
 			.filter((m) => !(m?.info?.meta?.hidden ?? false))
 			.map((m) => m.id);
+
+		const defaultModels = $config?.default_models ? $config?.default_models.split(',') : [];
 
 		if ($page.url.searchParams.get('models') || $page.url.searchParams.get('model')) {
 			const urlModels = (
@@ -780,8 +923,8 @@ const initNewChat = async () => {
 			)?.split(',');
 
 			if (urlModels.length === 1) {
-				const m = $models.find((m) => m.id === urlModels[0]);
-				if (!m) {
+				if (!$models.find((m) => m.id === urlModels[0])) {
+					// Model not found; open model selector and prefill
 					const modelSelectorButton = document.getElementById('model-selector-0-button');
 					if (modelSelectorButton) {
 						modelSelectorButton.click();
@@ -795,32 +938,51 @@ const initNewChat = async () => {
 						}
 					}
 				} else {
+					// Model found; set it as selected
 					selectedModels = urlModels;
 				}
 			} else {
+				// Multiple models; set as selected
 				selectedModels = urlModels;
 			}
 
+			// Unavailable models filtering
 			selectedModels = selectedModels.filter((modelId) =>
 				$models.map((m) => m.id).includes(modelId)
 			);
 		} else {
-			if (sessionStorage.selectedModels) {
-				selectedModels = JSON.parse(sessionStorage.selectedModels);
-				sessionStorage.removeItem('selectedModels');
+			if ($selectedFolder?.data?.model_ids) {
+				// Set from folder model IDs
+				selectedModels = $selectedFolder?.data?.model_ids;
 			} else {
-				if ($settings?.models) {
-					selectedModels = $settings?.models;
-				} else if ($config?.default_models) {
-					console.log($config?.default_models.split(',') ?? '');
-					selectedModels = $config?.default_models.split(',');
+				if (sessionStorage.selectedModels) {
+					// Set from session storage (temporary selection)
+					selectedModels = JSON.parse(sessionStorage.selectedModels);
+					sessionStorage.removeItem('selectedModels');
+				} else {
+					if ($settings?.models) {
+						// Set from user settings
+						selectedModels = $settings?.models;
+					} else if (defaultModels && defaultModels.length > 0) {
+						// Set from default models
+						selectedModels = defaultModels;
+					}
 				}
 			}
+
+			// Unavailable & hidden models filtering
 			selectedModels = selectedModels.filter((modelId) => availableModels.includes(modelId));
 		}
 
+		// Ensure at least one model is selected
 		if (selectedModels.length === 0 || (selectedModels.length === 1 && selectedModels[0] === '')) {
 			if (availableModels.length > 0) {
+				if (defaultModels && defaultModels.length > 0) {
+					// Set from default models
+					selectedModels = defaultModels.filter((modelId) => availableModels.includes(modelId));
+				}
+
+				// Set to first available model
 				selectedModels = [availableModels?.at(0) ?? ''];
 			} else {
 				selectedModels = [''];
@@ -851,9 +1013,7 @@ const initNewChat = async () => {
 		params = {};
 
 		if ($page.url.searchParams.get('youtube')) {
-			uploadYoutubeTranscription(
-				`https://www.youtube.com/watch?v=${$page.url.searchParams.get('youtube')}`
-			);
+			await uploadWeb(`https://www.youtube.com/watch?v=${$page.url.searchParams.get('youtube')}`);
 		}
 
 		if ($page.url.searchParams.get('load-url')) {
@@ -907,14 +1067,6 @@ const initNewChat = async () => {
 			$models.map((m) => m.id).includes(modelId) ? modelId : ''
 		);
 
-		const userSettings = await getUserSettings(localStorage.token);
-
-		if (userSettings) {
-			settings.set(userSettings.ui);
-		} else {
-			settings.set(JSON.parse(localStorage.getItem('settings') ?? '{}'));
-		}
-
 		const chatInput = document.getElementById('chat-input');
 		setTimeout(() => chatInput?.focus(), 0);
 	};
@@ -950,7 +1102,7 @@ const initNewChat = async () => {
 					selectedModels = selectedModels.length > 0 ? [selectedModels[0]] : [''];
 				}
 
-				oldSelectedModelIds = selectedModels;
+				oldSelectedModelIds = JSON.parse(JSON.stringify(selectedModels));
 
 				history =
 					(chatContent?.history ?? undefined) !== undefined
@@ -958,14 +1110,6 @@ const initNewChat = async () => {
 						: convertMessagesToHistory(chatContent.messages);
 
 				chatTitle.set(chatContent.title);
-
-				const userSettings = await getUserSettings(localStorage.token);
-
-				if (userSettings) {
-					await settings.set(userSettings.ui);
-				} else {
-					await settings.set(JSON.parse(localStorage.getItem('settings') ?? '{}'));
-				}
 
 				params = chatContent?.params ?? {};
 				chatFiles = chatContent?.files ?? [];
@@ -975,7 +1119,7 @@ const initNewChat = async () => {
 
 				if (history.currentId) {
 					for (const message of Object.values(history.messages)) {
-						if (message.role === 'assistant') {
+						if (message && message.role === 'assistant') {
 							message.done = true;
 						}
 					}
@@ -1007,7 +1151,7 @@ const initNewChat = async () => {
 			});
 		}
 	};
-	const chatCompletedHandler = async (chatId, modelId, responseMessageId, messages) => {
+	const chatCompletedHandler = async (_chatId, modelId, responseMessageId, messages) => {
 		const res = await chatCompleted(localStorage.token, {
 			model: modelId,
 			messages: messages.map((m) => ({
@@ -1021,7 +1165,7 @@ const initNewChat = async () => {
 			})),
 			filter_ids: selectedFilterIds.length > 0 ? selectedFilterIds : undefined,
 			model_item: $models.find((m) => m.id === modelId),
-			chat_id: chatId,
+			chat_id: _chatId,
 			session_id: $socket?.id,
 			id: responseMessageId
 		}).catch((error) => {
@@ -1049,9 +1193,9 @@ const initNewChat = async () => {
 
 		await tick();
 
-		if ($chatId == chatId) {
+		if ($chatId == _chatId) {
 			if (!$temporaryChatEnabled) {
-				chat = await updateChatById(localStorage.token, chatId, {
+				chat = await updateChatById(localStorage.token, _chatId, {
 					models: selectedModels,
 					messages: messages,
 					history: history,
@@ -1067,7 +1211,7 @@ const initNewChat = async () => {
 		taskIds = null;
 	};
 
-	const chatActionHandler = async (chatId, actionId, modelId, responseMessageId, event = null) => {
+	const chatActionHandler = async (_chatId, actionId, modelId, responseMessageId, event = null) => {
 		const messages = createMessagesList(history, responseMessageId);
 
 		const res = await chatAction(localStorage.token, actionId, {
@@ -1082,7 +1226,7 @@ const initNewChat = async () => {
 			})),
 			...(event ? { event: event } : {}),
 			model_item: $models.find((m) => m.id === modelId),
-			chat_id: chatId,
+			chat_id: _chatId,
 			session_id: $socket?.id,
 			id: responseMessageId
 		}).catch((error) => {
@@ -1104,9 +1248,9 @@ const initNewChat = async () => {
 			}
 		}
 
-		if ($chatId == chatId) {
+		if ($chatId == _chatId) {
 			if (!$temporaryChatEnabled) {
-				chat = await updateChatById(localStorage.token, chatId, {
+				chat = await updateChatById(localStorage.token, _chatId, {
 					models: selectedModels,
 					messages: messages,
 					history: history,
@@ -1470,19 +1614,15 @@ const initNewChat = async () => {
 		prompt = '';
 
 		const messages = createMessagesList(history, history.currentId);
-
-		// Reset chat input textarea
-		if (!($settings?.richTextInput ?? true)) {
-			const chatInputElement = document.getElementById('chat-input');
-
-			if (chatInputElement) {
-				await tick();
-				chatInputElement.style.height = '';
-			}
-		}
-
 		const _files = JSON.parse(JSON.stringify(files));
-		chatFiles.push(..._files.filter((item) => ['doc', 'file', 'collection'].includes(item.type)));
+
+		chatFiles.push(
+			..._files.filter(
+				(item) =>
+					['doc', 'text', 'note', 'chat', 'folder', 'collection'].includes(item.type) ||
+					(item.type === 'file' && !(item?.content_type ?? '').startsWith('image/'))
+			)
+		);
 		chatFiles = chatFiles.filter(
 			// Remove duplicates
 			(item, index, array) =>
@@ -1607,11 +1747,18 @@ const initNewChat = async () => {
 
 				if (model) {
 					// If there are image files, check if model is vision capable
+					// Skip this check if image generation is enabled, as images may be for editing or are generated outputs in the history
 					const hasImages = createMessagesList(_history, parentId).some((message) =>
-						message.files?.some((file) => file.type === 'image')
+						message.files?.some(
+							(file) => file.type === 'image' || (file?.content_type ?? '').startsWith('image/')
+						)
 					);
 
-					if (hasImages && !(model.info?.meta?.capabilities?.vision ?? true)) {
+					if (
+						hasImages &&
+						!(model.info?.meta?.capabilities?.vision ?? true) &&
+						!imageGenerationEnabled
+					) {
 						toast.error(
 							$i18n.t('Model {{modelName}} is not vision capable', {
 								modelName: model.name ?? model.id
@@ -1650,6 +1797,7 @@ const initNewChat = async () => {
 
 		if ($config?.features)
 			features = {
+				voice: $showCallOverlay,
 				image_generation:
 					$config?.features?.enable_image_generation &&
 					($user?.role === 'admin' || $user?.permissions?.features?.image_generation)
@@ -1673,7 +1821,7 @@ const initNewChat = async () => {
 				(model) => $models.find((m) => m.id === model)?.info?.meta?.capabilities?.web_search ?? true
 			).length === currentModels.length
 		) {
-			if (($settings?.webSearch ?? false) === 'always') {
+			if ($config?.features?.enable_web_search && ($settings?.webSearch ?? false) === 'always') {
 				features = { ...features, web_search: true };
 			}
 		}
@@ -1701,8 +1849,10 @@ const initNewChat = async () => {
 
 		let files = JSON.parse(JSON.stringify(chatFiles));
 		files.push(
-			...(userMessage?.files ?? []).filter((item) =>
-				['doc', 'text', 'file', 'note', 'collection'].includes(item.type)
+			...(userMessage?.files ?? []).filter(
+				(item) =>
+					['doc', 'text', 'note', 'chat', 'collection'].includes(item.type) ||
+					(item.type === 'file' && !(item?.content_type ?? '').startsWith('image/'))
 			)
 		);
 		// Remove duplicates
@@ -1749,31 +1899,51 @@ const initNewChat = async () => {
 		].filter((message) => message);
 
 		messages = messages
-			.map((message, idx, arr) => ({
-				role: message.role,
-				...((message.files?.filter((file) => file.type === 'image').length > 0 ?? false) &&
-				message.role === 'user'
-					? {
-							content: [
-								{
-									type: 'text',
-									text: message?.merged?.content ?? message.content
-								},
-								...message.files
-									.filter((file) => file.type === 'image')
-									.map((file) => ({
+			.map((message, idx, arr) => {
+				const imageFiles = (message?.files ?? []).filter(
+					(file) => file.type === 'image' || (file?.content_type ?? '').startsWith('image/')
+				);
+
+				return {
+					role: message.role,
+					...(message.role === 'user' && imageFiles.length > 0
+						? {
+								content: [
+									{
+										type: 'text',
+										text: message?.merged?.content ?? message.content
+									},
+									...imageFiles.map((file) => ({
 										type: 'image_url',
 										image_url: {
 											url: file.url
 										}
 									}))
-							]
-						}
-					: {
-							content: message?.merged?.content ?? message.content
-						})
-			}))
+								]
+							}
+						: {
+								content: message?.merged?.content ?? message.content
+							})
+				};
+			})
 			.filter((message) => message?.role === 'user' || message?.content?.trim());
+
+		const toolIds = [];
+		const toolServerIds = [];
+
+		for (const toolId of selectedToolIds) {
+			if (toolId.startsWith('direct_server:')) {
+				let serverId = toolId.replace('direct_server:', '');
+				// Check if serverId is a number
+				if (!isNaN(parseInt(serverId))) {
+					toolServerIds.push(parseInt(serverId));
+				} else {
+					toolServerIds.push(serverId);
+				}
+			} else {
+				toolIds.push(toolId);
+			}
+		}
 
 		const res = await generateOpenAIChatCompletion(
 			localStorage.token,
@@ -1795,8 +1965,10 @@ const initNewChat = async () => {
 				files: (files?.length ?? 0) > 0 ? files : undefined,
 
 				filter_ids: selectedFilterIds.length > 0 ? selectedFilterIds : undefined,
-				tool_ids: selectedToolIds.length > 0 ? selectedToolIds : undefined,
-				tool_servers: $toolServers,
+				tool_ids: toolIds.length > 0 ? toolIds : undefined,
+				tool_servers: ($toolServers ?? []).filter(
+					(server, idx) => toolServerIds.includes(idx) || toolServerIds.includes(server?.id)
+				),
 				features: getFeatures(),
 				variables: {
 					...getPromptVariables($user?.name, $settings?.userLocation ? userLocation : undefined)
@@ -1805,7 +1977,10 @@ const initNewChat = async () => {
 
 				session_id: $socket?.id,
 				chat_id: $chatId,
+
 				id: responseMessageId,
+				parent_id: userMessage?.id ?? null,
+				parent_message: userMessage,
 
 				background_tasks: {
 					...(!$temporaryChatEnabled &&
@@ -1929,8 +2104,10 @@ const initNewChat = async () => {
 
 			const responseMessage = history.messages[history.currentId];
 			// Set all response messages to done
-			for (const messageId of history.messages[responseMessage.parentId].childrenIds) {
-				history.messages[messageId].done = true;
+			if (responseMessage.parentId && history.messages[responseMessage.parentId]) {
+				for (const messageId of history.messages[responseMessage.parentId].childrenIds) {
+					history.messages[messageId].done = true;
+				}
 			}
 
 			history.messages[history.currentId] = responseMessage;
@@ -1985,6 +2162,11 @@ const initNewChat = async () => {
 
 		if (history.currentId) {
 			let userMessage = history.messages[message.parentId];
+
+			if (!userMessage) {
+				toast.error($i18n.t('Parent message not found'));
+				return;
+			}
 
 			if (autoScroll) {
 				scrollToBottom();
@@ -2052,14 +2234,17 @@ const initNewChat = async () => {
 			generating = true;
 			const [res, controller] = await generateMoACompletion(
 				localStorage.token,
-				message.model,
-				history.messages[message.parentId].content,
+				message.model ?? '',
+				message.parentId ? history.messages[message.parentId].content : '',
 				responses
 			);
 
 			if (res && res.ok && res.body && generating) {
-				generationController = controller;
-				const textStream = await createOpenAITextStream(res.body, $settings.splitLargeChunks);
+				generationController = controller as AbortController;
+				const textStream = await createOpenAITextStream(
+					res.body,
+					Boolean($settings?.splitLargeChunks ?? false)
+				);
 				for await (const update of textStream) {
 					const { value, done, sources, error, usage } = update;
 					if (error || done) {
@@ -2121,8 +2306,8 @@ const initNewChat = async () => {
 
 			selectedFolder.set(null);
 		} else {
-			_chatId = 'local';
-			await chatId.set('local');
+			_chatId = `local:${$socket?.id}`; // Use socket id for temporary chat
+			await chatId.set(_chatId);
 		}
 		await tick();
 
@@ -2146,7 +2331,7 @@ const initNewChat = async () => {
 	};
 
 	const MAX_DRAFT_LENGTH = 5000;
-	let saveDraftTimeout = null;
+	let saveDraftTimeout: ReturnType<typeof setTimeout> | null = null;
 
 	const saveDraft = async (draft, chatId = null) => {
 		if (saveDraftTimeout) {
@@ -2196,13 +2381,13 @@ const initNewChat = async () => {
 
 <svelte:head>
 	<title>
-		{$chatTitle
+		{$settings.showChatTitleInTab !== false && $chatTitle
 			? `${$chatTitle.length > 30 ? `${$chatTitle.slice(0, 30)}...` : $chatTitle} • ${$WEBUI_NAME}`
 			: `${$WEBUI_NAME}`}
 	</title>
 </svelte:head>
 
-<audio id="audioElement" src="" style="display: none;" />
+<audio id="audioElement" src="" style="display: none;"></audio>
 
 <EventConfirmDialog
 	bind:show={showEventConfirmation}
@@ -2225,17 +2410,24 @@ const initNewChat = async () => {
 
 <div
 	class="h-screen max-h-[100dvh] transition-width duration-200 ease-in-out {$showSidebar
-		? '  md:max-w-[calc(100%-260px)]'
+		? '  md:max-w-[calc(100%-var(--sidebar-width))]'
 		: ' '} w-full max-w-full flex flex-col"
 	id="chat-container"
 >
 	{#if !loading}
 		<div in:fade={{ duration: 50 }} class="w-full h-full flex flex-col">
-			{#if $settings?.backgroundImageUrl ?? $config?.license_metadata?.background_image_url ?? null}
+			{#if $selectedFolder && $selectedFolder?.meta?.background_image_url}
 				<div
-					class="absolute {$showSidebar
-						? 'md:max-w-[calc(100%-260px)] md:translate-x-[260px]'
-						: ''} top-0 left-0 w-full h-full bg-cover bg-center bg-no-repeat"
+					class="absolute top-0 left-0 w-full h-full bg-cover bg-center bg-no-repeat"
+					style="background-image: url({$selectedFolder?.meta?.background_image_url})  "
+				/>
+
+				<div
+					class="absolute top-0 left-0 w-full h-full bg-linear-to-t from-white to-white/85 dark:from-gray-900 dark:to-gray-900/90 z-0"
+				/>
+			{:else if $settings?.backgroundImageUrl ?? $config?.license_metadata?.background_image_url ?? null}
+				<div
+					class="absolute top-0 left-0 w-full h-full bg-cover bg-center bg-no-repeat"
 					style="background-image: url({$settings?.backgroundImageUrl ??
 						$config?.license_metadata?.background_image_url})  "
 				/>
@@ -2246,7 +2438,7 @@ const initNewChat = async () => {
 			{/if}
 
 			<PaneGroup direction="horizontal" class="w-full h-full">
-				<Pane defaultSize={50} class="h-full flex relative max-w-full flex-col">
+				<Pane defaultSize={50} minSize={30} class="h-full flex relative max-w-full flex-col">
 					<Navbar
 						bind:this={navbarElement}
 						chat={{
@@ -2265,7 +2457,6 @@ const initNewChat = async () => {
 						bind:selectedModels
 						shareEnabled={!!history.currentId}
 						{initNewChat}
-						showBanners={!showCommands}
 						archiveChatHandler={() => {}}
 						{moveChatHandler}
 						onSaveTempChat={async () => {
@@ -2344,13 +2535,12 @@ const initNewChat = async () => {
 								</div>
 							</div>
 
-                        <!-- FI-TS_custom 24.02.2025 - Slide-in for MessageInput when switching from Placeholder to Chat -->
-                        <div class=" pb-2" in:fly={{ y: -80, duration: 300 }}>
-                            <MessageInput
-                                bind:this={messageInput}
-                                {history}
-                                {taskIds}
-                                {selectedModels}
+							<div class=" pb-2 z-10">
+								<MessageInput
+									bind:this={messageInput}
+									{history}
+									{taskIds}
+									{selectedModels}
 									bind:files
 									bind:prompt
 									bind:autoScroll
@@ -2365,20 +2555,10 @@ const initNewChat = async () => {
 									{generating}
 									{stopResponse}
 									{createMessagePair}
+									{onUpload}
 									onChange={(data) => {
 										if (!$temporaryChatEnabled) {
 											saveDraft(data, $chatId);
-										}
-									}}
-									on:upload={async (e) => {
-										const { type, data } = e.detail;
-
-										if (type === 'web') {
-											await uploadWeb(data);
-										} else if (type === 'youtube') {
-											await uploadYoutubeTranscription(data);
-										} else if (type === 'google-drive') {
-											await uploadGoogleDriveFile(data);
 										}
 									}}
 									on:submit={async (e) => {
@@ -2386,11 +2566,7 @@ const initNewChat = async () => {
 										if (e.detail || files.length > 0) {
 											await tick();
 
-											submitPrompt(
-												($settings?.richTextInput ?? true)
-													? e.detail.replaceAll('\n\n', '\n')
-													: e.detail
-											);
+											submitPrompt(e.detail.replaceAll('\n\n', '\n'));
 										}
 									}}
 								/>
@@ -2402,14 +2578,13 @@ const initNewChat = async () => {
 								</div>
 							</div>
 						{:else}
-                        <div class="flex items-center h-full">
-                            {#key placeholderKey}
-                            <Placeholder
-                                {history}
-                                {selectedModels}
-                                bind:messageInput
-                                bind:files
-                                bind:prompt
+							<div class="flex items-center h-full">
+								<Placeholder
+									{history}
+									{selectedModels}
+									bind:messageInput
+									bind:files
+									bind:prompt
 									bind:autoScroll
 									bind:selectedToolIds
 									bind:selectedFilterIds
@@ -2422,34 +2597,21 @@ const initNewChat = async () => {
 									{stopResponse}
 									{createMessagePair}
 									{onSelect}
+									{onUpload}
 									onChange={(data) => {
 										if (!$temporaryChatEnabled) {
 											saveDraft(data);
-										}
-									}}
-									on:upload={async (e) => {
-										const { type, data } = e.detail;
-
-										if (type === 'web') {
-											await uploadWeb(data);
-										} else if (type === 'youtube') {
-											await uploadYoutubeTranscription(data);
 										}
 									}}
 									on:submit={async (e) => {
 										clearDraft();
 										if (e.detail || files.length > 0) {
 											await tick();
-											submitPrompt(
-												($settings?.richTextInput ?? true)
-													? e.detail.replaceAll('\n\n', '\n')
-													: e.detail
-											);
+											submitPrompt(e.detail.replaceAll('\n\n', '\n'));
 										}
 									}}
-                            />
-                            {/key}
-                        </div>
+								/>
+							</div>
 						{/if}
 					</div>
 				</Pane>
@@ -2484,9 +2646,11 @@ const initNewChat = async () => {
 			</div>
 		</div>
 	{/if}
-    						<!-- FI-TS_custom 29.08.2025 - Disclaimer below MessageInput -->
-				<div class="text-xs text-gray-300 dark:text-gray-600 text-center line-clamp-1 mb-2">
-					Antworten basieren auf generativer KI. Bitte prüfen Sie deren Richtigkeit. Keine Eingabe
-					personenbezogener Daten erlaubt.
-				</div>
-	</div>
+</div>
+
+<style>
+	::-webkit-scrollbar {
+		height: 0.5rem;
+		width: 0.5rem;
+	}
+</style>

@@ -8,19 +8,20 @@
 	import { toast } from 'svelte-sonner';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
-	import { user } from '$lib/stores';
+	import { user, config } from '$lib/stores';
 
 	import Textarea from '$lib/components/common/Textarea.svelte';
 	import Knowledge from '$lib/components/workspace/Models/Knowledge.svelte';
+	import { getFolderById } from '$lib/apis/folders';
 	const i18n = getContext('i18n');
 
 	export let show = false;
 	export let onSubmit: Function = (e) => {};
 
+	export let folderId = null;
 	export let edit = false;
 
-	export let folder = null;
-
+	let folder = null;
 	let name = '';
 	let meta = {
 		background_image_url: null
@@ -41,6 +42,16 @@
 			return;
 		}
 
+		// Check folder max file count limit
+		const maxFileCount = $config?.features?.folder_max_file_count ?? '';
+		if (maxFileCount && (data?.files ?? []).length > maxFileCount) {
+			toast.error(
+				$i18n.t('Maximum number of files per folder is {{max}}.', { max: maxFileCount ?? 0 })
+			);
+			loading = false;
+			return;
+		}
+
 		await onSubmit({
 			name,
 			meta,
@@ -50,17 +61,24 @@
 		loading = false;
 	};
 
-	const init = () => {
-		name = folder.name;
-		meta = folder.meta || {
-			background_image_url: null
-		};
-		data = folder.data || {
-			system_prompt: '',
-			files: []
-		};
+	const init = async () => {
+		if (folderId) {
+			folder = await getFolderById(localStorage.token, folderId).catch((error) => {
+				toast.error(`${error}`);
+				return null;
+			});
 
-		console.log(folder);
+			name = folder.name;
+			meta = folder.meta || {
+				background_image_url: null
+			};
+			data = folder.data || {
+				system_prompt: '',
+				files: []
+			};
+		}
+
+		focusInput();
 	};
 
 	const focusInput = async () => {
@@ -73,10 +91,6 @@
 	};
 
 	$: if (show) {
-		focusInput();
-	}
-
-	$: if (folder) {
 		init();
 	}
 
@@ -194,7 +208,7 @@
 						</div>
 					</div>
 
-					<hr class=" border-gray-50 dark:border-gray-850 my-2.5 w-full" />
+					<hr class=" border-gray-50 dark:border-gray-850/30 my-2.5 w-full" />
 
 					{#if $user?.role === 'admin' || ($user?.permissions.chat?.system_prompt ?? true)}
 						<div class="my-1">
