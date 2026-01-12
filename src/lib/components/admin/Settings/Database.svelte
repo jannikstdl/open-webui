@@ -26,6 +26,10 @@
 	let invalidUsersOpen = false;
 	let additionalActionsOpen = false;
 	let visibilityHandler: () => void;
+	let currentUserEmail = '';
+
+	// Keep a top-level subscription to avoid scoped store usage errors
+	$: currentUserEmail = $user?.email ?? '';
 
 	/**
 	 * Refresh users data and update email counts
@@ -68,9 +72,6 @@
 			toast.error('Keine Benutzer gefunden');
 			return { internalEmails: [], externalEmails: [], invalidUsers: [] };
 		}
-
-		// Get current user email at top level to avoid store subscription issues
-		const currentUserEmail = $user?.email;
 
 		// Filter valid emails
 		const internalEmails = users
@@ -131,8 +132,6 @@
 	 * Get reason why a user is invalid
 	 */
 	function getInvalidUserReason(user: any): string {
-		// Get current user email at top level to avoid store subscription issues
-		const currentUserEmail = $user?.email;
 		const email = user.email;
 		if (!email) return 'Keine E-Mail-Adresse vorhanden';
 
