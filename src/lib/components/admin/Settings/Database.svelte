@@ -69,6 +69,9 @@
 			return { internalEmails: [], externalEmails: [], invalidUsers: [] };
 		}
 
+		// Get current user email at top level to avoid store subscription issues
+		const currentUserEmail = $user?.email;
+
 		// Filter valid emails
 		const internalEmails = users
 			.filter((user) => {
@@ -81,7 +84,7 @@
 				const domain = email.substring(atIndex + 1);
 
 				// Exclude users with role "pending" and ensure other criteria are met
-				return domain === MAIL_DOMAIN_INTERNAL && email !== $user?.email && user.role !== 'pending';
+				return domain === MAIL_DOMAIN_INTERNAL && email !== currentUserEmail && user.role !== 'pending';
 			})
 			.map((user) => user.email);
 
@@ -96,7 +99,7 @@
 				const domain = email.substring(atIndex + 1);
 
 				// Exclude users with role "pending" and ensure other criteria are met
-				return domain === MAIL_DOMAIN_EXTERNAL && email !== $user?.email && user.role !== 'pending';
+				return domain === MAIL_DOMAIN_EXTERNAL && email !== currentUserEmail && user.role !== 'pending';
 			})
 			.map((user) => user.email);
 

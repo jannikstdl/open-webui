@@ -98,10 +98,6 @@ class ERROR_MESSAGES(str, Enum):
     DUPLICATE_CONTENT = "Doppelter Inhalt erkannt. Bitte gib eindeutigen Inhalt an, um fortzufahren. Bei Fragen wende dich gerne an ZZG-FITS-AI-Services@f-i-ts.de"
     FILE_NOT_PROCESSED = "Extrahierter Inhalt ist für diese Datei nicht verfügbar. Bitte stelle sicher, dass die Datei verarbeitet wird, bevor du fortfährst. Bei Fragen wende dich gerne an ZZG-FITS-AI-Services@f-i-ts.de"
 
-    INVALID_PASSWORD = lambda err="": (
-        err if err else "The password does not meet the required validation criteria."
-    )
-
 
 class TASKS(str, Enum):
     def __str__(self) -> str:
