@@ -139,7 +139,7 @@ def build_channel_context_with_reactions(
         thread_history.append(formatted_message)
         messages_added += 1
 
-        # Extract files (same as build_channel_context)
+        # FI-TS_custom 2026-01-13: Extract files (images and text files) from messages within context window
         message_files = message.data.get("files", []) if message.data else []
         for file in message_files:
             if file.get("type", "") == "image":
@@ -148,6 +148,43 @@ def build_channel_context_with_reactions(
                 image = get_image_base64_from_file_id(file.get("id", ""))
                 if image:
                     images.append(image)
+            else:
+                # FI-TS_custom 2026-01-13: Handle non-image files (text, code, etc.)
+                file_id = file.get("id", "")
+                if file_id:
+                    try:
+                        file_obj = Files.get_file_by_id(file_id, db=db)
+                        if file_obj and file_obj.data:
+                            file_content = file_obj.data.get("content", "")
+                            if file_content:
+                                # Add file content to thread history with clear formatting
+                                file_name = file.get("filename", file_obj.filename)
+                                file_context = f"[File: {file_name}]\n```\n{file_content}\n```"
+
+                                # Check token limit for file content
+                                if max_tokens > 0:
+                                    file_tokens = estimate_tokens(file_context)
+                                    if total_tokens + file_tokens > max_tokens:
+                                        # Truncate file content if it exceeds token limit
+                                        available_tokens = max_tokens - total_tokens
+                                        if available_tokens > 100:  # Only add if at least 100 tokens available
+                                            # Rough truncation
+                                            max_chars = available_tokens * 4
+                                            truncated_content = file_content[:max_chars] + "\n... (truncated)"
+                                            file_context = f"[File: {file_name}]\n```\n{truncated_content}\n```"
+                                            file_tokens = estimate_tokens(file_context)
+                                            total_tokens += file_tokens
+                                            thread_history.append(file_context)
+                                        break  # Stop adding more content
+                                    else:
+                                        total_tokens += file_tokens
+                                        thread_history.append(file_context)
+                                else:
+                                    # No token limit, add file content
+                                    thread_history.append(file_context)
+                    except Exception as e:
+                        # Silently skip files that can't be loaded
+                        pass
 
     # Reverse to chronological order
     thread_history.reverse()
