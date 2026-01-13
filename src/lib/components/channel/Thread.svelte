@@ -46,7 +46,34 @@
 		typingUsersTimeout = {};
 
 		if (channel) {
-			messages = await getChannelThreadMessages(localStorage.token, channel.id, threadId);
+			const loadedMessages = await getChannelThreadMessages(localStorage.token, channel.id, threadId);
+
+			// FI-TS_custom 2026-01-13: Filter empty model messages and convert to typing indicators
+			const filteredMessages = [];
+
+			for (const message of loadedMessages) {
+				// Check if this is an empty model message that's still in progress (typing indicator)
+				if (
+					message?.meta?.model_id &&
+					(message?.content ?? '').trim() === '' &&
+					message?.meta?.done === false
+				) {
+					// Add model to typing users
+					const modelName = message?.meta?.model_name ?? message?.meta?.model_id;
+					const modelId = `model_${message?.meta?.model_id}`;
+
+					if (!typingUsers.find((user) => user.id === modelId)) {
+						typingUsers = [...typingUsers, { id: modelId, name: modelName }];
+					}
+
+					// Don't add to messages array
+				} else {
+					// Regular message - add to list
+					filteredMessages.push(message);
+				}
+			}
+
+			messages = filteredMessages;
 
 			if (messages.length < 50) {
 				top = true;
@@ -204,7 +231,32 @@
 							messages.length
 						);
 
-						messages = [...messages, ...newMessages];
+						// FI-TS_custom 2026-01-13: Filter empty model messages when loading more
+						const filteredNewMessages = [];
+
+						for (const message of newMessages) {
+							// Check if this is an empty model message that's still in progress (typing indicator)
+							if (
+								message?.meta?.model_id &&
+								(message?.content ?? '').trim() === '' &&
+								message?.meta?.done === false
+							) {
+								// Add model to typing users
+								const modelName = message?.meta?.model_name ?? message?.meta?.model_id;
+								const modelId = `model_${message?.meta?.model_id}`;
+
+								if (!typingUsers.find((user) => user.id === modelId)) {
+									typingUsers = [...typingUsers, { id: modelId, name: modelName }];
+								}
+
+								// Don't add to messages array
+							} else {
+								// Regular message - add to list
+								filteredNewMessages.push(message);
+							}
+						}
+
+						messages = [...messages, ...filteredNewMessages];
 
 						if (newMessages.length < 50) {
 							top = true;

@@ -67,13 +67,57 @@ from open_webui.utils.access_control import (
 )
 from open_webui.utils.webhook import post_webhook
 from open_webui.utils.channels import extract_mentions, replace_mentions
-from open_webui.fits_scripts.channel_context import build_channel_context
+from open_webui.fits_scripts.channel_context import build_channel_context, build_channel_context_with_reactions
 from open_webui.internal.db import get_session
 from sqlalchemy.orm import Session
+from open_webui.models.models import Models
 
 log = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+############################
+# FI-TS_custom 2026-01-13: Tool calling support for auto-decision
+############################
+
+
+def has_native_tool_calling(model_id: str, db: Session) -> bool:
+    """
+    Check if model is configured for native tool/function calling.
+    FI-TS_custom 2026-01-13: Check model's params.function_calling setting from database
+    """
+    model_info = Models.get_model_by_id(model_id, db=db)
+    if not model_info or not model_info.params:
+        return False
+
+    model_params = model_info.params.model_dump() if hasattr(model_info.params, 'model_dump') else model_info.params
+    return model_params.get("function_calling") == "native"
+
+
+# FI-TS_custom 2026-01-13: Tool definition for LLM decision-making
+DECISION_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "decide_channel_action",
+        "description": "Decide whether and how to participate in the channel conversation.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["silent", "reply", "react"],
+                    "description": "Action: 'silent' (no response), 'reply' (send message), 'react' (emoji reaction)"
+                },
+                "emoji": {
+                    "type": "string",
+                    "description": "Emoji to react with (only when action is 'react')"
+                }
+            },
+            "required": ["action"]
+        }
+    }
+}
 
 
 ############################
@@ -963,6 +1007,176 @@ async def send_notification(
     return True
 
 
+# FI-TS_custom 2026-01-13: Add emoji reactions from model auto-decision
+async def add_message_reaction(request, channel_id, message_id, emoji, model_id, model_name, user, db):
+    """Add emoji reaction to a message (from model auto-decision)."""
+    try:
+        # Use the proper Messages method to add reaction
+        # Use model_id as the "user" identifier so frontend doesn't show "You"
+        # Format: "model:model_id" to distinguish from real users
+        model_user_id = f"model:{model_id}"
+        Messages.add_reaction_to_message(message_id, model_user_id, emoji, db=db)
+
+        # Get updated message
+        message = Messages.get_message_by_id(message_id, db=db)
+        if not message:
+            return
+
+        # Get channel for socket emission
+        channel = Channels.get_channel_by_id(channel_id, db=db)
+        if not channel:
+            return
+
+        # Emit socket event with model's identity (like webhooks do)
+        await sio.emit(
+            "events:channel",
+            {
+                "channel_id": channel_id,
+                "message_id": message.id,
+                "data": {
+                    "type": "message:reaction:add",
+                    "data": {
+                        **message.model_dump(),
+                        "name": emoji,
+                    },
+                },
+                "user": {
+                    "id": model_id,
+                    "name": model_name,
+                    "role": "model",
+                },
+                "channel": channel.model_dump(),
+            },
+            to=f"channel:{channel_id}",
+        )
+    except Exception as e:
+        log.error(f"Failed to add reaction: {e}")
+        log.exception(e)
+
+
+# FI-TS_custom 2026-01-13: Auto-decision via tool calling
+async def make_auto_decision(
+    request, channel, message, model, user, db
+) -> Optional[dict]:
+    """
+    Uses tool calling to let the model decide whether to respond.
+    Returns: {"action": "silent|reply|react", "emoji": "..."}
+    """
+    model_id = model.get("id")
+    model_name = model.get("name", model_id)
+
+    # Get conversation history with reactions and replies
+    # FI-TS_custom 2026-01-13: Safe int conversion for empty string values
+    max_messages = int(request.app.state.config.CHANNEL_LLM_MAX_MESSAGES or 0) or 20
+    max_tokens = int(request.app.state.config.CHANNEL_LLM_MAX_TOKENS or 0)
+
+    all_messages = Messages.get_all_channel_messages_for_context(
+        channel.id,
+        limit=max_messages if max_messages > 0 else 0,
+        db=db,
+    )
+
+    # Build context with reactions and reply information
+    history, _ = build_channel_context_with_reactions(
+        all_messages,
+        max_messages,
+        max_tokens,
+        {model_id: model},
+        db,
+    )
+
+    history_str = "\n".join(history)
+
+    # System prompt with decision rules
+    system_prompt = f"""You are {model_name}, an AI assistant participating in a channel conversation as a helpful team member.
+
+## Your role
+You observe the conversation and decide how to participate naturally. You can:
+- **Stay silent** (action: silent) - When the conversation doesn't involve you
+- **Reply with text** (action: reply) - When you need to provide helpful information or respond directly
+- **React with an emoji** (action: react) - Quick acknowledgment, like a human would
+
+## Decision Rules
+
+### Choose 'reply' when:
+- **Directly addressed**: Message contains your name "{model_name}" or uses second-person ("kannst du…", "weißt du…", "explain…")
+- **@Mentioned**: Your name appears in mentions
+- **Replied to**: Message replies to something you said
+- **Help requested**: Clear request for information, explanation, code, translation, calculation, planning
+- **Safety concern**: Self-harm, violence, threats, harassment → provide safe guidance
+- **Clarification needed**: User asks about your capabilities or is confused
+
+### Choose 'react' when (be natural and human-like):
+- **Thanks/appreciation**: Someone thanks you or appreciates your help (👍, ❤️, 🙏)
+- **Humor/fun**: Something funny, clever, or entertaining (😄, 😂, 🎉)
+- **Agreement**: You agree with a statement (👍, ✅, 💯)
+- **Interesting**: Cool information or insight shared (🤔, 💡, 👏)
+- **Success**: Someone solved a problem or achieved something (🎉, 🎊, ✨)
+- **Good news**: Positive updates or announcements (🎉, 👏, 🙌)
+- **Support**: Encouraging message or empathy (❤️, 🫂, 💪)
+
+**Common reaction emojis**: 👍 (approval), ❤️ (love/thanks), 😄 (funny), 🎉 (celebration), 👏 (applause), 💯 (agree), 🤔 (interesting), ✅ (correct), 🙏 (thanks), 💡 (insight)
+
+### Choose 'silent' when:
+- Users talking to each other (names, inside jokes, casual chat)
+- No direct ask to you AND not a good opportunity for a reaction
+- Not replying to you
+- Not safety-critical
+
+## Reaction Guidelines (Act Human!)
+- React frequently to show you're engaged (like a team member would)
+- Use contextually appropriate emojis
+- Don't overthink - if you'd react as a human, do it!
+- Multiple emojis are okay for emphasis (e.g., "🎉🎉" for big achievements)
+
+## Ambiguity Handling
+- If unclear whether addressed: prefer silent or react (not reply)
+- When in doubt between reply and react: choose react if simple acknowledgment is enough
+
+## Recent conversation:
+{history_str}
+
+## New message:
+{message.user.name if hasattr(message, 'user') else 'User'}: {message.content}
+
+## Instructions
+Analyze and decide your action. Be natural, engaged, and helpful - like a good team member would be!
+IMPORTANT: Only decide the action - you will generate reply text later if needed."""
+
+    try:
+        response = await generate_chat_completion(
+            request,
+            form_data={
+                "model": model_id,
+                "messages": [{"role": "system", "content": system_prompt}],
+                "tools": [DECISION_TOOL],
+                "tool_choice": {"type": "function", "function": {"name": "decide_channel_action"}},
+                "stream": False,
+                "max_tokens": 500,
+                "temperature": 0.3,
+            },
+            user=user,
+        )
+
+        if response and response.get("choices"):
+            choice = response["choices"][0]
+            tool_calls = choice.get("message", {}).get("tool_calls", [])
+
+            if tool_calls:
+                tool_call = tool_calls[0]
+                function_args = json.loads(tool_call["function"]["arguments"])
+
+                return {
+                    "action": function_args.get("action", "silent"),
+                    "emoji": function_args.get("emoji")
+                }
+    except Exception as e:
+        log.error(f"Auto-decision failed for model {model_id}: {e}")
+        return None
+
+    return {"action": "silent"}
+
+
 async def model_response_handler(request, channel, message, user, db=None):
     MODELS = {
         model["id"]: model
@@ -988,18 +1202,77 @@ async def model_response_handler(request, channel, message, user, db=None):
         if mention["id_type"] == "M" and mention["id"] not in model_mentions:
             model_mentions[mention["id"]] = mention
 
+    # FI-TS_custom 2026-01-13: Auto-decision for TASK_MODEL with native tool calling
+    if not model_mentions:
+        # Use configured TASK_MODEL for auto-decision
+        task_model_id = request.app.state.config.TASK_MODEL
+
+        if task_model_id and task_model_id in MODELS:
+            # FI-TS_custom 2026-01-13: Check if model is already responding to prevent double responses
+            # Look for empty messages with done: false from this model
+            recent_messages = Messages.get_all_channel_messages_for_context(
+                channel.id,
+                limit=5,  # Just check last 5 messages
+                db=db,
+            )
+
+            model_already_responding = False
+            for msg in recent_messages:
+                if (
+                    msg.meta
+                    and msg.meta.get("model_id") == task_model_id
+                    and msg.content.strip() == ""
+                    and msg.meta.get("done") == False
+                ):
+                    model_already_responding = True
+                    log.info(f"Model {task_model_id} is already responding, skipping auto-decision")
+                    break
+
+            if not model_already_responding:
+                log.info(f"Checking TASK_MODEL {task_model_id} for native tool calling...")
+                if has_native_tool_calling(task_model_id, db):
+                    log.info(f"TASK_MODEL {task_model_id} has native tool calling, making auto-decision...")
+                    task_model = MODELS[task_model_id]
+
+                    # Make auto-decision
+                    decision = await make_auto_decision(
+                        request, channel, message, task_model, user, db
+                    )
+                    log.info(f"Auto-decision result: {decision}")
+
+                    if decision and decision["action"] != "silent":
+                        model_mentions[task_model_id] = {
+                            "id": task_model_id,
+                            "id_type": "M",
+                            "decision": decision
+                        }
+                else:
+                    log.info(f"TASK_MODEL {task_model_id} does not have native tool calling enabled")
+
     if not model_mentions:
         return False
 
     for mention in model_mentions.values():
         model_id = mention["id"]
         model = MODELS.get(model_id, None)
+        decision = mention.get("decision")  # None for @mentions
 
         if model:
+            # FI-TS_custom 2026-01-13: Handle react action only - reply goes through normal flow
+            if decision and decision["action"] == "react":
+                emoji = decision.get("emoji", "👍")
+                await add_message_reaction(
+                    request, channel.id, message.id, emoji,
+                    model_id, model.get("name", model_id), user, db
+                )
+                continue  # Skip text response
+
+            # FI-TS_custom 2026-01-13: For 'reply' action, fall through to normal response generation
             try:
                 # FI-TS_custom 2026-01-12: Get all channel messages with configurable limits
-                max_messages = request.app.state.config.CHANNEL_LLM_MAX_MESSAGES  # 0 = no limit
-                max_tokens = request.app.state.config.CHANNEL_LLM_MAX_TOKENS      # 0 = no limit
+                # FI-TS_custom 2026-01-13: Safe int conversion for empty string values
+                max_messages = int(request.app.state.config.CHANNEL_LLM_MAX_MESSAGES or 0)  # 0 = no limit
+                max_tokens = int(request.app.state.config.CHANNEL_LLM_MAX_TOKENS or 0)      # 0 = no limit
 
                 # Fetch messages with SQL LIMIT only if max_messages > 0
                 all_messages = Messages.get_all_channel_messages_for_context(
@@ -1009,7 +1282,8 @@ async def model_response_handler(request, channel, message, user, db=None):
                 )
 
                 # Build context with token limits
-                thread_history, images = build_channel_context(
+                # FI-TS_custom 2026-01-13: Use context with reactions so model can see them
+                thread_history, images = build_channel_context_with_reactions(
                     all_messages,
                     max_messages,
                     max_tokens,
@@ -1017,23 +1291,26 @@ async def model_response_handler(request, channel, message, user, db=None):
                     db,
                 )
 
-                # FI-TS_custom 2026-01-12: Respond in main channel (no threading)
+                # FI-TS_custom 2026-01-13: Create empty message and emit for instant typing indicator
+                # Frontend handles empty model messages as typing indicators (not visible messages)
                 response_message, channel = await new_message_handler(
                     request,
                     channel.id,
                     MessageForm(
                         **{
                             "parent_id": None,
-                            "content": f"",
+                            "content": "",
                             "data": {},
                             "meta": {
                                 "model_id": model_id,
                                 "model_name": model.get("name", model_id),
+                                "done": False,
                             },
                         }
                     ),
                     user,
                     db,
+                    # Emit immediately - frontend shows typing indicator, not empty message
                 )
 
                 # FI-TS_custom 2026-01-12: Updated system message for non-threaded channel context
@@ -1081,16 +1358,40 @@ async def model_response_handler(request, channel, message, user, db=None):
                     user=user,
                 )
 
+                # FI-TS_custom 2026-01-13: Update message when response ready
+                # Check if new messages arrived after trigger - if so, recreate at end with reply_to_id
                 if res:
                     if res.get("choices", []) and len(res["choices"]) > 0:
-                        await update_message_by_id(
+                        response_content = res["choices"][0]["message"]["content"]
+                    elif res.get("error", None):
+                        response_content = f"Error: {res['error']}"
+                    else:
+                        response_content = "Error: No response from model"
+
+                    # Check if messages arrived after the trigger message
+                    latest_message = Messages.get_last_message_by_channel_id(channel.id, db=db)
+                    messages_arrived_after_trigger = (
+                        latest_message and
+                        latest_message.id != response_message.id and
+                        latest_message.created_at > message.created_at
+                    )
+
+                    if messages_arrived_after_trigger:
+                        # Delete empty message and create new one at end with reply_to_id
+                        Messages.delete_message_by_id(response_message.id, db=db)
+
+                        response_message, channel = await new_message_handler(
                             request,
                             channel.id,
-                            response_message.id,
                             MessageForm(
                                 **{
-                                    "content": res["choices"][0]["message"]["content"],
+                                    "parent_id": None,
+                                    "reply_to_id": message.id,  # Reference trigger message
+                                    "content": response_content,
+                                    "data": {},
                                     "meta": {
+                                        "model_id": model_id,
+                                        "model_name": model.get("name", model_id),
                                         "done": True,
                                     },
                                 }
@@ -1098,15 +1399,18 @@ async def model_response_handler(request, channel, message, user, db=None):
                             user,
                             db,
                         )
-                    elif res.get("error", None):
+                    else:
+                        # No new messages - just update the empty message
                         await update_message_by_id(
                             request,
                             channel.id,
                             response_message.id,
                             MessageForm(
                                 **{
-                                    "content": f"Error: {res['error']}",
+                                    "content": response_content,
                                     "meta": {
+                                        "model_id": model_id,
+                                        "model_name": model.get("name", model_id),
                                         "done": True,
                                     },
                                 }
@@ -1122,7 +1426,7 @@ async def model_response_handler(request, channel, message, user, db=None):
 
 
 async def new_message_handler(
-    request: Request, id: str, form_data: MessageForm, user, db
+    request: Request, id: str, form_data: MessageForm, user, db, emit_event: bool = True
 ):
     channel = Channels.get_channel_by_id(id, db=db)
     if not channel:
@@ -1159,22 +1463,25 @@ async def new_message_handler(
                         )
 
             message = Messages.get_message_by_id(message.id, db=db)
-            event_data = {
-                "channel_id": channel.id,
-                "message_id": message.id,
-                "data": {
-                    "type": "message",
-                    "data": {"temp_id": form_data.temp_id, **message.model_dump()},
-                },
-                "user": UserNameResponse(**user.model_dump()).model_dump(),
-                "channel": channel.model_dump(),
-            }
 
-            await sio.emit(
-                "events:channel",
-                event_data,
-                to=f"channel:{channel.id}",
-            )
+            # FI-TS_custom 2026-01-13: Optionally skip socket emission for typing messages
+            if emit_event:
+                event_data = {
+                    "channel_id": channel.id,
+                    "message_id": message.id,
+                    "data": {
+                        "type": "message",
+                        "data": {"temp_id": form_data.temp_id, **message.model_dump()},
+                    },
+                    "user": UserNameResponse(**user.model_dump()).model_dump(),
+                    "channel": channel.model_dump(),
+                }
+
+                await sio.emit(
+                    "events:channel",
+                    event_data,
+                    to=f"channel:{channel.id}",
+                )
 
             if message.parent_id:
                 # If this message is a reply, emit to the parent message as well

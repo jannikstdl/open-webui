@@ -574,10 +574,10 @@ class MessageTable:
         self, id: str, db: Optional[Session] = None
     ) -> list[Reactions]:
         with get_db_context(db) as db:
-            # JOIN User so all user info is fetched in one query
+            # FI-TS_custom 2026-01-13: Use LEFT JOIN to handle model reactions (user_id = "model:model_id")
             results = (
                 db.query(MessageReaction, User)
-                .join(User, MessageReaction.user_id == User.id)
+                .outerjoin(User, MessageReaction.user_id == User.id)
                 .filter(MessageReaction.message_id == id)
                 .all()
             )
@@ -592,12 +592,30 @@ class MessageTable:
                         "count": 0,
                     }
 
-                reactions[reaction.name]["users"].append(
-                    {
+                # FI-TS_custom 2026-01-13: Handle model reactions where user is None
+                if user:
+                    # Regular user reaction
+                    user_info = {
                         "id": user.id,
                         "name": user.name,
                     }
-                )
+                elif reaction.user_id.startswith("model:"):
+                    # Model reaction - extract model info from user_id
+                    from open_webui.models.models import Models
+                    model_id = reaction.user_id[6:]  # Remove "model:" prefix
+                    model = Models.get_model_by_id(model_id, db=db)
+                    user_info = {
+                        "id": reaction.user_id,
+                        "name": model.name if model else model_id,
+                    }
+                else:
+                    # Unknown user
+                    user_info = {
+                        "id": reaction.user_id,
+                        "name": "Unknown",
+                    }
+
+                reactions[reaction.name]["users"].append(user_info)
                 reactions[reaction.name]["count"] += 1
 
             return [Reactions(**reaction) for reaction in reactions.values()]

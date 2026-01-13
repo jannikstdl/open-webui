@@ -101,6 +101,33 @@
 			messages = await getChannelMessages(localStorage.token, id, 0);
 
 			if (messages) {
+				// FI-TS_custom 2026-01-13: Filter empty model messages and convert to typing indicators
+				const filteredMessages = [];
+
+				for (const message of messages) {
+					// Check if this is an empty model message that's still in progress (typing indicator)
+					if (
+						message?.meta?.model_id &&
+						(message?.content ?? '').trim() === '' &&
+						message?.meta?.done === false
+					) {
+						// Add model to typing users (same logic as socket events)
+						const modelName = message?.meta?.model_name ?? message?.meta?.model_id;
+						const modelId = `model_${message?.meta?.model_id}`;
+
+						if (!typingUsers.find((user) => user.id === modelId)) {
+							typingUsers = [...typingUsers, { id: modelId, name: modelName }];
+						}
+
+						// Don't add to messages array (show as typing indicator instead)
+					} else {
+						// Regular message - add to list
+						filteredMessages.push(message);
+					}
+				}
+
+				messages = filteredMessages;
+
 				scrollToBottom();
 
 				if (messages.length < 50) {
@@ -121,8 +148,12 @@
 				if ((data?.parent_id ?? null) === null) {
 					const tempId = data?.temp_id ?? null;
 
-					// FI-TS_custom 2026-01-12: Show typing indicator for model messages with empty content
-					if (data?.meta?.model_id && (data?.content ?? '').trim() === '') {
+					// FI-TS_custom 2026-01-13: Show typing indicator for model messages with empty content and done === false
+					if (
+						data?.meta?.model_id &&
+						(data?.content ?? '').trim() === '' &&
+						data?.meta?.done === false
+					) {
 						// Add model to typing users
 						const modelName = data?.meta?.model_name ?? data?.meta?.model_id;
 						const modelId = `model_${data?.meta?.model_id}`;
@@ -133,6 +164,12 @@
 
 						// Don't add the empty message to the messages list yet
 						return;
+					}
+
+					// FI-TS_custom 2026-01-13: Remove model from typing users if this is a completed model message
+					if (data?.meta?.model_id && (data?.content ?? '').trim() !== '') {
+						const modelId = `model_${data?.meta?.model_id}`;
+						typingUsers = typingUsers.filter((user) => user.id !== modelId);
 					}
 
 					messages = [
@@ -374,7 +411,32 @@
 										messages.length
 									);
 
-									messages = [...messages, ...newMessages];
+									// FI-TS_custom 2026-01-13: Filter empty model messages when loading more
+									const filteredNewMessages = [];
+
+									for (const message of newMessages) {
+										// Check if this is an empty model message that's still in progress (typing indicator)
+										if (
+											message?.meta?.model_id &&
+											(message?.content ?? '').trim() === '' &&
+											message?.meta?.done === false
+										) {
+											// Add model to typing users
+											const modelName = message?.meta?.model_name ?? message?.meta?.model_id;
+											const modelId = `model_${message?.meta?.model_id}`;
+
+											if (!typingUsers.find((user) => user.id === modelId)) {
+												typingUsers = [...typingUsers, { id: modelId, name: modelName }];
+											}
+
+											// Don't add to messages array
+										} else {
+											// Regular message - add to list
+											filteredNewMessages.push(message);
+										}
+									}
+
+									messages = [...messages, ...filteredNewMessages];
 
 									if (newMessages.length < 50) {
 										top = true;
