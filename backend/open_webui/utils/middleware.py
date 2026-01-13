@@ -2535,6 +2535,15 @@ async def process_chat_response(
                         attributes[key] = value
                     return attributes
 
+                def is_inside_fenced_code_block(text: str, index: int) -> bool:
+                    """Check if index is inside a fenced ``` code block."""
+                    return text[:index].count("```") % 2 == 1
+
+                def is_tag_at_line_start(text: str, index: int) -> bool:
+                    """Return True if tag starts at line start (ignoring whitespace)."""
+                    line_start = text.rfind("\n", 0, index) + 1
+                    return text[line_start:index].strip() == ""
+
                 if content_blocks[-1]["type"] == "text":
                     for start_tag, end_tag in tags:
 
@@ -2547,7 +2556,17 @@ async def process_chat_response(
                                 rf"<{re.escape(start_tag[1:-1])}(\s.*?)?>"
                             )
 
-                        match = re.search(start_tag_pattern, content)
+                        match = None
+                        for candidate in re.finditer(start_tag_pattern, content):
+                            if (
+                                not is_inside_fenced_code_block(
+                                    content, candidate.start()
+                                )
+                                and is_tag_at_line_start(content, candidate.start())
+                            ):
+                                match = candidate
+                                break
+
                         if match:
                             try:
                                 attr_content = (
