@@ -39,6 +39,8 @@
 	import ArrowUpLeftAlt from '$lib/components/icons/ArrowUpLeftAlt.svelte';
 	import PinSlash from '$lib/components/icons/PinSlash.svelte';
 	import Pin from '$lib/components/icons/Pin.svelte';
+	// FI-TS_custom 2026-01-15: Add Citations component for web search results
+	import Citations from '$lib/components/chat/Messages/Citations.svelte';
 
 	export let className = '';
 
@@ -79,6 +81,22 @@
 			await loadMessageData();
 		}
 	});
+
+	// FI-TS_custom 2026-01-15: Convert sources to sourceIds for inline citation rendering
+	$: sourceIds = (message?.data?.sources ?? []).reduce((acc, source) => {
+		source.document?.forEach((doc, index) => {
+			const metadata = source.metadata?.[index];
+			const id = metadata?.source ?? 'N/A';
+			if (metadata?.name) {
+				acc.push(metadata.name);
+			} else if (id.startsWith('http')) {
+				acc.push(id);
+			} else {
+				acc.push(source?.source?.name ?? id);
+			}
+		});
+		return [...new Set(acc)];
+	}, []);
 </script>
 
 <ConfirmDialog
@@ -422,15 +440,22 @@
 						{#if (message?.content ?? '').trim() === '' && message?.meta?.model_id}
 							<Skeleton />
 						{:else}
+							<!-- FI-TS_custom 2026-01-15: Pass sourceIds for inline citation rendering -->
 							<Markdown
 								id={message.id}
 								content={message.content}
 								paragraphTag="span"
+								{sourceIds}
 							/>{#if message.created_at !== message.updated_at && (message?.meta?.model_id ?? null) === null}<span
 									class="text-gray-500 text-[10px] pl-1 self-center">({$i18n.t('edited')})</span
 								>{/if}
 						{/if}
 					</div>
+
+					<!-- FI-TS_custom 2026-01-15: Show Citations panel for messages with sources -->
+					{#if (message?.data?.sources ?? []).length > 0}
+						<Citations id={message.id} sources={message.data.sources} />
+					{/if}
 
 					{#if (message?.reactions ?? []).length > 0}
 						<div>

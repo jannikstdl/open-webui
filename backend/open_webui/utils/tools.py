@@ -476,6 +476,7 @@ def get_builtin_tools(
                 "__chat_id__": extra_params.get("__chat_id__"),
                 "__message_id__": extra_params.get("__message_id__"),
                 "__model_knowledge__": model_knowledge,
+                "__channel_id__": extra_params.get("__channel_id__"),  # FI-TS_custom 2026-01-14: For channel-scoped searches
             },
         )
 

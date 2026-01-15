@@ -2,6 +2,7 @@ import json
 import logging
 import base64
 import io
+import asyncio  # FI-TS_custom 2026-01-13: For timeout handling
 from typing import Optional
 
 
@@ -56,7 +57,13 @@ from open_webui.utils.models import (
     get_filtered_models,
 )
 from open_webui.utils.chat import generate_chat_completion
-
+# FI-TS_custom 2026-01-13: Import for builtin tools
+from open_webui.utils.tools import get_builtin_tools
+# FI-TS_custom 2026-01-15: Import for web search citations
+from open_webui.utils.middleware import (
+    get_citation_source_from_tool_result,
+    apply_source_context_to_messages,
+)
 
 from open_webui.utils.auth import get_admin_user, get_verified_user
 from open_webui.utils.access_control import (
@@ -1087,6 +1094,13 @@ async def make_auto_decision(
 
     history_str = "\n".join(history)
 
+    # FI-TS_custom 2026-01-13: Include channel members for better context
+    members = Channels.get_members_by_channel_id(channel.id, db=db)
+    user_ids = [member.user_id for member in members]
+    users = Users.get_users_by_user_ids(user_ids, db=db)
+    member_names = [user.name for user in users]
+    members_str = ", ".join(member_names)
+
     # FI-TS_custom 2026-01-13: Optimized system prompt for conservative, targeted AI participation in work environment
     system_prompt = f"""You are {model_name}, an AI assistant in a work team channel.
 
@@ -1152,6 +1166,9 @@ You're a helpful colleague who joins the conversation when needed. Stay quiet wh
 **Quality over quantity**: One great answer beats constant presence.
 
 **Stay professional but friendly**: This is work, but keep it conversational and human.
+
+## Channel Members
+Current members in this channel: {members_str}
 
 ## Conversation History:
 {history_str}
@@ -1222,10 +1239,10 @@ async def model_response_handler(request, channel, message, user, db=None):
         if mention["id_type"] == "M" and mention["id"] not in model_mentions:
             model_mentions[mention["id"]] = mention
 
-    # FI-TS_custom 2026-01-13: Auto-decision for TASK_MODEL with native tool calling
+    # FI-TS_custom 2026-01-13: Auto-decision for CHANNEL_MODEL with native tool calling
     if not model_mentions:
-        # Use configured TASK_MODEL for auto-decision
-        task_model_id = request.app.state.config.TASK_MODEL
+        # FI-TS_custom 2026-01-13: Use dedicated CHANNEL_MODEL instead of TASK_MODEL
+        task_model_id = request.app.state.config.CHANNEL_MODEL
 
         if task_model_id and task_model_id in MODELS:
             # FI-TS_custom 2026-01-13: Check if model is already responding to prevent double responses
@@ -1288,6 +1305,8 @@ async def model_response_handler(request, channel, message, user, db=None):
                 continue  # Skip text response
 
             # FI-TS_custom 2026-01-13: For 'reply' action, fall through to normal response generation
+            response_message = None
+            response_successful = False
             try:
                 # FI-TS_custom 2026-01-12: Get all channel messages with configurable limits
                 # FI-TS_custom 2026-01-13: Safe int conversion for empty string values
@@ -1313,12 +1332,13 @@ async def model_response_handler(request, channel, message, user, db=None):
 
                 # FI-TS_custom 2026-01-13: Create empty message and emit for instant typing indicator
                 # Frontend handles empty model messages as typing indicators (not visible messages)
+                # FI-TS_custom 2026-01-13: Reply in same context (thread or main) as triggering message
                 response_message, channel = await new_message_handler(
                     request,
                     channel.id,
                     MessageForm(
                         **{
-                            "parent_id": None,
+                            "parent_id": message.parent_id if message.parent_id else None,
                             "content": "",
                             "data": {},
                             "meta": {
@@ -1333,11 +1353,19 @@ async def model_response_handler(request, channel, message, user, db=None):
                     # Emit immediately - frontend shows typing indicator, not empty message
                 )
 
+                # FI-TS_custom 2026-01-13: Include channel members for better context
+                members = Channels.get_members_by_channel_id(channel.id, db=db)
+                user_ids = [member.user_id for member in members]
+                users = Users.get_users_by_user_ids(user_ids, db=db)
+                member_names = [user.name for user in users]
+                members_str = ", ".join(member_names)
+
                 # FI-TS_custom 2026-01-12: Updated system message for non-threaded channel context
                 thread_history_string = "\n\n".join(thread_history)
                 system_message = {
                     "role": "system",
                     "content": f"You are {model.get('name', model_id)}, participating in a channel conversation. Messages marked with [Thread] are from thread discussions. Be concise and conversational."
+                    + f"\n\nChannel members: {members_str}"
                     + (
                         f"\n\nHere's the conversation history:\n\n{thread_history_string}\n\nContinue the conversation naturally."
                         if thread_history
@@ -1363,28 +1391,286 @@ async def model_response_handler(request, channel, message, user, db=None):
                         ],
                     ]
 
-                form_data = {
-                    "model": model_id,
-                    "messages": [
-                        system_message,
-                        {"role": "user", "content": content},
-                    ],
-                    "stream": False,
+                # FI-TS_custom 2026-01-13: Get builtin tools for channel model
+                messages_list = [
+                    system_message,
+                    {"role": "user", "content": content},
+                ]
+
+                # FI-TS_custom 2026-01-15: Get builtin tools for channel model
+                builtin_tools = {}
+                tools_specs = []
+
+                # Check if model supports native function calling
+                model_supports_tools = has_native_tool_calling(model_id, db)
+
+                if model_supports_tools:
+                    try:
+                        builtin_tools = get_builtin_tools(
+                            request,
+                            extra_params={
+                                "__user__": user.model_dump() if user else {},
+                                "__model__": model,
+                                "__messages__": messages_list,
+                                "__channel_id__": channel.id,
+                            },
+                            features={},
+                            model=model,
+                        )
+
+                        # FI-TS_custom 2026-01-15: Only web and channel search tools for channel model
+                        allowed_tool_names = [
+                            "search_web",
+                            "search_channel_messages",
+                        ]
+
+                        tools_specs = [
+                            tool["spec"]
+                            for name, tool in builtin_tools.items()
+                            if name in allowed_tool_names
+                        ]
+
+                        if tools_specs:
+                            log.info(f"Prepared {len(tools_specs)} builtin tools for model {model_id}")
+                    except Exception as e:
+                        log.error(f"Error getting builtin tools: {e}")
+                        builtin_tools = {}
+                        tools_specs = []
+
+                # FI-TS_custom 2026-01-15: Build metadata with params.function_calling
+                # This is REQUIRED for the middleware to recognize native tool calling
+                # Without this, generate_chat_completion doesn't enable tool support
+                metadata = {
+                    "user_id": user.id if user else None,
+                    "channel_id": channel.id,
+                    "model": model,
+                    "params": {
+                        "function_calling": "native" if model_supports_tools else "default",
+                    },
                 }
 
-                res = await generate_chat_completion(
-                    request,
-                    form_data=form_data,
-                    user=user,
-                )
+                form_data = {
+                    "model": model_id,
+                    "messages": messages_list,
+                    "stream": False,
+                    "metadata": metadata,  # Include metadata for proper tool handling
+                }
+
+                # Add tools if available and model supports them
+                if tools_specs and model_supports_tools:
+                    # FI-TS_custom 2026-01-15: Wrap tools in OpenAI-standard format
+                    form_data["tools"] = [
+                        {"type": "function", "function": spec}
+                        for spec in tools_specs
+                    ]
+                    log.info(f"Added {len(tools_specs)} tools to channel model request")
+
+                # FI-TS_custom 2026-01-13: Add 5 minute timeout for model response
+                try:
+                    res = await asyncio.wait_for(
+                        generate_chat_completion(
+                            request,
+                            form_data=form_data,
+                            user=user,
+                        ),
+                        timeout=300  # 5 minutes
+                    )
+                except asyncio.TimeoutError:
+                    log.error(f"Model response timed out after 5 minutes")
+                    res = {"error": "Model response timed out after 5 minutes"}
+
+                # FI-TS_custom 2026-01-15: Convert JSONResponse to dict for error handling
+                if res and not isinstance(res, dict):
+                    log.error(f"Received JSONResponse instead of dict from model API")
+                    try:
+                        # Try to extract error from JSONResponse
+                        if hasattr(res, 'body'):
+                            import json as json_lib
+                            error_body = json_lib.loads(res.body.decode('utf-8'))
+                            error_detail = error_body.get("error", {})
+                            if isinstance(error_detail, dict):
+                                res = {"error": error_detail.get("message", "Model returned error response")}
+                            else:
+                                res = {"error": str(error_detail)}
+                        else:
+                            res = {"error": "Model returned an error response"}
+                    except Exception as e:
+                        log.error(f"Failed to parse JSONResponse: {e}")
+                        res = {"error": "Invalid response from model"}
+
+                # FI-TS_custom 2026-01-15: Handle tool calls if model requested them
+                # Also collect citation sources for web search results
+                citation_sources = []
+
+                if res and isinstance(res, dict) and res.get("choices", []) and len(res["choices"]) > 0 and builtin_tools:
+                    tool_calls = res["choices"][0].get("message", {}).get("tool_calls", [])
+
+                    if tool_calls:
+                        log.info(f"Channel model requested {len(tool_calls)} tool calls")
+                        max_iterations = 2
+                        iteration = 0
+
+                        while tool_calls and iteration < max_iterations:
+                            iteration += 1
+
+                            # Add assistant message with tool calls
+                            messages_list.append(res["choices"][0]["message"])
+
+                            # Execute each tool call
+                            for tool_call in tool_calls:
+                                function_name = tool_call.get("function", {}).get("name", "")
+                                log.info(f"Executing tool: {function_name}")
+
+                                try:
+                                    # FI-TS_custom 2026-01-15: Parse tool arguments with debug logging
+                                    raw_args = tool_call.get("function", {}).get("arguments", "{}")
+                                    log.debug(f"Raw tool arguments for {function_name}: {raw_args[:200]}")
+
+                                    try:
+                                        function_args = json.loads(raw_args)
+                                    except json.JSONDecodeError as json_err:
+                                        log.error(f"Failed to parse tool arguments for {function_name}: {json_err}")
+                                        log.error(f"Raw arguments were: {raw_args[:500]}")
+                                        tool_result = json.dumps({"error": f"Invalid tool arguments: {json_err}"})
+                                        # Add error result and continue to next tool
+                                        messages_list.append({
+                                            "role": "tool",
+                                            "tool_call_id": tool_call.get("id", ""),
+                                            "content": tool_result,
+                                        })
+                                        continue
+
+                                    # Find and execute the tool
+                                    if function_name in builtin_tools:
+                                        tool_callable = builtin_tools[function_name]["callable"]
+
+                                        # FI-TS_custom 2026-01-15: Emit tool status event before tool execution
+                                        status_message = None
+                                        if function_name == "search_web":
+                                            status_message = "searching_web"
+                                        elif function_name == "search_channel_messages":
+                                            status_message = "searching_channel"
+
+                                        if status_message:
+                                            await sio.emit(
+                                                "events:channel",
+                                                {
+                                                    "channel_id": channel.id,
+                                                    "message_id": message.parent_id,  # None for main channel, thread_id for threads
+                                                    "data": {
+                                                        "type": "model_status",
+                                                        "data": {
+                                                            "model_id": model_id,
+                                                            "model_name": model.get("name", model_id),
+                                                            "status": status_message,
+                                                        }
+                                                    },
+                                                },
+                                                to=f"channel:{channel.id}",
+                                            )
+
+                                        # Execute tool - callable already has context params bound
+                                        if asyncio.iscoroutinefunction(tool_callable):
+                                            tool_result = await tool_callable(**function_args)
+                                        else:
+                                            tool_result = tool_callable(**function_args)
+                                        log.info(f"Tool {function_name} executed successfully")
+
+                                        # FI-TS_custom 2026-01-15: Collect citations from search_web results
+                                        if function_name == "search_web" and tool_result:
+                                            try:
+                                                tool_citations = get_citation_source_from_tool_result(
+                                                    function_name,
+                                                    function_args,
+                                                    tool_result,
+                                                    tool_call.get("id", "")
+                                                )
+                                                citation_sources.extend(tool_citations)
+                                                log.info(f"Collected {len(tool_citations)} citation sources from {function_name}")
+                                            except Exception as citation_err:
+                                                log.error(f"Error collecting citations: {citation_err}")
+                                    else:
+                                        tool_result = json.dumps({"error": f"Tool {function_name} not found"})
+
+                                except Exception as e:
+                                    log.error(f"Tool execution error: {e}")
+                                    tool_result = json.dumps({"error": str(e)})
+
+                                # Ensure tool_result is a string
+                                if not isinstance(tool_result, str):
+                                    if isinstance(tool_result, (dict, list)):
+                                        tool_result = json.dumps(tool_result)
+                                    else:
+                                        tool_result = str(tool_result)
+
+                                # Add tool result to messages
+                                messages_list.append({
+                                    "role": "tool",
+                                    "tool_call_id": tool_call.get("id", ""),
+                                    "content": tool_result,
+                                })
+
+                            # Make another LLM call with tool results
+                            form_data["messages"] = messages_list
+
+                            # FI-TS_custom 2026-01-15: Apply RAG context with citations for inline references
+                            if citation_sources:
+                                try:
+                                    form_data["messages"] = apply_source_context_to_messages(
+                                        request,
+                                        form_data["messages"],
+                                        citation_sources,
+                                        content,  # Original user message
+                                    )
+                                    log.info(f"Applied RAG context with {len(citation_sources)} sources")
+                                except Exception as rag_err:
+                                    log.error(f"Error applying RAG context: {rag_err}")
+
+                            try:
+                                res = await asyncio.wait_for(
+                                    generate_chat_completion(
+                                        request,
+                                        form_data=form_data,
+                                        user=user,
+                                    ),
+                                    timeout=300
+                                )
+
+                                # Check for more tool calls
+                                if res and isinstance(res, dict) and res.get("choices", []) and len(res["choices"]) > 0:
+                                    tool_calls = res["choices"][0].get("message", {}).get("tool_calls", [])
+                                else:
+                                    break
+                            except asyncio.TimeoutError:
+                                log.error(f"Tool response timed out")
+                                res = {"error": "Tool response timed out"}
+                                break
+                            except Exception as e:
+                                log.error(f"Error in tool follow-up call: {e}")
+                                res = {"error": str(e)}
+                                break
 
                 # FI-TS_custom 2026-01-13: Update message when response ready
                 # Check if new messages arrived after trigger - if so, recreate at end with reply_to_id
                 if res:
-                    if res.get("choices", []) and len(res["choices"]) > 0:
-                        response_content = res["choices"][0]["message"]["content"]
-                    elif res.get("error", None):
-                        response_content = f"Error: {res['error']}"
+                    # Extract response content safely
+                    if not isinstance(res, dict):
+                        log.error(f"Unexpected response type after conversion: {type(res)}")
+                        response_content = "Error: Invalid response from model"
+                    elif res.get("choices") and len(res["choices"]) > 0:
+                        # Safely extract content from response
+                        message_obj = res["choices"][0].get("message", {})
+                        response_content = message_obj.get("content")
+                        # Handle case where model only made tool calls without final content
+                        if not response_content:
+                            response_content = "I processed your request but couldn't generate a response."
+                    elif res.get("error"):
+                        error_msg = res["error"]
+                        # Provide user-friendly error messages
+                        if "does not support" in str(error_msg).lower() or "tool" in str(error_msg).lower():
+                            response_content = "This model doesn't support the advanced features I tried to use. Please select a different model in Admin Settings."
+                        else:
+                            response_content = f"Error: {error_msg}"
                     else:
                         response_content = "Error: No response from model"
 
@@ -1400,15 +1686,19 @@ async def model_response_handler(request, channel, message, user, db=None):
                         # Delete empty message and create new one at end with reply_to_id
                         Messages.delete_message_by_id(response_message.id, db=db)
 
+                        # FI-TS_custom 2026-01-13: Reply in same context (thread or main) as triggering message
+                        # FI-TS_custom 2026-01-15: Include citation sources in message data
                         response_message, channel = await new_message_handler(
                             request,
                             channel.id,
                             MessageForm(
                                 **{
-                                    "parent_id": None,
+                                    "parent_id": message.parent_id if message.parent_id else None,
                                     "reply_to_id": message.id,  # Reference trigger message
                                     "content": response_content,
-                                    "data": {},
+                                    "data": {
+                                        "sources": citation_sources if citation_sources else [],
+                                    },
                                     "meta": {
                                         "model_id": model_id,
                                         "model_name": model.get("name", model_id),
@@ -1421,6 +1711,7 @@ async def model_response_handler(request, channel, message, user, db=None):
                         )
                     else:
                         # No new messages - just update the empty message
+                        # FI-TS_custom 2026-01-15: Include citation sources in message data
                         await update_message_by_id(
                             request,
                             channel.id,
@@ -1428,6 +1719,9 @@ async def model_response_handler(request, channel, message, user, db=None):
                             MessageForm(
                                 **{
                                     "content": response_content,
+                                    "data": {
+                                        "sources": citation_sources if citation_sources else [],
+                                    },
                                     "meta": {
                                         "model_id": model_id,
                                         "model_name": model.get("name", model_id),
@@ -1438,9 +1732,21 @@ async def model_response_handler(request, channel, message, user, db=None):
                             user,
                             db,
                         )
+
+                    # Mark as successful - message has been properly updated
+                    response_successful = True
+
             except Exception as e:
-                log.info(e)
-                pass
+                # FI-TS_custom 2026-01-13: Clean up empty message to prevent stuck typing indicator
+                log.error(f"Error generating channel response: {e}")
+            finally:
+                # Always clean up if response wasn't successful
+                if not response_successful and response_message:
+                    try:
+                        Messages.delete_message_by_id(response_message.id, db=db)
+                        log.info(f"Cleaned up stuck message {response_message.id} after error")
+                    except Exception as cleanup_error:
+                        log.error(f"Failed to clean up message: {cleanup_error}")
 
     return True
 

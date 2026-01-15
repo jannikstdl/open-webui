@@ -187,6 +187,11 @@
 					}
 				}
 			} else if (type === 'message:update') {
+				// FI-TS_custom 2026-01-15: Only handle main channel messages (not threads)
+				if ((data?.parent_id ?? null) !== null) {
+					return; // Skip thread messages - they're handled by Thread.svelte
+				}
+
 				const idx = messages.findIndex((message) => message.id === data.id);
 
 				// FI-TS_custom 2026-01-12: Remove model from typing users when content arrives
@@ -240,6 +245,19 @@
 				typingUsersTimeout[event.user.id] = setTimeout(() => {
 					typingUsers = typingUsers.filter((user) => user.id !== event.user.id);
 				}, 5000);
+			} else if (type === 'model_status' && event.message_id === null) {
+				// FI-TS_custom 2026-01-15: Handle model tool status for main channel
+				const modelId = `model_${data.model_id}`;
+				const modelName = data.model_name ?? data.model_id;
+				const modelStatus = data.status; // "searching_web", "searching_channel", or null
+
+				const existingIdx = typingUsers.findIndex((user) => user.id === modelId);
+				if (existingIdx !== -1) {
+					typingUsers[existingIdx] = { ...typingUsers[existingIdx], status: modelStatus };
+					typingUsers = typingUsers;
+				} else {
+					typingUsers = [...typingUsers, { id: modelId, name: modelName, status: modelStatus }];
+				}
 			}
 		}
 	};

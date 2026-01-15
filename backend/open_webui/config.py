@@ -1750,6 +1750,13 @@ TASK_MODEL_EXTERNAL = PersistentConfig(
     os.environ.get("TASK_MODEL_EXTERNAL", ""),
 )
 
+# FI-TS_custom 2026-01-13: Separate model configuration for channels
+CHANNEL_MODEL = PersistentConfig(
+    "CHANNEL_MODEL",
+    "channels.model.default",
+    os.environ.get("CHANNEL_MODEL", ""),
+)
+
 TITLE_GENERATION_PROMPT_TEMPLATE = PersistentConfig(
     "TITLE_GENERATION_PROMPT_TEMPLATE",
     "task.title.prompt_template",

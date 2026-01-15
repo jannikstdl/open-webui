@@ -94,6 +94,29 @@
 
 			if (type === 'message') {
 				if ((data?.parent_id ?? null) === threadId) {
+					// FI-TS_custom 2026-01-15: Filter empty model messages and show typing indicator instead
+					if (
+						data?.meta?.model_id &&
+						(data?.content ?? '').trim() === '' &&
+						data?.meta?.done === false
+					) {
+						// Add model to typing users
+						const modelName = data?.meta?.model_name ?? data?.meta?.model_id;
+						const modelId = `model_${data?.meta?.model_id}`;
+
+						if (!typingUsers.find((user) => user.id === modelId)) {
+							typingUsers = [...typingUsers, { id: modelId, name: modelName }];
+						}
+						// Don't add the empty message to the messages list yet
+						return;
+					}
+
+					// FI-TS_custom 2026-01-15: Remove model from typing users if completed
+					if (data?.meta?.model_id && (data?.content ?? '').trim() !== '') {
+						const modelId = `model_${data?.meta?.model_id}`;
+						typingUsers = typingUsers.filter((user) => user.id !== modelId);
+					}
+
 					if (messages) {
 						messages = [data, ...messages];
 
@@ -103,11 +126,20 @@
 					}
 				}
 			} else if (type === 'message:update') {
+				// FI-TS_custom 2026-01-15: Remove model from typing users when content arrives
+				if (data?.meta?.model_id && (data?.content ?? '').trim() !== '') {
+					const modelId = `model_${data?.meta?.model_id}`;
+					typingUsers = typingUsers.filter((user) => user.id !== modelId);
+				}
+
 				if (messages) {
 					const idx = messages.findIndex((message) => message.id === data.id);
 
 					if (idx !== -1) {
 						messages[idx] = data;
+					} else if (data?.meta?.model_id && (data?.content ?? '').trim() !== '' && (data?.parent_id ?? null) === threadId) {
+						// FI-TS_custom 2026-01-15: Add message if it was hidden during typing
+						messages = [data, ...messages];
 					}
 				}
 			} else if (type === 'message:delete') {
@@ -147,6 +179,19 @@
 				typingUsersTimeout[event.user.id] = setTimeout(() => {
 					typingUsers = typingUsers.filter((user) => user.id !== event.user.id);
 				}, 5000);
+			} else if (type === 'model_status' && event.message_id === threadId) {
+				// FI-TS_custom 2026-01-15: Handle model tool status for this thread
+				const modelId = `model_${data.model_id}`;
+				const modelName = data.model_name ?? data.model_id;
+				const modelStatus = data.status; // "searching_web", "searching_channel", or null
+
+				const existingIdx = typingUsers.findIndex((user) => user.id === modelId);
+				if (existingIdx !== -1) {
+					typingUsers[existingIdx] = { ...typingUsers[existingIdx], status: modelStatus };
+					typingUsers = typingUsers;
+				} else {
+					typingUsers = [...typingUsers, { id: modelId, name: modelName, status: modelStatus }];
+				}
 			}
 		}
 	};

@@ -934,6 +934,7 @@ async def search_channel_messages(
     end_timestamp: Optional[int] = None,
     __request__: Request = None,
     __user__: dict = None,
+    __channel_id__: str = None,  # FI-TS_custom 2026-01-14: Restrict search to specific channel
 ) -> str:
     """
     Search for messages in channels the user is a member of, including thread replies.
@@ -953,10 +954,23 @@ async def search_channel_messages(
     try:
         user_id = __user__.get("id")
 
-        # Get all channels the user has access to
-        user_channels = Channels.get_channels_by_user_id(user_id)
-        channel_ids = [c.id for c in user_channels]
-        channel_map = {c.id: c for c in user_channels}
+        # FI-TS_custom 2026-01-14: If __channel_id__ is provided, only search that channel
+        # This is used when called from channel context to enforce RBAC
+        if __channel_id__:
+            # Verify user has access to this channel
+            user_channels = Channels.get_channels_by_user_id(user_id)
+            user_channel_ids = {c.id for c in user_channels}
+
+            if __channel_id__ not in user_channel_ids:
+                return json.dumps({"error": "You don't have access to this channel"})
+
+            channel_ids = [__channel_id__]
+            channel_map = {c.id: c for c in user_channels if c.id == __channel_id__}
+        else:
+            # Get all channels the user has access to
+            user_channels = Channels.get_channels_by_user_id(user_id)
+            channel_ids = [c.id for c in user_channels]
+            channel_map = {c.id: c for c in user_channels}
 
         if not channel_ids:
             return json.dumps([])

@@ -711,6 +711,7 @@
 						{/if}
 					</div>
 
+					<!-- FI-TS_custom 2026-01-15: Show status-specific messages for model tool usage -->
 					{#if typingUsers.length > 0}
 						<div
 							class=" -mt-7 pb-2.5 bg-gradient-to-t to-transparent {typingUsersClassName} pointer-events-none select-none"
@@ -722,7 +723,13 @@
 									<span class=" font-normal text-black dark:text-white">
 										{typingUsers.map((user) => user.name).join(', ')}
 									</span>
-									{$i18n.t('is typing...')}
+									{#if typingUsers.some((u) => u.status === 'searching_web')}
+										{$i18n.t('is searching the web...')}
+									{:else if typingUsers.some((u) => u.status === 'searching_channel')}
+										{$i18n.t('is searching for messages in this channel...')}
+									{:else}
+										{$i18n.t('is typing...')}
+									{/if}
 								</div>
 							</div>
 						</div>

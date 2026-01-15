@@ -433,6 +433,8 @@ from open_webui.config import (
     # Tasks
     TASK_MODEL,
     TASK_MODEL_EXTERNAL,
+    # FI-TS_custom 2026-01-13: Channel model config
+    CHANNEL_MODEL,
     ENABLE_TAGS_GENERATION,
     ENABLE_TITLE_GENERATION,
     ENABLE_FOLLOW_UP_GENERATION,
@@ -1244,6 +1246,9 @@ app.state.speech_speaker_embeddings_dataset = None
 
 app.state.config.TASK_MODEL = TASK_MODEL
 app.state.config.TASK_MODEL_EXTERNAL = TASK_MODEL_EXTERNAL
+
+# FI-TS_custom 2026-01-13: Channel model configuration
+app.state.config.CHANNEL_MODEL = CHANNEL_MODEL
 
 
 app.state.config.ENABLE_SEARCH_QUERY_GENERATION = ENABLE_SEARCH_QUERY_GENERATION
