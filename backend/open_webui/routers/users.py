@@ -31,6 +31,8 @@ from open_webui.models.users import (
 from open_webui.constants import ERROR_MESSAGES
 from open_webui.env import STATIC_DIR
 from open_webui.internal.db import get_session
+# FI-TS_custom 2026-01-21: Import socket for user role change notifications
+from open_webui.socket.main import sio
 
 
 from open_webui.utils.auth import (
@@ -605,6 +607,8 @@ async def update_user_by_id(
             Auths.update_user_password_by_id(user_id, hashed, db=db)
 
         Auths.update_email_by_id(user_id, form_data.email.lower(), db=db)
+        # FI-TS_custom 2026-01-21: Track if role changed for socket notification
+        old_role = user.role
         updated_user = Users.update_user_by_id(
             user_id,
             {
@@ -617,6 +621,13 @@ async def update_user_by_id(
         )
 
         if updated_user:
+            # FI-TS_custom 2026-01-21: Emit socket event when user role changes
+            if old_role != form_data.role:
+                await sio.emit(
+                    "user-role-updated",
+                    {"user_id": user_id, "role": form_data.role},
+                    room=f"user:{user_id}",
+                )
             return updated_user
 
         raise HTTPException(

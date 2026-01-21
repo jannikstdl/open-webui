@@ -154,6 +154,10 @@
 			toast.error(error);
 		}
 
+		// FI-TS_custom 2026-01-21: Detect OAuth callback and show loading before rendering page
+		if (document.cookie.includes('token=')) {
+			isOAuthLoading = true;
+		}
 		await oauthCallbackHandler();
 		form = $page.url.searchParams.get('form');
 

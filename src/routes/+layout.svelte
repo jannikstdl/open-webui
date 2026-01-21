@@ -178,6 +178,16 @@
 				console.log('Additional details:', details);
 			}
 		});
+
+		// FI-TS_custom 2026-01-21: Listen for user role updates
+		_socket.on('user-role-updated', async (data) => {
+			if (data.user_id === $user?.id) {
+				const sessionUser = await getSessionUser(localStorage.token).catch(() => null);
+				if (sessionUser) {
+					await user.set(sessionUser);
+				}
+			}
+		});
 	};
 
 	const executePythonAsWorker = async (id, code, cb) => {
@@ -596,6 +606,9 @@
 		}
 
 		if (now >= exp - TOKEN_EXPIRY_BUFFER) {
+			// FI-TS_custom 2026-01-21: Show info toast before session timeout logout
+			toast.info($i18n.t('Session timed out.'));
+
 			const res = await userSignOut();
 			user.set(null);
 			localStorage.removeItem('token');

@@ -53,6 +53,19 @@
 
 	let version;
 
+	// FI-TS_custom 2026-01-21: Track previous role to detect pending→user transitions
+	let previousRole: string | undefined = undefined;
+
+	// FI-TS_custom 2026-01-21: Trigger initialization when role changes from pending to user/admin
+	// Using single block to ensure check happens BEFORE previousRole update
+	$: {
+		const currentRole = $user?.role;
+		if (currentRole && ['user', 'admin'].includes(currentRole) && previousRole === 'pending' && !loaded) {
+			initializeApp();
+		}
+		previousRole = currentRole;
+	}
+
 	const clearChatInputStorage = () => {
 		const chatInputKeys = Object.keys(localStorage).filter((key) => key.startsWith('chat-input'));
 		if (chatInputKeys.length > 0) {
@@ -141,15 +154,8 @@
 		tools.set(toolsData);
 	};
 
-	onMount(async () => {
-		if ($user === undefined || $user === null) {
-			await goto('/auth');
-			return;
-		}
-		if (!['user', 'admin'].includes($user?.role)) {
-			return;
-		}
-
+	// FI-TS_custom 2026-01-21: Extracted initialization function for reuse when role changes from pending
+	async function initializeApp() {
 		clearChatInputStorage();
 		await Promise.all([
 			checkLocalDBChats(),
@@ -159,6 +165,19 @@
 				await Promise.all([setModels(), setToolServers()]);
 			})
 		]);
+		loaded = true;
+	}
+
+	onMount(async () => {
+		if ($user === undefined || $user === null) {
+			await goto('/auth');
+			return;
+		}
+		if (!['user', 'admin'].includes($user?.role)) {
+			return;
+		}
+
+		await initializeApp();
 
 		// Helper function to check if the pressed keys match the shortcut definition
 		const isShortcutMatch = (event: KeyboardEvent, shortcut): boolean => {
@@ -287,8 +306,6 @@
 			}
 		}
 		await tick();
-
-		loaded = true;
 	});
 
 	const checkForVersionUpdates = async () => {

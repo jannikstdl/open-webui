@@ -1355,6 +1355,7 @@
 	"Serpstack API Key": "Serpstack-API-Schlüssel",
 	"Server connection verified": "Serververbindung überprüft",
 	"Session": "Sitzung",
+	"Session timed out.": "Sitzung abgelaufen.",
 	"Set as default": "Als Standard festlegen",
 	"Set CFG Scale": "CFG-Skala festlegen",
 	"Set Default Model": "Standardmodell festlegen",
