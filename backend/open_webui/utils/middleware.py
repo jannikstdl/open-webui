@@ -146,6 +146,21 @@ DEFAULT_SOLUTION_TAGS = [("<|begin_of_solution|>", "<|end_of_solution|>")]
 DEFAULT_CODE_INTERPRETER_TAGS = [("<code_interpreter>", "</code_interpreter>")]
 
 
+# FI-TS_custom 2026-01-21: Strip thinking tags for non-streaming responses (channels)
+def strip_thinking_content(text: str) -> str:
+    """Remove thinking/reasoning tag content from text."""
+    if not text:
+        return text
+
+    result = text
+    for start_tag, end_tag in DEFAULT_REASONING_TAGS:
+        pattern = f"{re.escape(start_tag)}.*?{re.escape(end_tag)}"
+        result = re.sub(pattern, "", result, flags=re.DOTALL)
+
+    result = re.sub(r'\n{3,}', '\n\n', result)
+    return result.strip()
+
+
 def get_citation_source_from_tool_result(
     tool_name: str, tool_params: dict, tool_result: str, tool_id: str = ""
 ) -> list[dict]:

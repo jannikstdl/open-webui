@@ -781,30 +781,6 @@
 								{$i18n.t('Maximum token count for LLM context (0 = no limit)')}
 							</div>
 						</div>
-
-						<!-- FI-TS_custom 2026-01-15: Channel model setting (single selector) -->
-						<div class="mb-2.5">
-							<div class="text-xs mb-1">{$i18n.t('Channel Model')}</div>
-							<select
-								class="w-full rounded-lg py-2 px-4 text-sm bg-gray-50 dark:text-gray-300 dark:bg-gray-850 outline-hidden"
-								bind:value={adminConfig.CHANNEL_MODEL}
-								placeholder={$i18n.t('Select a model')}
-								disabled={!models}
-							>
-								<option value="" selected>{$i18n.t('None (Disabled)')}</option>
-								{#if models}
-									{#each models as model}
-										<option value={model.id} class="bg-gray-100 dark:bg-gray-700">
-											{model.name}
-											{model?.connection_type === 'local' ? `(${$i18n.t('Local')})` : ''}
-										</option>
-									{/each}
-								{/if}
-							</select>
-							<div class="mt-1 text-xs text-gray-400 dark:text-gray-500">
-								{$i18n.t('Model for automatic channel responses (leave empty to disable)')}
-							</div>
-						</div>
 					{/if}
 
 					<div class="mb-2.5 flex w-full items-center justify-between pr-2">

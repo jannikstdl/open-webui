@@ -57,6 +57,7 @@ from open_webui.utils.models import (
     get_filtered_models,
 )
 from open_webui.utils.chat import generate_chat_completion
+from open_webui.utils.middleware import strip_thinking_content
 # FI-TS_custom 2026-01-13: Import for builtin tools
 from open_webui.utils.tools import get_builtin_tools
 # FI-TS_custom 2026-01-15: Import for web search citations
@@ -82,6 +83,16 @@ from open_webui.models.models import Models
 log = logging.getLogger(__name__)
 
 router = APIRouter()
+
+# FI-TS_custom 2026-01-15: Channel response lock to prevent multiple simultaneous responses
+# Dictionary of channel_id -> asyncio.Lock
+_channel_response_locks: dict[str, asyncio.Lock] = {}
+
+def get_channel_response_lock(channel_id: str) -> asyncio.Lock:
+    """Get or create a lock for a specific channel to prevent simultaneous model responses."""
+    if channel_id not in _channel_response_locks:
+        _channel_response_locks[channel_id] = asyncio.Lock()
+    return _channel_response_locks[channel_id]
 
 
 ############################
@@ -1063,14 +1074,18 @@ async def add_message_reaction(request, channel_id, message_id, emoji, model_id,
 
 # FI-TS_custom 2026-01-13: Auto-decision via tool calling
 async def make_auto_decision(
-    request, channel, message, model, user, db
+    request, channel, message, model, user, db, response_model_name: str = None
 ) -> Optional[dict]:
     """
     Uses tool calling to let the model decide whether to respond.
     Returns: {"action": "silent|reply|react", "emoji": "..."}
+
+    model: The TASK_MODEL used for making the decision
+    response_model_name: The name of the CHANNEL_MODEL that will actually respond (used in prompt)
     """
     model_id = model.get("id")
-    model_name = model.get("name", model_id)
+    # FI-TS_custom 2026-01-15: Use response model name in prompt (the model users will see)
+    model_name = response_model_name or model.get("name", model_id)
 
     # Get conversation history with reactions and replies
     # FI-TS_custom 2026-01-13: Safe int conversion for empty string values
@@ -1101,91 +1116,27 @@ async def make_auto_decision(
     member_names = [user.name for user in users]
     members_str = ", ".join(member_names)
 
-    # FI-TS_custom 2026-01-13: Optimized system prompt for conservative, targeted AI participation in work environment
-    system_prompt = f"""You are {model_name}, an AI assistant in a work team channel.
+    # FI-TS_custom 2026-01-15: Use configurable decision prompt
+    decision_prompt_template = request.app.state.config.CHANNEL_DECISION_PROMPT or ""
+    user_name = message.user.name if hasattr(message, 'user') else 'User'
 
-## Your Role
-You're a helpful colleague who joins the conversation when needed. Stay quiet when the team is chatting, but jump in when someone needs expertise or help.
-
-**Core Principle**: When in doubt → stay silent. You're here to help when called upon, not to be in every conversation.
-
-## Response Style
-- **Never** start your message with your name ("{model_name}:") - the UI already shows who you are
-- **Don't** mention that you're replying or reacting - the UI handles that
-- Be conversational and helpful, like a friendly colleague
-- Keep it natural - no need to be overly formal or robotic
-
-## Decision Rules
-
-### Choose 'reply' when:
-1. **Directly addressed**:
-   - Message contains your name "{model_name}"
-   - Direct questions: "can you", "do you know", "explain", "help with", "what's", "how does"
-   - Reply to your previous messages
-   - @-mention of your name
-
-2. **Clear knowledge request**:
-   - Questions needing expertise, explanations, code, or research
-   - Technical questions the team can't quickly resolve themselves
-   - Examples: "How does X work?", "What's the best way to Y?", "Can you write code for Z?"
-
-3. **Important correction**:
-   - You spot a significant technical error or misunderstanding
-   - There's valuable information that would help
-   - **But**: Only for important things, not nitpicking
-
-4. **Critical work topics**:
-   - Security issues, compliance problems, or major business impacts
-   - Important deadlines or requirements being missed
-
-### Choose 'react' when:
-- Someone thanks you directly for help → 👍 or ❤️
-- Positive response to your answer → appropriate emoji (🙏, ✅, etc.)
-- **Use sparingly!** Only for messages clearly directed at you
-
-**Don't react to**:
-- Team conversations not involving you
-- General announcements or news
-- Jokes or casual chat you're not part of
-- Interesting info not directed at you
-
-### Choose 'silent' (default) when:
-- Team members talking to each other
-- No direct question asked
-- Your name not mentioned
-- Team solving something themselves
-- Casual workplace chat
-- **Unclear if you're meant** → stay quiet
-
-## Key Principles
-
-**Be selective**: Unsure if you're needed? → silent
-
-**Respect team flow**: Let people discuss and solve things together. Don't interrupt.
-
-**Quality over quantity**: One great answer beats constant presence.
-
-**Stay professional but friendly**: This is work, but keep it conversational and human.
-
-## Channel Members
-Current members in this channel: {members_str}
-
-## Conversation History:
-{history_str}
-
-## New message:
-{message.user.name if hasattr(message, 'user') else 'User'}: {message.content}
-
-## Instructions
-Analyze and decide your action. Be natural, engaged, and helpful - like a good team member would be!
-IMPORTANT: Only decide the action - you will generate reply text later if needed."""
+    # Replace placeholders in the decision prompt
+    system_prompt = decision_prompt_template.replace("{{MODEL_NAME}}", model_name)
+    system_prompt = system_prompt.replace("{{MEMBERS}}", members_str)
+    system_prompt = system_prompt.replace("{{HISTORY}}", history_str)
+    system_prompt = system_prompt.replace("{{USER}}", user_name)
+    system_prompt = system_prompt.replace("{{MESSAGE}}", message.content)
 
     try:
+        # FI-TS_custom 2026-01-21: MiniMax requires user message, not just system message
         response = await generate_chat_completion(
             request,
             form_data={
                 "model": model_id,
-                "messages": [{"role": "system", "content": system_prompt}],
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": "Decide: reply, react, or silent?"}
+                ],
                 "tools": [DECISION_TOOL],
                 "tool_choice": {"type": "function", "function": {"name": "decide_channel_action"}},
                 "stream": False,
@@ -1195,9 +1146,22 @@ IMPORTANT: Only decide the action - you will generate reply text later if needed
             user=user,
         )
 
+        # FI-TS_custom 2026-01-21: Convert JSONResponse to dict
+        if response and not isinstance(response, dict):
+            if hasattr(response, 'body'):
+                response = json.loads(response.body.decode('utf-8'))
+            else:
+                return None
+
+        # FI-TS_custom 2026-01-21: Debug logging for auto-decision
+        log.debug(f"Auto-decision response for {model_id}: {response}")
+
         if response and response.get("choices"):
             choice = response["choices"][0]
             tool_calls = choice.get("message", {}).get("tool_calls", [])
+
+            # FI-TS_custom 2026-01-21: Debug logging for tool_calls
+            log.debug(f"Auto-decision tool_calls: {tool_calls}")
 
             if tool_calls:
                 tool_call = tool_calls[0]
@@ -1207,6 +1171,18 @@ IMPORTANT: Only decide the action - you will generate reply text later if needed
                     "action": function_args.get("action", "silent"),
                     "emoji": function_args.get("emoji")
                 }
+            else:
+                # FI-TS_custom 2026-01-21: Fallback - parse action from content if model didn't use tool
+                content = choice.get("message", {}).get("content", "")
+                if content:
+                    log.warning(f"Model returned content instead of tool call: {content[:200]}")
+                    content_lower = content.lower()
+                    if "reply" in content_lower:
+                        return {"action": "reply"}
+                    elif "react" in content_lower:
+                        return {"action": "react", "emoji": None}
+                # Default to silent if no actionable content found
+                return {"action": "silent"}
     except Exception as e:
         log.error(f"Auto-decision failed for model {model_id}: {e}")
         return None
@@ -1239,47 +1215,37 @@ async def model_response_handler(request, channel, message, user, db=None):
         if mention["id_type"] == "M" and mention["id"] not in model_mentions:
             model_mentions[mention["id"]] = mention
 
-    # FI-TS_custom 2026-01-13: Auto-decision for CHANNEL_MODEL with native tool calling
+    # FI-TS_custom 2026-01-15: Auto-decision uses TASK_MODEL, response uses CHANNEL_MODEL
     if not model_mentions:
-        # FI-TS_custom 2026-01-13: Use dedicated CHANNEL_MODEL instead of TASK_MODEL
-        task_model_id = request.app.state.config.CHANNEL_MODEL
+        task_model_id = request.app.state.config.TASK_MODEL
+        channel_model_id = request.app.state.config.CHANNEL_MODEL
 
-        if task_model_id and task_model_id in MODELS:
-            # FI-TS_custom 2026-01-13: Check if model is already responding to prevent double responses
-            # Look for empty messages with done: false from this model
-            recent_messages = Messages.get_all_channel_messages_for_context(
-                channel.id,
-                limit=5,  # Just check last 5 messages
-                db=db,
-            )
+        # Need both TASK_MODEL (for decision) and CHANNEL_MODEL (for response)
+        if task_model_id and task_model_id in MODELS and channel_model_id and channel_model_id in MODELS:
+            # FI-TS_custom 2026-01-15: Use lock to prevent multiple simultaneous responses
+            channel_lock = get_channel_response_lock(channel.id)
 
-            model_already_responding = False
-            for msg in recent_messages:
-                if (
-                    msg.meta
-                    and msg.meta.get("model_id") == task_model_id
-                    and msg.content.strip() == ""
-                    and msg.meta.get("done") == False
-                ):
-                    model_already_responding = True
-                    log.info(f"Model {task_model_id} is already responding, skipping auto-decision")
-                    break
-
-            if not model_already_responding:
+            # Try to acquire lock without blocking - if locked, model is already responding
+            if channel_lock.locked():
+                log.info(f"Channel {channel.id} is already processing a response, skipping auto-decision")
+            else:
                 log.info(f"Checking TASK_MODEL {task_model_id} for native tool calling...")
                 if has_native_tool_calling(task_model_id, db):
                     log.info(f"TASK_MODEL {task_model_id} has native tool calling, making auto-decision...")
                     task_model = MODELS[task_model_id]
+                    channel_model = MODELS[channel_model_id]
 
-                    # Make auto-decision
+                    # Make auto-decision using TASK_MODEL, but use CHANNEL_MODEL's name in prompt
                     decision = await make_auto_decision(
-                        request, channel, message, task_model, user, db
+                        request, channel, message, task_model, user, db,
+                        response_model_name=channel_model.get("name", channel_model_id)
                     )
                     log.info(f"Auto-decision result: {decision}")
 
+                    # If decision is to respond, use CHANNEL_MODEL for the actual response
                     if decision and decision["action"] != "silent":
-                        model_mentions[task_model_id] = {
-                            "id": task_model_id,
+                        model_mentions[channel_model_id] = {
+                            "id": channel_model_id,
                             "id_type": "M",
                             "decision": decision
                         }
@@ -1307,6 +1273,16 @@ async def model_response_handler(request, channel, message, user, db=None):
             # FI-TS_custom 2026-01-13: For 'reply' action, fall through to normal response generation
             response_message = None
             response_successful = False
+
+            # FI-TS_custom 2026-01-15: Acquire channel lock to prevent simultaneous responses
+            channel_lock = get_channel_response_lock(channel.id)
+            if channel_lock.locked():
+                log.info(f"Channel {channel.id} is already processing a response, skipping this request")
+                continue
+
+            await channel_lock.acquire()
+            log.info(f"Acquired response lock for channel {channel.id}")
+
             try:
                 # FI-TS_custom 2026-01-12: Get all channel messages with configurable limits
                 # FI-TS_custom 2026-01-13: Safe int conversion for empty string values
@@ -1360,14 +1336,17 @@ async def model_response_handler(request, channel, message, user, db=None):
                 member_names = [user.name for user in users]
                 members_str = ", ".join(member_names)
 
-                # FI-TS_custom 2026-01-12: Updated system message for non-threaded channel context
+                # FI-TS_custom 2026-01-15: Use configurable system prompt for channel model
                 thread_history_string = "\n\n".join(thread_history)
+                channel_system_prompt = request.app.state.config.CHANNEL_SYSTEM_PROMPT or ""
+                channel_system_prompt = channel_system_prompt.replace("{{MODEL_NAME}}", model.get("name", model_id))
+
                 system_message = {
                     "role": "system",
-                    "content": f"You are {model.get('name', model_id)}, participating in a channel conversation. Messages marked with [Thread] are from thread discussions. Be concise and conversational."
+                    "content": channel_system_prompt
                     + f"\n\nChannel members: {members_str}"
                     + (
-                        f"\n\nHere's the conversation history:\n\n{thread_history_string}\n\nContinue the conversation naturally."
+                        f"\n\nConversation history:\n\n{thread_history_string}"
                         if thread_history
                         else ""
                     ),
@@ -1418,10 +1397,11 @@ async def model_response_handler(request, channel, message, user, db=None):
                             model=model,
                         )
 
-                        # FI-TS_custom 2026-01-15: Only web and channel search tools for channel model
+                        # FI-TS_custom 2026-01-15: Web, channel search, and fetch_url tools for channel model
                         allowed_tool_names = [
                             "search_web",
                             "search_channel_messages",
+                            "fetch_url",
                         ]
 
                         tools_specs = [
@@ -1548,6 +1528,8 @@ async def model_response_handler(request, channel, message, user, db=None):
                                         status_message = None
                                         if function_name == "search_web":
                                             status_message = "searching_web"
+                                        elif function_name == "fetch_url":
+                                            status_message = "searching_web"  # Same status as web search
                                         elif function_name == "search_channel_messages":
                                             status_message = "searching_channel"
 
@@ -1613,18 +1595,26 @@ async def model_response_handler(request, channel, message, user, db=None):
                             # Make another LLM call with tool results
                             form_data["messages"] = messages_list
 
-                            # FI-TS_custom 2026-01-15: Apply RAG context with citations for inline references
+                            # FI-TS_custom 2026-01-15: Add simple sources context (no verbose RAG template)
                             if citation_sources:
                                 try:
-                                    form_data["messages"] = apply_source_context_to_messages(
-                                        request,
-                                        form_data["messages"],
-                                        citation_sources,
-                                        content,  # Original user message
-                                    )
-                                    log.info(f"Applied RAG context with {len(citation_sources)} sources")
-                                except Exception as rag_err:
-                                    log.error(f"Error applying RAG context: {rag_err}")
+                                    sources_context = "\n\n### Sources:\n"
+                                    for i, source in enumerate(citation_sources, 1):
+                                        source_info = source.get("source", {})
+                                        name = source_info.get("name", "Unknown")
+                                        metadata = source.get("metadata", [{}])
+                                        url = metadata[0].get("source", "") if metadata else ""
+                                        sources_context += f"[{i}] {name}"
+                                        if url:
+                                            sources_context += f" - {url}"
+                                        sources_context += "\n"
+
+                                    # Append to system message
+                                    if form_data["messages"] and form_data["messages"][0]["role"] == "system":
+                                        form_data["messages"][0]["content"] += sources_context
+                                    log.info(f"Added {len(citation_sources)} sources to context")
+                                except Exception as sources_err:
+                                    log.error(f"Error adding sources context: {sources_err}")
 
                             try:
                                 res = await asyncio.wait_for(
@@ -1658,12 +1648,15 @@ async def model_response_handler(request, channel, message, user, db=None):
                         log.error(f"Unexpected response type after conversion: {type(res)}")
                         response_content = "Error: Invalid response from model"
                     elif res.get("choices") and len(res["choices"]) > 0:
-                        # Safely extract content from response
+                        # Safely extract content from response (ignore reasoning_content field)
                         message_obj = res["choices"][0].get("message", {})
                         response_content = message_obj.get("content")
                         # Handle case where model only made tool calls without final content
                         if not response_content:
                             response_content = "I processed your request but couldn't generate a response."
+                        else:
+                            # FI-TS_custom 2026-01-21: Strip inline thinking tags
+                            response_content = strip_thinking_content(response_content)
                     elif res.get("error"):
                         error_msg = res["error"]
                         # Provide user-friendly error messages
@@ -1747,6 +1740,10 @@ async def model_response_handler(request, channel, message, user, db=None):
                         log.info(f"Cleaned up stuck message {response_message.id} after error")
                     except Exception as cleanup_error:
                         log.error(f"Failed to clean up message: {cleanup_error}")
+
+                # FI-TS_custom 2026-01-21: Always release the lock to prevent stuck channels
+                channel_lock.release()
+                log.info(f"Released response lock for channel {channel.id}")
 
     return True
 

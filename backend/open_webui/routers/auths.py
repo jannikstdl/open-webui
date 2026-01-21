@@ -1027,6 +1027,8 @@ async def get_admin_config(request: Request, user=Depends(get_admin_user)):
         "CHANNEL_LLM_MAX_MESSAGES": request.app.state.config.CHANNEL_LLM_MAX_MESSAGES,
         "CHANNEL_LLM_MAX_TOKENS": request.app.state.config.CHANNEL_LLM_MAX_TOKENS,
         "CHANNEL_MODEL": request.app.state.config.CHANNEL_MODEL,
+        "CHANNEL_SYSTEM_PROMPT": request.app.state.config.CHANNEL_SYSTEM_PROMPT,
+        "CHANNEL_DECISION_PROMPT": request.app.state.config.CHANNEL_DECISION_PROMPT,
     }
 
 
@@ -1057,6 +1059,9 @@ class AdminConfig(BaseModel):
     CHANNEL_LLM_MAX_TOKENS: Optional[int] = 0
     # FI-TS_custom 2026-01-13: Channel model settings
     CHANNEL_MODEL: Optional[str] = None
+    # FI-TS_custom 2026-01-15: Channel prompts
+    CHANNEL_SYSTEM_PROMPT: Optional[str] = None
+    CHANNEL_DECISION_PROMPT: Optional[str] = None
 
 
 @router.post("/admin/config")
@@ -1117,6 +1122,9 @@ async def update_admin_config(
     request.app.state.config.CHANNEL_LLM_MAX_TOKENS = form_data.CHANNEL_LLM_MAX_TOKENS
     # FI-TS_custom 2026-01-13: Update channel model settings
     request.app.state.config.CHANNEL_MODEL = form_data.CHANNEL_MODEL
+    # FI-TS_custom 2026-01-15: Update channel prompts
+    request.app.state.config.CHANNEL_SYSTEM_PROMPT = form_data.CHANNEL_SYSTEM_PROMPT
+    request.app.state.config.CHANNEL_DECISION_PROMPT = form_data.CHANNEL_DECISION_PROMPT
 
     return {
         "SHOW_ADMIN_DETAILS": request.app.state.config.SHOW_ADMIN_DETAILS,
@@ -1144,6 +1152,8 @@ async def update_admin_config(
         "CHANNEL_LLM_MAX_MESSAGES": request.app.state.config.CHANNEL_LLM_MAX_MESSAGES,
         "CHANNEL_LLM_MAX_TOKENS": request.app.state.config.CHANNEL_LLM_MAX_TOKENS,
         "CHANNEL_MODEL": request.app.state.config.CHANNEL_MODEL,
+        "CHANNEL_SYSTEM_PROMPT": request.app.state.config.CHANNEL_SYSTEM_PROMPT,
+        "CHANNEL_DECISION_PROMPT": request.app.state.config.CHANNEL_DECISION_PROMPT,
     }
 
 

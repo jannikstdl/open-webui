@@ -205,6 +205,12 @@
 				} else if (data?.meta?.model_id && (data?.content ?? '').trim() !== '') {
 					// FI-TS_custom 2026-01-12: Add the message if it wasn't in the list (was hidden during typing)
 					messages = [data, ...messages];
+
+					// FI-TS_custom 2026-01-15: Auto-scroll when new model message appears
+					await tick();
+					if (scrollEnd) {
+						scrollToBottom();
+					}
 				}
 			} else if (type === 'message:delete') {
 				messages = messages.filter((message) => message.id !== data.id);

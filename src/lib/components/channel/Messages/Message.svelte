@@ -41,6 +41,9 @@
 	import Pin from '$lib/components/icons/Pin.svelte';
 	// FI-TS_custom 2026-01-15: Add Citations component for web search results
 	import Citations from '$lib/components/chat/Messages/Citations.svelte';
+	// FI-TS_custom 2026-01-15: Add CitationsModal and Clipboard for channel messages
+	import CitationsModal from '$lib/components/chat/Messages/Citations/CitationsModal.svelte';
+	import Clipboard from '$lib/components/icons/Clipboard.svelte';
 
 	export let className = '';
 
@@ -66,6 +69,9 @@
 	let edit = false;
 	let editedContent = null;
 	let showDeleteConfirmDialog = false;
+	// FI-TS_custom 2026-01-15: State for CitationsModal
+	let showCitationsModal = false;
+	let selectedCitationIndex = 0;
 
 	const loadMessageData = async () => {
 		if (message && message?.data) {
@@ -107,6 +113,15 @@
 		await onDelete();
 	}}
 />
+
+<!-- FI-TS_custom 2026-01-15: CitationsModal for clickable inline citations -->
+{#if showCitationsModal && (message?.data?.sources ?? []).length > 0}
+	<CitationsModal
+		id={message.id}
+		bind:show={showCitationsModal}
+		citations={message.data.sources}
+	/>
+{/if}
 
 {#if message}
 	<div
@@ -165,6 +180,18 @@
 						</Tooltip>
 					{/if}
 
+					<!-- FI-TS_custom 2026-01-15: Copy message button -->
+					<Tooltip content={$i18n.t('Copy')}>
+						<button
+							class="hover:bg-gray-100 dark:hover:bg-gray-800 transition rounded-lg p-1"
+							on:click={() => {
+								navigator.clipboard.writeText(message.content);
+							}}
+						>
+							<Clipboard className="size-4" />
+						</button>
+					</Tooltip>
+
 					<Tooltip content={message?.is_pinned ? $i18n.t('Unpin') : $i18n.t('Pin')}>
 						<button
 							class="hover:bg-gray-100 dark:hover:bg-gray-800 transition rounded-lg p-1"
@@ -193,31 +220,31 @@
 						</Tooltip>
 					{/if}
 
-					{#if message.user_id === $user?.id || $user?.role === 'admin'}
-						{#if onEdit}
-							<Tooltip content={$i18n.t('Edit')}>
-								<button
-									class="hover:bg-gray-100 dark:hover:bg-gray-800 transition rounded-lg p-1"
-									on:click={() => {
-										edit = true;
-										editedContent = message.content;
-									}}
-								>
-									<Pencil />
-								</button>
-							</Tooltip>
-						{/if}
+					<!-- FI-TS_custom 2026-01-15: Edit only own messages -->
+					{#if message.user_id === $user?.id && onEdit}
+						<Tooltip content={$i18n.t('Edit')}>
+							<button
+								class="hover:bg-gray-100 dark:hover:bg-gray-800 transition rounded-lg p-1"
+								on:click={() => {
+									edit = true;
+									editedContent = message.content;
+								}}
+							>
+								<Pencil />
+							</button>
+						</Tooltip>
+					{/if}
 
-						{#if onDelete}
-							<Tooltip content={$i18n.t('Delete')}>
-								<button
-									class="hover:bg-gray-100 dark:hover:bg-gray-800 transition rounded-lg p-1"
-									on:click={() => (showDeleteConfirmDialog = true)}
-								>
-									<GarbageBin />
-								</button>
-							</Tooltip>
-						{/if}
+					<!-- FI-TS_custom 2026-01-15: Delete own messages OR (admin can delete model messages) -->
+					{#if (message.user_id === $user?.id || ($user?.role === 'admin' && message?.meta?.model_id)) && onDelete}
+						<Tooltip content={$i18n.t('Delete')}>
+							<button
+								class="hover:bg-gray-100 dark:hover:bg-gray-800 transition rounded-lg p-1"
+								on:click={() => (showDeleteConfirmDialog = true)}
+							>
+								<GarbageBin />
+							</button>
+						</Tooltip>
 					{/if}
 				</div>
 			</div>
@@ -440,12 +467,16 @@
 						{#if (message?.content ?? '').trim() === '' && message?.meta?.model_id}
 							<Skeleton />
 						{:else}
-							<!-- FI-TS_custom 2026-01-15: Pass sourceIds for inline citation rendering -->
+							<!-- FI-TS_custom 2026-01-15: Pass sourceIds for inline citation rendering with clickable citations -->
 							<Markdown
 								id={message.id}
 								content={message.content}
 								paragraphTag="span"
 								{sourceIds}
+								onSourceClick={(index) => {
+									selectedCitationIndex = index;
+									showCitationsModal = true;
+								}}
 							/>{#if message.created_at !== message.updated_at && (message?.meta?.model_id ?? null) === null}<span
 									class="text-gray-500 text-[10px] pl-1 self-center">({$i18n.t('edited')})</span
 								>{/if}
@@ -545,8 +576,13 @@
 									onThread(message.id);
 								}}
 							>
+								<!-- FI-TS_custom 2026-01-15: Fix singular/plural for reply count -->
 								<span class="font-medium mr-1">
-									{$i18n.t('{{COUNT}} Replies', { COUNT: message.reply_count })}</span
+									{#if message.reply_count === 1}
+										{$i18n.t('1 Reply')}
+									{:else}
+										{$i18n.t('{{COUNT}} Replies', { COUNT: message.reply_count })}
+									{/if}</span
 								><span>
 									{' - '}{$i18n.t('Last reply')}
 									{dayjs.unix(message.latest_reply_at / 1000000000).fromNow()}</span

@@ -7,6 +7,8 @@
 
 	import { getBackendConfig, getModels, getTaskConfig, updateTaskConfig } from '$lib/apis';
 	import { setDefaultPromptSuggestions } from '$lib/apis/configs';
+	// FI-TS_custom 2026-01-15: Import admin config APIs for channel settings
+	import { getAdminConfig, updateAdminConfig } from '$lib/apis/auths';
 	import { config, settings, user } from '$lib/stores';
 	import { createEventDispatcher, onMount, getContext } from 'svelte';
 
@@ -49,12 +51,20 @@
 	let promptSuggestions = [];
 	let banners: Banner[] = [];
 
+	// FI-TS_custom 2026-01-15: Admin config for channel settings
+	let adminConfig = null;
+
 	const updateInterfaceHandler = async () => {
 		taskConfig = await updateTaskConfig(localStorage.token, taskConfig);
 
 		promptSuggestions = promptSuggestions.filter((p) => p.content !== '');
 		promptSuggestions = await setDefaultPromptSuggestions(localStorage.token, promptSuggestions);
 		await updateBanners();
+
+		// FI-TS_custom 2026-01-15: Update channel settings
+		if (adminConfig) {
+			await updateAdminConfig(localStorage.token, adminConfig);
+		}
 
 		await config.set(await getBackendConfig());
 	};
@@ -72,6 +82,9 @@
 		taskConfig = await getTaskConfig(localStorage.token);
 		promptSuggestions = $config?.default_prompt_suggestions ?? [];
 		banners = await getBanners(localStorage.token);
+
+		// FI-TS_custom 2026-01-15: Fetch admin config for channel settings
+		adminConfig = await getAdminConfig(localStorage.token);
 
 		workspaceModels = await getBaseModels(localStorage.token);
 		baseModels = await getModels(localStorage.token, null, false);
@@ -401,6 +414,61 @@
 					</Tooltip>
 				</div>
 			</div>
+
+			<!-- FI-TS_custom 2026-01-15: Channel Model Settings -->
+			{#if adminConfig}
+				<div class="mb-3.5">
+					<div class=" mb-2.5 text-base font-medium">{$i18n.t('Channel Model')}</div>
+
+					<hr class=" border-gray-100 dark:border-gray-850 my-2" />
+
+					<div class="mb-2.5">
+						<div class="text-xs mb-1">{$i18n.t('Channel Model')}</div>
+						<select
+							class="w-full rounded-lg py-2 px-4 text-sm bg-gray-50 dark:text-gray-300 dark:bg-gray-850 outline-hidden"
+							bind:value={adminConfig.CHANNEL_MODEL}
+							placeholder={$i18n.t('Select a model')}
+						>
+							<option value="" selected>{$i18n.t('None (Disabled)')}</option>
+							{#each models as model}
+								<option value={model.id} class="bg-gray-100 dark:bg-gray-700">
+									{model.name}
+									{model?.connection_type === 'local' ? `(${$i18n.t('Local')})` : ''}
+								</option>
+							{/each}
+						</select>
+						<div class="mt-1 text-xs text-gray-400 dark:text-gray-500">
+							{$i18n.t('Model for automatic channel responses (leave empty to disable)')}
+						</div>
+					</div>
+
+					<div class="mb-2.5">
+						<div class="text-xs mb-1">{$i18n.t('Channel Response Prompt')}</div>
+						<Tooltip
+							content={$i18n.t('System prompt for channel model responses. Use {{MODEL_NAME}} as placeholder.')}
+							placement="top-start"
+						>
+							<Textarea
+								bind:value={adminConfig.CHANNEL_SYSTEM_PROMPT}
+								placeholder={$i18n.t('Enter system prompt for channel responses...')}
+							/>
+						</Tooltip>
+					</div>
+
+					<div class="mb-2.5">
+						<div class="text-xs mb-1">{$i18n.t('Channel Decision Prompt')}</div>
+						<Tooltip
+							content={$i18n.t('Prompt used to decide if the model should respond. Use {{MODEL_NAME}}, {{MEMBERS}}, {{HISTORY}}, {{USER}}, {{MESSAGE}} as placeholders.')}
+							placement="top-start"
+						>
+							<Textarea
+								bind:value={adminConfig.CHANNEL_DECISION_PROMPT}
+								placeholder={$i18n.t('Enter decision prompt for channel model...')}
+							/>
+						</Tooltip>
+					</div>
+				</div>
+			{/if}
 
 			<div class="mb-3.5">
 				<div class=" mb-2.5 text-base font-medium">{$i18n.t('UI')}</div>
