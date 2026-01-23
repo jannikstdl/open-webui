@@ -1149,7 +1149,11 @@ async def make_auto_decision(
     members_str = ", ".join(member_names)
 
     # FI-TS_custom 2026-01-15: Use configurable decision prompt
-    decision_prompt_template = request.app.state.config.CHANNEL_DECISION_PROMPT or ""
+    # FI-TS_custom 2026-01-23: Fall back to default if empty
+    decision_prompt_template = request.app.state.config.CHANNEL_DECISION_PROMPT
+    if not decision_prompt_template or decision_prompt_template.strip() == "":
+        from open_webui.config import CHANNEL_DECISION_PROMPT as DEFAULT_DECISION_PROMPT
+        decision_prompt_template = DEFAULT_DECISION_PROMPT.env_value
     user_name = message.user.name if hasattr(message, 'user') else 'User'
 
     # Replace placeholders in the decision prompt
@@ -1392,7 +1396,11 @@ async def model_response_handler(request, channel, message, user, db=None):
 
                 # FI-TS_custom 2026-01-15: Use configurable system prompt for channel model
                 thread_history_string = "\n\n".join(thread_history)
-                channel_system_prompt = request.app.state.config.CHANNEL_SYSTEM_PROMPT or ""
+                # FI-TS_custom 2026-01-23: Fall back to default if empty
+                channel_system_prompt = request.app.state.config.CHANNEL_SYSTEM_PROMPT
+                if not channel_system_prompt or channel_system_prompt.strip() == "":
+                    from open_webui.config import CHANNEL_SYSTEM_PROMPT as DEFAULT_PROMPT
+                    channel_system_prompt = DEFAULT_PROMPT.env_value
                 channel_system_prompt = channel_system_prompt.replace("{{MODEL_NAME}}", model.get("name", model_id))
 
                 # FI-TS_custom 2026-01-23: Add vision capability variable
