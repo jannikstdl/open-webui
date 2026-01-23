@@ -113,6 +113,20 @@ def has_native_tool_calling(model_id: str, db: Session) -> bool:
     return model_params.get("function_calling") == "native"
 
 
+def has_vision(model_id: str, models_dict: dict) -> bool:
+    """
+    Check if model has vision capability enabled.
+    FI-TS_custom 2026-01-23: Check model's meta.capabilities.vision
+    """
+    model = models_dict.get(model_id, {})
+    return (
+        model.get("info", {})
+        .get("meta", {})
+        .get("capabilities", {})
+        .get("vision", False)
+    )
+
+
 # FI-TS_custom 2026-01-13: Tool definition for LLM decision-making
 DECISION_TOOL = {
     "type": "function",
@@ -1099,13 +1113,31 @@ async def make_auto_decision(
     )
 
     # Build context with reactions and reply information
-    history, _ = build_channel_context_with_reactions(
+    history, decision_images = build_channel_context_with_reactions(
         all_messages,
         max_messages,
         max_tokens,
         {model_id: model},
         db,
     )
+
+    # FI-TS_custom 2026-01-23: Only include images if TASK_MODEL has vision capability
+    if not has_vision(model_id, {model_id: model}):
+        if decision_images:
+            log.info(f"TASK_MODEL {model_id} does not have vision - converting {len(decision_images)} images to text placeholders")
+            # Add image filenames as text to the context
+            image_names = []
+            for msg in all_messages:
+                msg_files = msg.data.get("files", []) if msg.data else []
+                for file in msg_files:
+                    if file.get("type") == "image" or file.get("content_type", "").startswith("image/"):
+                        filename = file.get("filename", "image")
+                        image_names.append(filename)
+
+            if image_names and history:
+                # Append image info to the last message in history
+                history[-1] += f" [Attached images: {', '.join(image_names)}]"
+        decision_images = []
 
     history_str = "\n".join(history)
 
@@ -1126,6 +1158,10 @@ async def make_auto_decision(
     system_prompt = system_prompt.replace("{{HISTORY}}", history_str)
     system_prompt = system_prompt.replace("{{USER}}", user_name)
     system_prompt = system_prompt.replace("{{MESSAGE}}", message.content)
+
+    # FI-TS_custom 2026-01-23: Add vision capability variable
+    vision_str = "yes" if has_vision(model_id, {model_id: model}) else "no"
+    system_prompt = system_prompt.replace("{{VISION_CAPABILITY}}", vision_str)
 
     try:
         # FI-TS_custom 2026-01-21: MiniMax requires user message, not just system message
@@ -1306,6 +1342,24 @@ async def model_response_handler(request, channel, message, user, db=None):
                     db,
                 )
 
+                # FI-TS_custom 2026-01-23: Only include images if model has vision capability
+                if not has_vision(model_id, MODELS):
+                    if images:
+                        log.info(f"Model {model_id} does not have vision - converting {len(images)} images to text placeholders")
+                        # Add image filenames as text to the context
+                        image_names = []
+                        for msg in all_messages:
+                            msg_files = msg.data.get("files", []) if msg.data else []
+                            for file in msg_files:
+                                if file.get("type") == "image" or file.get("content_type", "").startswith("image/"):
+                                    filename = file.get("filename", "image")
+                                    image_names.append(filename)
+
+                        if image_names and thread_history:
+                            # Append image info to the last message in history
+                            thread_history[-1] += f" [Attached images: {', '.join(image_names)}]"
+                    images = []
+
                 # FI-TS_custom 2026-01-13: Create empty message and emit for instant typing indicator
                 # Frontend handles empty model messages as typing indicators (not visible messages)
                 # FI-TS_custom 2026-01-13: Reply in same context (thread or main) as triggering message
@@ -1340,6 +1394,10 @@ async def model_response_handler(request, channel, message, user, db=None):
                 thread_history_string = "\n\n".join(thread_history)
                 channel_system_prompt = request.app.state.config.CHANNEL_SYSTEM_PROMPT or ""
                 channel_system_prompt = channel_system_prompt.replace("{{MODEL_NAME}}", model.get("name", model_id))
+
+                # FI-TS_custom 2026-01-23: Add vision capability variable
+                vision_str = "yes" if has_vision(model_id, MODELS) else "no"
+                channel_system_prompt = channel_system_prompt.replace("{{VISION_CAPABILITY}}", vision_str)
 
                 system_message = {
                     "role": "system",
