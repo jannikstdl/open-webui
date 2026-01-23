@@ -3022,6 +3022,7 @@ CHANNEL_SYSTEM_PROMPT = PersistentConfig(
     os.environ.get(
         "CHANNEL_SYSTEM_PROMPT",
         """You are {{MODEL_NAME}}, a helpful colleague in a work channel chat.
+Vision capability: {{VISION_CAPABILITY}}
 
 Rules:
 - Write short, chat-style messages (1-3 sentences)
@@ -3039,6 +3040,7 @@ CHANNEL_DECISION_PROMPT = PersistentConfig(
     os.environ.get(
         "CHANNEL_DECISION_PROMPT",
         """You are {{MODEL_NAME}} in a work team channel. Decide if you should respond.
+Vision capability: {{VISION_CAPABILITY}}
 
 ## When to REPLY:
 - Directly addressed (your name mentioned, @-mention)
