@@ -110,6 +110,11 @@
 								}
 							)}
 						</div>
+						<div class=" text-gray-500">
+							{$i18n.t(
+								'Tip: You can mention Kiero to respond like a digital coworker in this channel. Or simply let him reply if he thinks he can help.'
+							)}
+						</div>
 					</div>
 				{:else}
 					<div class="flex justify-center text-xs items-center gap-2 py-5">

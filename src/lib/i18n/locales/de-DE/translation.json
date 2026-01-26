@@ -1682,6 +1682,7 @@
 	"Yesterday at {{LOCALIZED_TIME}}": "Gestern um {{LOCALIZED_TIME}}",
 	"You": "Sie",
 	"You are currently using a trial license. Please contact support to upgrade your license.": "Sie benutzen zurzeit eine Testlizenz. Bitte kontaktieren Sie den Support für ein Lizenzupgrade.",
+	"Tip: You can mention Kiero to respond like a digital coworker in this channel. Or simply let him reply if he thinks he can help.": "Tipp: Sie können den digitalen Kollegen Kiero erwähnen, damit er in diesem Kanal antwortet. Oder lassen Sie ihn einfach antworten, wenn er denkt, dass er helfen kann.",
 	"You can only chat with a maximum of {{maxCount}} file(s) at a time.": "Sie können nur mit maximal {{maxCount}} Datei(en) gleichzeitig chatten.",
 	"You can personalize your interactions with LLMs by adding memories through the 'Manage' button below, making them more helpful and tailored to you.": "Personalisieren Sie Interaktionen mit LLMs, indem Sie über die Schaltfläche \"Verwalten\" Erinnerungen hinzufügen.",
 	"You cannot upload an empty file.": "Sie können keine leere Datei hochladen.",
