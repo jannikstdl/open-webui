@@ -5,6 +5,7 @@
 	import FileItemModal from './FileItemModal.svelte';
 	import GarbageBin from '../icons/GarbageBin.svelte';
 	import Spinner from './Spinner.svelte';
+	import CircularProgress from './CircularProgress.svelte';
 	import Tooltip from './Tooltip.svelte';
 
 	const i18n = getContext('i18n');
@@ -58,7 +59,11 @@
 >
 	{#if !small}
 		<div class="p-3 bg-black/20 dark:bg-white/10 text-white rounded-xl">
-			{#if !loading}
+			{#if loading && progress >= 0}
+				<CircularProgress {progress} />
+			{:else if loading}
+				<Spinner />
+			{:else}
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
 					viewBox="0 0 24 24"
@@ -74,8 +79,6 @@
 						d="M12.971 1.816A5.23 5.23 0 0 1 14.25 5.25v1.875c0 .207.168.375.375.375H16.5a5.23 5.23 0 0 1 3.434 1.279 9.768 9.768 0 0 0-6.963-6.963Z"
 					/>
 				</svg>
-			{:else}
-				<Spinner />
 			{/if}
 		</div>
 	{/if}
@@ -90,7 +93,7 @@
 				{#if loading && progress >= 100}
 					<span>{$i18n.t('Processing...')}</span>
 				{:else if loading && progress >= 0}
-					<span>{$i18n.t('Uploading...')} {progress}%</span>
+					<span>{$i18n.t('Uploading...')}</span>
 				{:else if type === 'file'}
 					{$i18n.t('File')}
 				{:else if type === 'doc'}
@@ -104,23 +107,16 @@
 					<span class="capitalize">{formatFileSize(size)}</span>
 				{/if}
 			</div>
-
-			{#if loading && progress >= 0}
-				<div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1 mt-1.5">
-					<div
-						class="{progress >= 100
-							? 'bg-green-500 animate-pulse'
-							: 'bg-blue-500'} h-1 rounded-full transition-all duration-200"
-						style="width: {progress}%"
-					></div>
-				</div>
-			{/if}
 		</div>
 	{:else}
 		<Tooltip content={name} className="flex flex-col w-full" placement="top-start">
 			<div class="flex flex-col justify-center -space-y-0.5 px-2.5 w-full">
 				<div class=" dark:text-gray-100 text-sm flex justify-between items-center">
-					{#if loading}
+					{#if loading && progress >= 0}
+						<div class="shrink-0 mr-2">
+							<CircularProgress {progress} className="size-4" />
+						</div>
+					{:else if loading}
 						<div class=" shrink-0 mr-2">
 							<Spinner className="size-4" />
 						</div>
@@ -130,22 +126,12 @@
 						{#if loading && progress >= 100}
 							{$i18n.t('Processing...')}
 						{:else if loading && progress >= 0}
-							{progress}%
+							{$i18n.t('Uploading...')}
 						{:else}
 							{formatFileSize(size)}
 						{/if}
 					</div>
 				</div>
-				{#if loading && progress >= 0}
-					<div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1 mt-1">
-						<div
-							class="{progress >= 100
-								? 'bg-green-500 animate-pulse'
-								: 'bg-blue-500'} h-1 rounded-full transition-all duration-200"
-							style="width: {progress}%"
-						></div>
-					</div>
-				{/if}
 			</div>
 		</Tooltip>
 	{/if}
