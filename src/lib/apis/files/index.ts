@@ -1,33 +1,55 @@
 import { WEBUI_API_BASE_URL } from '$lib/constants';
 
-export const uploadFile = async (token: string, file: File) => {
-	const data = new FormData();
-	data.append('file', file);
-	let error = null;
+export const uploadFile = async (
+	token: string,
+	file: File,
+	onProgress?: (progress: number) => void
+) => {
+	return new Promise((resolve, reject) => {
+		const xhr = new XMLHttpRequest();
+		const data = new FormData();
+		data.append('file', file);
 
-	const res = await fetch(`${WEBUI_API_BASE_URL}/files/`, {
-		method: 'POST',
-		headers: {
-			Accept: 'application/json',
-			authorization: `Bearer ${token}`
-		},
-		body: data
-	})
-		.then(async (res) => {
-			if (!res.ok) throw await res.json();
-			return res.json();
-		})
-		.catch((err) => {
-			error = err.detail;
-			console.log(err);
-			return null;
+		if (onProgress) {
+			xhr.upload.addEventListener('progress', (event) => {
+				if (event.lengthComputable) {
+					const percentage = Math.round((event.loaded / event.total) * 100);
+					onProgress(percentage);
+				}
+			});
+		}
+
+		xhr.addEventListener('load', () => {
+			if (xhr.status >= 200 && xhr.status < 300) {
+				try {
+					const res = JSON.parse(xhr.responseText);
+					resolve(res);
+				} catch {
+					reject('Failed to parse response');
+				}
+			} else {
+				try {
+					const err = JSON.parse(xhr.responseText);
+					reject(err.detail || 'Upload failed');
+				} catch {
+					reject(`Upload failed with status ${xhr.status}`);
+				}
+			}
 		});
 
-	if (error) {
-		throw error;
-	}
+		xhr.addEventListener('error', () => {
+			reject('Network error during upload');
+		});
 
-	return res;
+		xhr.addEventListener('abort', () => {
+			reject('Upload aborted');
+		});
+
+		xhr.open('POST', `${WEBUI_API_BASE_URL}/files/`);
+		xhr.setRequestHeader('Accept', 'application/json');
+		xhr.setRequestHeader('authorization', `Bearer ${token}`);
+		xhr.send(data);
+	});
 };
 
 export const uploadDir = async (token: string) => {

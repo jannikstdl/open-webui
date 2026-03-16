@@ -16,6 +16,7 @@
 
 	export let dismissible = false;
 	export let loading = false;
+	export let progress: number = -1;
 
 	export let item = null;
 	export let edit = false;
@@ -86,7 +87,9 @@
 			</div>
 
 			<div class=" flex justify-between text-gray-500 text-xs line-clamp-1">
-				{#if type === 'file'}
+				{#if loading && progress >= 0}
+					<span>{$i18n.t('Uploading...')} {progress}%</span>
+				{:else if type === 'file'}
 					{$i18n.t('File')}
 				{:else if type === 'doc'}
 					{$i18n.t('Document')}
@@ -95,10 +98,19 @@
 				{:else}
 					<span class=" capitalize line-clamp-1">{type}</span>
 				{/if}
-				{#if size}
+				{#if size && !(loading && progress >= 0)}
 					<span class="capitalize">{formatFileSize(size)}</span>
 				{/if}
 			</div>
+
+			{#if loading && progress >= 0}
+				<div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1 mt-1.5">
+					<div
+						class="bg-blue-500 h-1 rounded-full transition-all duration-200"
+						style="width: {progress}%"
+					></div>
+				</div>
+			{/if}
 		</div>
 	{:else}
 		<Tooltip content={name} className="flex flex-col w-full" placement="top-start">
@@ -110,8 +122,22 @@
 						</div>
 					{/if}
 					<div class="font-medium line-clamp-1 flex-1">{name}</div>
-					<div class="text-gray-500 text-xs capitalize shrink-0">{formatFileSize(size)}</div>
+					<div class="text-gray-500 text-xs capitalize shrink-0">
+						{#if loading && progress >= 0}
+							{progress}%
+						{:else}
+							{formatFileSize(size)}
+						{/if}
+					</div>
 				</div>
+				{#if loading && progress >= 0}
+					<div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1 mt-1">
+						<div
+							class="bg-blue-500 h-1 rounded-full transition-all duration-200"
+							style="width: {progress}%"
+						></div>
+					</div>
+				{/if}
 			</div>
 		</Tooltip>
 	{/if}

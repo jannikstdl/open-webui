@@ -185,7 +185,10 @@
 
 		try {
 			// During the file upload, file content is automatically extracted.
-			const uploadedFile = await uploadFile(localStorage.token, file);
+			const uploadedFile = await uploadFile(localStorage.token, file, (progress) => {
+				fileItem.progress = progress;
+				files = files;
+			});
 
 			if (uploadedFile) {
 				console.log('File upload completed:', {
@@ -633,6 +636,7 @@
 													type={file.type}
 													size={file?.size}
 													loading={file.status === 'uploading'}
+													progress={file?.progress ?? -1}
 													dismissible={true}
 													edit={true}
 													on:dismiss={async () => {

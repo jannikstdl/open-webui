@@ -148,7 +148,13 @@
 		}
 
 		try {
-			const uploadedFile = await uploadFile(localStorage.token, file).catch((e) => {
+			const uploadedFile = await uploadFile(localStorage.token, file, (progress) => {
+				const idx = knowledge.files.findIndex((item) => item.itemId === tempItemId);
+				if (idx !== -1) {
+					knowledge.files[idx].progress = progress;
+					knowledge.files = knowledge.files;
+				}
+			}).catch((e) => {
 				toast.error(`${e}`);
 				return null;
 			});

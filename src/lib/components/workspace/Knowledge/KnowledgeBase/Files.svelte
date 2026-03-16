@@ -24,6 +24,7 @@
 				type="file"
 				size={file?.size ?? file?.meta?.size ?? ''}
 				loading={file.status === 'uploading'}
+				progress={file?.progress ?? -1}
 				dismissible
 				on:click={() => {
 					if (file.status === 'uploading') {
