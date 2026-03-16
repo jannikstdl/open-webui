@@ -87,7 +87,9 @@
 			</div>
 
 			<div class=" flex justify-between text-gray-500 text-xs line-clamp-1">
-				{#if loading && progress >= 0}
+				{#if loading && progress >= 100}
+					<span>{$i18n.t('Processing...')}</span>
+				{:else if loading && progress >= 0}
 					<span>{$i18n.t('Uploading...')} {progress}%</span>
 				{:else if type === 'file'}
 					{$i18n.t('File')}
@@ -106,7 +108,9 @@
 			{#if loading && progress >= 0}
 				<div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1 mt-1.5">
 					<div
-						class="bg-blue-500 h-1 rounded-full transition-all duration-200"
+						class="{progress >= 100
+							? 'bg-green-500 animate-pulse'
+							: 'bg-blue-500'} h-1 rounded-full transition-all duration-200"
 						style="width: {progress}%"
 					></div>
 				</div>
@@ -123,7 +127,9 @@
 					{/if}
 					<div class="font-medium line-clamp-1 flex-1">{name}</div>
 					<div class="text-gray-500 text-xs capitalize shrink-0">
-						{#if loading && progress >= 0}
+						{#if loading && progress >= 100}
+							{$i18n.t('Processing...')}
+						{:else if loading && progress >= 0}
 							{progress}%
 						{:else}
 							{formatFileSize(size)}
@@ -133,7 +139,9 @@
 				{#if loading && progress >= 0}
 					<div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1 mt-1">
 						<div
-							class="bg-blue-500 h-1 rounded-full transition-all duration-200"
+							class="{progress >= 100
+								? 'bg-green-500 animate-pulse'
+								: 'bg-blue-500'} h-1 rounded-full transition-all duration-200"
 							style="width: {progress}%"
 						></div>
 					</div>
