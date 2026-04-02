@@ -42,10 +42,10 @@
 				<div class="">
 					<div class="flex gap-2 items-center line-clamp-1">
 						<div class="shrink-0">
-							{#if file?.status !== 'uploading'}
-								<DocumentPage className="size-3.5" />
-							{:else}
+							{#if file?.status === 'uploading' || file?.meta?.kg_status === 'processing'}
 								<Spinner className="size-3.5" />
+							{:else}
+								<DocumentPage className="size-3.5" />
 							{/if}
 						</div>
 
@@ -53,6 +53,13 @@
 							{file?.name ?? file?.meta?.name}
 							{#if file?.meta?.size}
 								<span class="text-xs text-gray-500">{formatFileSize(file?.meta?.size)}</span>
+							{/if}
+							{#if file?.meta?.kg_status === 'processing'}
+								<span class="text-xs text-blue-500">{$i18n.t('Building Knowledge Graph...')}</span>
+							{:else if file?.meta?.kg_status === 'completed'}
+								<span class="text-xs text-green-500">{$i18n.t('KG')}</span>
+							{:else if file?.meta?.kg_status === 'failed'}
+								<span class="text-xs text-red-500">{$i18n.t('KG Failed')}</span>
 							{/if}
 						</div>
 					</div>

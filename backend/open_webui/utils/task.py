@@ -225,6 +225,80 @@ def rag_template(template: str, context: str, query: str):
     return template
 
 
+def build_vlm_enhanced_messages(
+    context: str,
+    query: str,
+    sources: list,
+    storage_provider=None,
+) -> list[dict]:
+    """
+    Build multimodal messages when retrieved context contains images.
+    Finds image_path in source metadata, loads originals, creates
+    interleaved text+image messages for VLM.
+
+    Returns OpenAI-compatible messages with image_url content parts,
+    or None if no images found.
+    """
+    import base64
+    import re
+
+    if not sources or not storage_provider:
+        return None
+
+    # Collect image paths from source metadata
+    image_paths = []
+    for source in sources:
+        for meta in source.get("metadata", []):
+            if isinstance(meta, dict) and meta.get("image_path"):
+                image_paths.append(meta["image_path"])
+
+    # Also check context text for Image Path references
+    path_matches = re.findall(
+        r"Image Path:\s*([^\r\n]*?\.(?:jpg|jpeg|png|gif|bmp|webp|tiff|tif))",
+        context,
+        re.IGNORECASE,
+    )
+    image_paths.extend(path_matches)
+
+    if not image_paths:
+        return None
+
+    # Build multimodal content parts
+    content_parts = [{"type": "text", "text": context}]
+
+    images_loaded = 0
+    for path in image_paths[:5]:  # Max 5 images
+        try:
+            file_data = storage_provider.get_file(path)
+            if file_data:
+                if isinstance(file_data, str):
+                    # Already a path, read it
+                    with open(file_data, "rb") as f:
+                        img_bytes = f.read()
+                else:
+                    img_bytes = file_data
+
+                img_b64 = base64.b64encode(img_bytes).decode("utf-8")
+                content_parts.append(
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": f"data:image/png;base64,{img_b64}"},
+                    }
+                )
+                images_loaded += 1
+        except Exception:
+            continue
+
+    if images_loaded == 0:
+        return None
+
+    content_parts.append(
+        {"type": "text", "text": f"\n\nQuestion: {query}"}
+    )
+
+    return [{"role": "user", "content": content_parts}]
+
+
 def title_generation_template(
     template: str, messages: list[dict], user: Optional[Any] = None
 ) -> str:

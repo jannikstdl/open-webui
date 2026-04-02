@@ -535,6 +535,131 @@ async def query_collection_with_hybrid_search(
     return merge_and_sort_query_results(results, k=k)
 
 
+async def query_collection_with_kg_hybrid(
+    collection_names: list[str],
+    queries: list[str],
+    embedding_function,
+    k: int,
+    graph_client,
+    kg_search_mode: str = "mix",
+    reranking_function=None,
+    k_reranker: int = 0,
+    r: float = 0.0,
+    hybrid_bm25_weight: float = 0.5,
+    enable_enriched_texts: bool = False,
+) -> dict:
+    """
+    Hybrid retrieval combining Vector Search + Knowledge Graph traversal.
+    Used for Knowledge Collections and Projects.
+
+    Modes:
+        local:  Entity VDB → Graph neighbors
+        global: Relation search (high-level keywords)
+        hybrid: local + global
+        naive:  Vector only (no KG)
+        mix:    hybrid + vector chunk search (recommended)
+    """
+    # Step 1: Standard vector search (always)
+    vector_results = await query_collection(
+        collection_names=collection_names,
+        queries=queries,
+        embedding_function=embedding_function,
+        k=k,
+    )
+
+    if kg_search_mode == "naive" or not graph_client:
+        return vector_results
+
+    # Step 2: Knowledge Graph search
+    kg_documents = []
+    kg_metadatas = []
+
+    for query in queries:
+        for collection_name in collection_names:
+            # Search for entity matches in the graph
+            matching_nodes = graph_client.search_nodes(
+                collection_name, query, limit=k
+            )
+
+            for node in matching_nodes:
+                # Get neighbors for context
+                neighbors = graph_client.get_neighbors(
+                    collection_name, node.name, depth=1, max_results=k
+                )
+
+                # Build context from entity + neighbors
+                context_parts = [
+                    f"Entity: {node.name} ({node.type})",
+                    f"Description: {node.description}",
+                ]
+
+                for edge in neighbors.edges:
+                    context_parts.append(
+                        f"  → {edge.source} --[{edge.keywords}]--> {edge.target}: "
+                        f"{edge.description}"
+                    )
+
+                for neighbor in neighbors.nodes[:5]:
+                    context_parts.append(
+                        f"  Related: {neighbor.name} ({neighbor.type}): "
+                        f"{neighbor.description[:200]}"
+                    )
+
+                kg_doc = "\n".join(context_parts)
+                kg_documents.append(kg_doc)
+                kg_metadatas.append({
+                    "source": f"knowledge_graph:{collection_name}",
+                    "type": "kg_entity",
+                    "entity_name": node.name,
+                    "entity_type": node.type,
+                })
+
+    if not kg_documents:
+        return vector_results
+
+    # Step 3: Merge vector results + KG results
+    merged = _merge_vector_and_kg_results(vector_results, kg_documents, kg_metadatas, k)
+
+    return merged
+
+
+def _merge_vector_and_kg_results(
+    vector_results: dict,
+    kg_documents: list[str],
+    kg_metadatas: list[dict],
+    k: int,
+) -> dict:
+    """Merge vector search results with knowledge graph context."""
+    if not vector_results or "documents" not in vector_results:
+        # Only KG results
+        return {
+            "ids": [list(range(len(kg_documents)))],
+            "documents": [kg_documents[:k]],
+            "metadatas": [kg_metadatas[:k]],
+            "distances": [[0.5] * min(len(kg_documents), k)],
+        }
+
+    # Interleave: vector results first, then KG context
+    docs = list(vector_results.get("documents", [[]])[0])
+    metas = list(vector_results.get("metadatas", [[]])[0])
+    dists = list(vector_results.get("distances", [[]])[0])
+
+    # Add KG results with slightly higher distance (lower priority than exact vector matches)
+    for doc, meta in zip(kg_documents, kg_metadatas):
+        if doc not in docs:  # Deduplicate
+            docs.append(doc)
+            metas.append(meta)
+            dists.append(0.75)  # KG results get moderate distance score
+
+    # Truncate to k
+    return {
+        "ids": [list(range(len(docs[:k])))],
+        "documents": [docs[:k]],
+        "metadatas": [metas[:k]],
+        "distances": [dists[:k]],
+    }
+
+
 def generate_openai_batch_embeddings(
     model: str,
     texts: list[str],
@@ -1153,7 +1278,42 @@ async def get_sources_from_items(
                     query_result = get_all_items_from_collections(collection_names)
                 else:
                     query_result = None  # Initialize to None
-                    if hybrid_search:
+
+                    # Knowledge Graph hybrid search for Knowledge Collections
+                    is_knowledge_collection = any(
+                        not cn.startswith("file-") for cn in collection_names
+                    )
+                    kg_enabled = (
+                        is_knowledge_collection
+                        and request.app.state.config.ENABLE_KNOWLEDGE_GRAPH
+                    )
+
+                    if kg_enabled:
+                        try:
+                            from open_webui.retrieval.graph.factory import Graph
+
+                            graph_client = Graph.get_graph(
+                                request.app.state.config.GRAPH_DB
+                            )
+                            query_result = await query_collection_with_kg_hybrid(
+                                collection_names=collection_names,
+                                queries=queries,
+                                embedding_function=embedding_function,
+                                k=k,
+                                graph_client=graph_client,
+                                kg_search_mode=request.app.state.config.KG_SEARCH_MODE,
+                                reranking_function=reranking_function,
+                                k_reranker=k_reranker,
+                                r=r,
+                                hybrid_bm25_weight=hybrid_bm25_weight,
+                            )
+                        except Exception as e:
+                            log.debug(
+                                f"KG hybrid search failed, falling back: {e}"
+                            )
+                            query_result = None
+
+                    if query_result is None and hybrid_search:
                         try:
                             query_result = await query_collection_with_hybrid_search(
                                 collection_names=collection_names,
@@ -1172,7 +1332,7 @@ async def get_sources_from_items(
                             )
 
                     # fallback to non-hybrid search
-                    if not hybrid_search and query_result is None:
+                    if query_result is None:
                         query_result = await query_collection(
                             collection_names=collection_names,
                             queries=queries,

@@ -465,6 +465,23 @@ async def get_rag_config(request: Request, user=Depends(get_admin_user)):
         "TOP_K_RERANKER": request.app.state.config.TOP_K_RERANKER,
         "RELEVANCE_THRESHOLD": request.app.state.config.RELEVANCE_THRESHOLD,
         "HYBRID_BM25_WEIGHT": request.app.state.config.HYBRID_BM25_WEIGHT,
+        # Knowledge Graph settings
+        "ENABLE_KNOWLEDGE_GRAPH": request.app.state.config.ENABLE_KNOWLEDGE_GRAPH,
+        "GRAPH_DB": request.app.state.config.GRAPH_DB,
+        "NEO4J_URI": request.app.state.config.NEO4J_URI,
+        "NEO4J_USER": request.app.state.config.NEO4J_USER,
+        "NEO4J_PASSWORD": request.app.state.config.NEO4J_PASSWORD,
+        "KG_SEARCH_MODE": request.app.state.config.KG_SEARCH_MODE,
+        "KG_ENTITY_EXTRACT_MAX_GLEANING": request.app.state.config.KG_ENTITY_EXTRACT_MAX_GLEANING,
+        # Multimodal RAG settings
+        "ENABLE_MULTIMODAL_RAG": request.app.state.config.ENABLE_MULTIMODAL_RAG,
+        "MULTIMODAL_PROCESS_IMAGES": request.app.state.config.MULTIMODAL_PROCESS_IMAGES,
+        "MULTIMODAL_PROCESS_TABLES": request.app.state.config.MULTIMODAL_PROCESS_TABLES,
+        "MULTIMODAL_PROCESS_EQUATIONS": request.app.state.config.MULTIMODAL_PROCESS_EQUATIONS,
+        "ENABLE_VLM_ENHANCED_RETRIEVAL": request.app.state.config.ENABLE_VLM_ENHANCED_RETRIEVAL,
+        "VLM_MODEL": request.app.state.config.VLM_MODEL,
+        "VLM_BASE_URL": request.app.state.config.VLM_BASE_URL,
+        "VLM_API_KEY": request.app.state.config.VLM_API_KEY,
         # Content extraction settings
         "CONTENT_EXTRACTION_ENGINE": request.app.state.config.CONTENT_EXTRACTION_ENGINE,
         "PDF_EXTRACT_IMAGES": request.app.state.config.PDF_EXTRACT_IMAGES,
@@ -712,6 +729,25 @@ class ConfigForm(BaseModel):
     FILE_IMAGE_COMPRESSION_WIDTH: Optional[int] = None
     FILE_IMAGE_COMPRESSION_HEIGHT: Optional[int] = None
     ALLOWED_FILE_EXTENSIONS: Optional[List[str]] = None
+
+    # Knowledge Graph settings
+    ENABLE_KNOWLEDGE_GRAPH: Optional[bool] = None
+    GRAPH_DB: Optional[str] = None
+    NEO4J_URI: Optional[str] = None
+    NEO4J_USER: Optional[str] = None
+    NEO4J_PASSWORD: Optional[str] = None
+    KG_SEARCH_MODE: Optional[str] = None
+    KG_ENTITY_EXTRACT_MAX_GLEANING: Optional[int] = None
+
+    # Multimodal RAG settings
+    ENABLE_MULTIMODAL_RAG: Optional[bool] = None
+    MULTIMODAL_PROCESS_IMAGES: Optional[bool] = None
+    MULTIMODAL_PROCESS_TABLES: Optional[bool] = None
+    MULTIMODAL_PROCESS_EQUATIONS: Optional[bool] = None
+    ENABLE_VLM_ENHANCED_RETRIEVAL: Optional[bool] = None
+    VLM_MODEL: Optional[str] = None
+    VLM_BASE_URL: Optional[str] = None
+    VLM_API_KEY: Optional[str] = None
 
     # Integration settings
     ENABLE_GOOGLE_DRIVE_INTEGRATION: Optional[bool] = None
@@ -1037,6 +1073,85 @@ async def update_rag_config(
         else request.app.state.config.ALLOWED_FILE_EXTENSIONS
     )
 
+    # Knowledge Graph settings
+    request.app.state.config.ENABLE_KNOWLEDGE_GRAPH = (
+        form_data.ENABLE_KNOWLEDGE_GRAPH
+        if form_data.ENABLE_KNOWLEDGE_GRAPH is not None
+        else request.app.state.config.ENABLE_KNOWLEDGE_GRAPH
+    )
+    request.app.state.config.GRAPH_DB = (
+        form_data.GRAPH_DB
+        if form_data.GRAPH_DB is not None
+        else request.app.state.config.GRAPH_DB
+    )
+    request.app.state.config.NEO4J_URI = (
+        form_data.NEO4J_URI
+        if form_data.NEO4J_URI is not None
+        else request.app.state.config.NEO4J_URI
+    )
+    request.app.state.config.NEO4J_USER = (
+        form_data.NEO4J_USER
+        if form_data.NEO4J_USER is not None
+        else request.app.state.config.NEO4J_USER
+    )
+    request.app.state.config.NEO4J_PASSWORD = (
+        form_data.NEO4J_PASSWORD
+        if form_data.NEO4J_PASSWORD is not None
+        else request.app.state.config.NEO4J_PASSWORD
+    )
+    request.app.state.config.KG_SEARCH_MODE = (
+        form_data.KG_SEARCH_MODE
+        if form_data.KG_SEARCH_MODE is not None
+        else request.app.state.config.KG_SEARCH_MODE
+    )
+    request.app.state.config.KG_ENTITY_EXTRACT_MAX_GLEANING = (
+        form_data.KG_ENTITY_EXTRACT_MAX_GLEANING
+        if form_data.KG_ENTITY_EXTRACT_MAX_GLEANING is not None
+        else request.app.state.config.KG_ENTITY_EXTRACT_MAX_GLEANING
+    )
+
+    # Multimodal RAG settings
+    request.app.state.config.ENABLE_MULTIMODAL_RAG = (
+        form_data.ENABLE_MULTIMODAL_RAG
+        if form_data.ENABLE_MULTIMODAL_RAG is not None
+        else request.app.state.config.ENABLE_MULTIMODAL_RAG
+    )
+    request.app.state.config.MULTIMODAL_PROCESS_IMAGES = (
+        form_data.MULTIMODAL_PROCESS_IMAGES
+        if form_data.MULTIMODAL_PROCESS_IMAGES is not None
+        else request.app.state.config.MULTIMODAL_PROCESS_IMAGES
+    )
+    request.app.state.config.MULTIMODAL_PROCESS_TABLES = (
+        form_data.MULTIMODAL_PROCESS_TABLES
+        if form_data.MULTIMODAL_PROCESS_TABLES is not None
+        else request.app.state.config.MULTIMODAL_PROCESS_TABLES
+    )
+    request.app.state.config.MULTIMODAL_PROCESS_EQUATIONS = (
+        form_data.MULTIMODAL_PROCESS_EQUATIONS
+        if form_data.MULTIMODAL_PROCESS_EQUATIONS is not None
+        else request.app.state.config.MULTIMODAL_PROCESS_EQUATIONS
+    )
+    request.app.state.config.ENABLE_VLM_ENHANCED_RETRIEVAL = (
+        form_data.ENABLE_VLM_ENHANCED_RETRIEVAL
+        if form_data.ENABLE_VLM_ENHANCED_RETRIEVAL is not None
+        else request.app.state.config.ENABLE_VLM_ENHANCED_RETRIEVAL
+    )
+    request.app.state.config.VLM_MODEL = (
+        form_data.VLM_MODEL
+        if form_data.VLM_MODEL is not None
+        else request.app.state.config.VLM_MODEL
+    )
+    request.app.state.config.VLM_BASE_URL = (
+        form_data.VLM_BASE_URL
+        if form_data.VLM_BASE_URL is not None
+        else request.app.state.config.VLM_BASE_URL
+    )
+    request.app.state.config.VLM_API_KEY = (
+        form_data.VLM_API_KEY
+        if form_data.VLM_API_KEY is not None
+        else request.app.state.config.VLM_API_KEY
+    )
+
     # Integration settings
     request.app.state.config.ENABLE_GOOGLE_DRIVE_INTEGRATION = (
         form_data.ENABLE_GOOGLE_DRIVE_INTEGRATION
@@ -1177,6 +1292,23 @@ async def update_rag_config(
         "TOP_K_RERANKER": request.app.state.config.TOP_K_RERANKER,
         "RELEVANCE_THRESHOLD": request.app.state.config.RELEVANCE_THRESHOLD,
         "HYBRID_BM25_WEIGHT": request.app.state.config.HYBRID_BM25_WEIGHT,
+        # Knowledge Graph settings
+        "ENABLE_KNOWLEDGE_GRAPH": request.app.state.config.ENABLE_KNOWLEDGE_GRAPH,
+        "GRAPH_DB": request.app.state.config.GRAPH_DB,
+        "NEO4J_URI": request.app.state.config.NEO4J_URI,
+        "NEO4J_USER": request.app.state.config.NEO4J_USER,
+        "NEO4J_PASSWORD": request.app.state.config.NEO4J_PASSWORD,
+        "KG_SEARCH_MODE": request.app.state.config.KG_SEARCH_MODE,
+        "KG_ENTITY_EXTRACT_MAX_GLEANING": request.app.state.config.KG_ENTITY_EXTRACT_MAX_GLEANING,
+        # Multimodal RAG settings
+        "ENABLE_MULTIMODAL_RAG": request.app.state.config.ENABLE_MULTIMODAL_RAG,
+        "MULTIMODAL_PROCESS_IMAGES": request.app.state.config.MULTIMODAL_PROCESS_IMAGES,
+        "MULTIMODAL_PROCESS_TABLES": request.app.state.config.MULTIMODAL_PROCESS_TABLES,
+        "MULTIMODAL_PROCESS_EQUATIONS": request.app.state.config.MULTIMODAL_PROCESS_EQUATIONS,
+        "ENABLE_VLM_ENHANCED_RETRIEVAL": request.app.state.config.ENABLE_VLM_ENHANCED_RETRIEVAL,
+        "VLM_MODEL": request.app.state.config.VLM_MODEL,
+        "VLM_BASE_URL": request.app.state.config.VLM_BASE_URL,
+        "VLM_API_KEY": request.app.state.config.VLM_API_KEY,
         # Content extraction settings
         "CONTENT_EXTRACTION_ENGINE": request.app.state.config.CONTENT_EXTRACTION_ENGINE,
         "PDF_EXTRACT_IMAGES": request.app.state.config.PDF_EXTRACT_IMAGES,
@@ -1571,6 +1703,88 @@ def save_docs_to_vector_db(
         raise e
 
 
+def _process_knowledge_graph(request, docs, collection_name, file):
+    """
+    Build knowledge graph from document chunks.
+    Only called for Knowledge Collections, not chat uploads.
+    """
+    import asyncio
+    from open_webui.retrieval.graph.factory import Graph
+    from open_webui.retrieval.kg.extraction import (
+        extract_entities_from_chunks,
+        entities_to_graph_nodes,
+        relations_to_graph_edges,
+    )
+    from open_webui.retrieval.kg.merge import merge_nodes_and_edges
+
+    graph_db = request.app.state.config.GRAPH_DB
+    graph_client = Graph.get_graph(graph_db)
+    if not graph_client:
+        return
+
+    max_gleaning = request.app.state.config.KG_ENTITY_EXTRACT_MAX_GLEANING
+
+    # Build LLM function from app config
+    async def kg_llm_func(prompt, system_prompt):
+        from open_webui.utils.chat import generate_chat_completion_with_retry
+
+        messages = []
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        messages.append({"role": "user", "content": prompt})
+
+        # Use the configured task model for KG extraction
+        task_model_id = request.app.state.config.TASK_MODEL
+        if not task_model_id:
+            raise ValueError("No task model configured for KG extraction")
+
+        response = await generate_chat_completion_with_retry(
+            request,
+            {
+                "model": task_model_id,
+                "messages": messages,
+                "stream": False,
+            },
+        )
+        return response["choices"][0]["message"]["content"]
+
+    chunks = [
+        {"content": doc.page_content, "metadata": doc.metadata} for doc in docs
+    ]
+
+    loop = asyncio.new_event_loop()
+    try:
+        entities, relations = loop.run_until_complete(
+            extract_entities_from_chunks(
+                chunks, kg_llm_func, max_gleaning=max_gleaning
+            )
+        )
+    finally:
+        loop.close()
+
+    if not entities and not relations:
+        return
+
+    merged_entities, merged_relations = merge_nodes_and_edges(entities, relations)
+
+    nodes = entities_to_graph_nodes(
+        merged_entities, source_id=file.id, file_path=file.filename
+    )
+    edges = relations_to_graph_edges(
+        merged_relations, source_id=file.id, file_path=file.filename
+    )
+
+    for node in nodes:
+        graph_client.upsert_node(collection_name, node)
+    for edge in edges:
+        graph_client.upsert_edge(collection_name, edge)
+
+    log.info(
+        f"Knowledge graph: {len(nodes)} nodes, {len(edges)} edges "
+        f"added to {collection_name}"
+    )
+
+
 class ProcessFileForm(BaseModel):
     file_id: str
     content: Optional[str] = None
@@ -1762,6 +1976,40 @@ def process_file(
                     log.info(f"added {len(docs)} items to collection {collection_name}")
 
                     if result:
+                        is_knowledge = (
+                            form_data.collection_name
+                            and not collection_name.startswith("file-")
+                        )
+
+                        # Knowledge Graph extraction (only for Knowledge Collections)
+                        if (
+                            is_knowledge
+                            and request.app.state.config.ENABLE_KNOWLEDGE_GRAPH
+                        ):
+                            Files.update_file_metadata_by_id(
+                                file.id,
+                                {"kg_status": "processing"},
+                                db=db,
+                            )
+                            try:
+                                _process_knowledge_graph(
+                                    request, docs, collection_name, file
+                                )
+                                Files.update_file_metadata_by_id(
+                                    file.id,
+                                    {"kg_status": "completed"},
+                                    db=db,
+                                )
+                            except Exception as kg_err:
+                                log.warning(
+                                    f"Knowledge graph extraction failed: {kg_err}"
+                                )
+                                Files.update_file_metadata_by_id(
+                                    file.id,
+                                    {"kg_status": "failed"},
+                                    db=db,
+                                )
+
                         Files.update_file_metadata_by_id(
                             file.id,
                             {

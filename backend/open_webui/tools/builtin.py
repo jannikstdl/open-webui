@@ -1669,3 +1669,338 @@ async def query_knowledge_bases(
     except Exception as e:
         log.exception(f"query_knowledge_bases error: {e}")
         return json.dumps({"error": str(e)})
+
+
+# =============================================================================
+# CONSOLIDATED KNOWLEDGE TOOLS (2 tools instead of 6)
+# =============================================================================
+
+
+async def query_knowledge(
+    query: str,
+    knowledge_ids: Optional[list[str]] = None,
+    count: int = 5,
+    __request__: Request = None,
+    __user__: dict = None,
+    __model_knowledge__: list[dict] = None,
+) -> str:
+    """
+    Search knowledge bases for relevant content. Automatically uses the best
+    retrieval strategy available (vector search, knowledge graph, hybrid).
+
+    :param query: What to search for
+    :param knowledge_ids: Optional KB IDs to limit search (omit to search all)
+    :param count: Max results to return (default: 5)
+    :return: JSON with relevant chunks and optional entity context
+    """
+    if __request__ is None:
+        return json.dumps({"error": "Request context not available"})
+
+    if not __user__:
+        return json.dumps({"error": "User context not available"})
+
+    try:
+        from open_webui.models.knowledge import Knowledges
+        from open_webui.models.files import Files
+        from open_webui.models.notes import Notes
+        from open_webui.retrieval.utils import (
+            query_collection,
+            query_collection_with_kg_hybrid,
+        )
+        from open_webui.utils.access_control import has_access
+
+        user_id = __user__.get("id")
+        user_role = __user__.get("role", "user")
+        user_group_ids = [group.id for group in Groups.get_groups_by_member_id(user_id)]
+
+        embedding_function = __request__.app.state.EMBEDDING_FUNCTION
+        if not embedding_function:
+            return json.dumps({"error": "Embedding function not configured"})
+
+        collection_names = []
+        note_results = []
+
+        # Determine scope
+        if __model_knowledge__:
+            for item in __model_knowledge__:
+                item_type = item.get("type")
+                item_id = item.get("id")
+
+                if item_type == "collection":
+                    knowledge = Knowledges.get_knowledge_by_id(item_id)
+                    if knowledge and (
+                        user_role == "admin"
+                        or knowledge.user_id == user_id
+                        or has_access(
+                            user_id, "read", knowledge.access_control, user_group_ids
+                        )
+                    ):
+                        collection_names.append(item_id)
+
+                elif item_type == "file":
+                    file = Files.get_file_by_id(item_id)
+                    if file and (user_role == "admin" or file.user_id == user_id):
+                        collection_names.append(f"file-{item_id}")
+
+                elif item_type == "note":
+                    note = Notes.get_note_by_id(item_id)
+                    if note and (
+                        user_role == "admin"
+                        or note.user_id == user_id
+                        or has_access(user_id, "read", note.access_control)
+                    ):
+                        content = note.data.get("content", {}).get("md", "")
+                        note_results.append(
+                            {
+                                "content": content,
+                                "source": note.title,
+                                "note_id": note.id,
+                                "type": "note",
+                            }
+                        )
+
+        elif knowledge_ids:
+            for knowledge_id in knowledge_ids:
+                knowledge = Knowledges.get_knowledge_by_id(knowledge_id)
+                if knowledge and (
+                    user_role == "admin"
+                    or knowledge.user_id == user_id
+                    or has_access(
+                        user_id, "read", knowledge.access_control, user_group_ids
+                    )
+                ):
+                    collection_names.append(knowledge_id)
+        else:
+            result = Knowledges.search_knowledge_bases(
+                user_id,
+                filter={
+                    "query": "",
+                    "user_id": user_id,
+                    "group_ids": user_group_ids,
+                },
+                skip=0,
+                limit=50,
+            )
+            collection_names = [kb.id for kb in result.items]
+
+        chunks = []
+        chunks.extend(note_results)
+
+        if collection_names:
+            # Automatically choose best retrieval strategy
+            kg_enabled = __request__.app.state.config.ENABLE_KNOWLEDGE_GRAPH
+            is_knowledge = any(
+                not cn.startswith("file-") for cn in collection_names
+            )
+
+            if kg_enabled and is_knowledge:
+                try:
+                    from open_webui.retrieval.graph.factory import Graph
+
+                    graph_client = Graph.get_graph(
+                        __request__.app.state.config.GRAPH_DB
+                    )
+                    query_results = await query_collection_with_kg_hybrid(
+                        collection_names=collection_names,
+                        queries=[query],
+                        embedding_function=embedding_function,
+                        k=count,
+                        graph_client=graph_client,
+                        kg_search_mode=__request__.app.state.config.KG_SEARCH_MODE,
+                    )
+                except Exception:
+                    query_results = await query_collection(
+                        collection_names=collection_names,
+                        queries=[query],
+                        embedding_function=embedding_function,
+                        k=count,
+                    )
+            else:
+                query_results = await query_collection(
+                    collection_names=collection_names,
+                    queries=[query],
+                    embedding_function=embedding_function,
+                    k=count,
+                )
+
+            if query_results and "documents" in query_results:
+                documents = query_results.get("documents", [[]])[0]
+                metadatas = query_results.get("metadatas", [[]])[0]
+                distances = query_results.get("distances", [[]])[0]
+
+                for idx, doc in enumerate(documents):
+                    chunk_info = {
+                        "content": doc,
+                        "source": metadatas[idx].get(
+                            "source", metadatas[idx].get("name", "Unknown")
+                        ),
+                        "file_id": metadatas[idx].get("file_id", ""),
+                        "type": metadatas[idx].get("type", "chunk"),
+                    }
+                    if idx < len(distances):
+                        chunk_info["relevance"] = round(
+                            1.0 - distances[idx]
+                            if distances[idx] <= 1.0
+                            else distances[idx],
+                            4,
+                        )
+                    chunks.append(chunk_info)
+
+        chunks = chunks[:count]
+        return json.dumps(chunks, ensure_ascii=False)
+
+    except Exception as e:
+        log.exception(f"query_knowledge error: {e}")
+        return json.dumps({"error": str(e)})
+
+
+async def browse_knowledge(
+    action: str,
+    knowledge_id: Optional[str] = None,
+    file_id: Optional[str] = None,
+    query: Optional[str] = None,
+    count: int = 10,
+    skip: int = 0,
+    __request__: Request = None,
+    __user__: dict = None,
+) -> str:
+    """
+    Browse and explore knowledge base structure.
+
+    :param action: One of: "list_bases", "list_files", "view_file", "search_files"
+    :param knowledge_id: KB ID (required for list_files, search_files)
+    :param file_id: File ID (required for view_file)
+    :param query: Search term (required for search_files)
+    :param count: Max results (default: 10)
+    :param skip: Pagination offset (default: 0)
+    :return: JSON with requested data
+    """
+    if __request__ is None:
+        return json.dumps({"error": "Request context not available"})
+
+    if not __user__:
+        return json.dumps({"error": "User context not available"})
+
+    try:
+        from open_webui.models.knowledge import Knowledges
+        from open_webui.models.files import Files
+        from open_webui.utils.access_control import has_access
+
+        user_id = __user__.get("id")
+        user_role = __user__.get("role", "user")
+        user_group_ids = [group.id for group in Groups.get_groups_by_member_id(user_id)]
+
+        if action == "list_bases":
+            result = Knowledges.search_knowledge_bases(
+                user_id,
+                filter={
+                    "query": query or "",
+                    "user_id": user_id,
+                    "group_ids": user_group_ids,
+                },
+                skip=skip,
+                limit=count,
+            )
+            bases = []
+            for kb in result.items:
+                files = Knowledges.get_files_by_id(kb.id)
+                bases.append(
+                    {
+                        "id": kb.id,
+                        "name": kb.name,
+                        "description": kb.description or "",
+                        "file_count": len(files) if files else 0,
+                        "updated_at": kb.updated_at,
+                    }
+                )
+            return json.dumps(bases, ensure_ascii=False)
+
+        elif action == "list_files":
+            if not knowledge_id:
+                return json.dumps({"error": "knowledge_id required for list_files"})
+
+            knowledge = Knowledges.get_knowledge_by_id(knowledge_id)
+            if not knowledge:
+                return json.dumps({"error": "Knowledge base not found"})
+            if not (
+                user_role == "admin"
+                or knowledge.user_id == user_id
+                or has_access(
+                    user_id, "read", knowledge.access_control, user_group_ids
+                )
+            ):
+                return json.dumps({"error": "Access denied"})
+
+            files = Knowledges.get_files_by_id(knowledge_id)
+            file_list = [
+                {
+                    "id": f.id,
+                    "filename": f.filename,
+                    "updated_at": f.updated_at,
+                }
+                for f in (files or [])[skip : skip + count]
+            ]
+            return json.dumps(file_list, ensure_ascii=False)
+
+        elif action == "view_file":
+            if not file_id:
+                return json.dumps({"error": "file_id required for view_file"})
+
+            file = Files.get_file_by_id(file_id)
+            if not file:
+                return json.dumps({"error": "File not found"})
+            if not (user_role == "admin" or file.user_id == user_id):
+                return json.dumps({"error": "Access denied"})
+
+            result = {
+                "id": file.id,
+                "filename": file.filename,
+                "content": file.data.get("content", "") if file.data else "",
+                "updated_at": file.updated_at,
+            }
+            return json.dumps(result, ensure_ascii=False)
+
+        elif action == "search_files":
+            if not query:
+                return json.dumps({"error": "query required for search_files"})
+
+            result = Knowledges.search_knowledge_bases(
+                user_id,
+                filter={
+                    "query": "",
+                    "user_id": user_id,
+                    "group_ids": user_group_ids,
+                },
+                skip=0,
+                limit=100,
+            )
+
+            matches = []
+            query_lower = query.lower()
+            for kb in result.items:
+                files = Knowledges.get_files_by_id(kb.id)
+                for f in (files or []):
+                    if query_lower in f.filename.lower():
+                        matches.append(
+                            {
+                                "id": f.id,
+                                "filename": f.filename,
+                                "knowledge_id": kb.id,
+                                "knowledge_name": kb.name,
+                            }
+                        )
+                        if len(matches) >= count:
+                            break
+                if len(matches) >= count:
+                    break
+
+            return json.dumps(matches[skip : skip + count], ensure_ascii=False)
+
+        else:
+            return json.dumps(
+                {"error": f"Unknown action: {action}. Use: list_bases, list_files, view_file, search_files"}
+            )
+
+    except Exception as e:
+        log.exception(f"browse_knowledge error: {e}")
+        return json.dumps({"error": str(e)})

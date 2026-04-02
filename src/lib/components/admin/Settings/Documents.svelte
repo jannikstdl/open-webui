@@ -1393,6 +1393,174 @@
 				</div>
 
 				<div class="mb-3">
+					<div class=" mt-0.5 mb-2.5 text-base font-medium">{$i18n.t('Knowledge Graph')}</div>
+
+					<hr class=" border-gray-100/30 dark:border-gray-850/30 my-2" />
+
+					<div class="  mb-2.5 flex w-full justify-between">
+						<div class=" self-center text-xs font-medium">
+							{$i18n.t('Enable Knowledge Graph')}
+						</div>
+						<div class="flex items-center relative">
+							<Switch bind:state={RAGConfig.ENABLE_KNOWLEDGE_GRAPH} />
+						</div>
+					</div>
+
+					{#if RAGConfig.ENABLE_KNOWLEDGE_GRAPH}
+						<div class="  mb-2.5 flex w-full justify-between">
+							<div class=" self-center text-xs font-medium">
+								{$i18n.t('Graph Database')}
+							</div>
+							<div class="flex items-center relative">
+								<select
+									class="dark:bg-gray-900 w-fit pr-8 rounded-sm text-xs py-1 px-2"
+									bind:value={RAGConfig.GRAPH_DB}
+								>
+									<option value="networkx">NetworkX</option>
+									<option value="neo4j">Neo4j</option>
+								</select>
+							</div>
+						</div>
+
+						{#if RAGConfig.GRAPH_DB === 'neo4j'}
+							<div class="mb-2.5">
+								<div class="text-xs font-medium mb-1">{$i18n.t('Neo4j URI')}</div>
+								<input
+									class="flex-1 w-full text-sm bg-transparent outline-hidden border border-gray-100/30 dark:border-gray-850/30 rounded-sm px-2 py-1"
+									type="text"
+									placeholder="bolt://localhost:7687"
+									bind:value={RAGConfig.NEO4J_URI}
+								/>
+							</div>
+							<div class="mb-2.5">
+								<div class="text-xs font-medium mb-1">{$i18n.t('Neo4j User')}</div>
+								<input
+									class="flex-1 w-full text-sm bg-transparent outline-hidden border border-gray-100/30 dark:border-gray-850/30 rounded-sm px-2 py-1"
+									type="text"
+									placeholder="neo4j"
+									bind:value={RAGConfig.NEO4J_USER}
+								/>
+							</div>
+							<div class="mb-2.5">
+								<div class="text-xs font-medium mb-1">{$i18n.t('Neo4j Password')}</div>
+								<SensitiveInput bind:value={RAGConfig.NEO4J_PASSWORD} />
+							</div>
+						{/if}
+
+						<div class="  mb-2.5 flex w-full justify-between">
+							<div class=" self-center text-xs font-medium">
+								{$i18n.t('Search Mode')}
+							</div>
+							<div class="flex items-center relative">
+								<select
+									class="dark:bg-gray-900 w-fit pr-8 rounded-sm text-xs py-1 px-2"
+									bind:value={RAGConfig.KG_SEARCH_MODE}
+								>
+									<option value="mix">Mix</option>
+									<option value="hybrid">Hybrid</option>
+									<option value="local">Local</option>
+									<option value="global">Global</option>
+									<option value="naive">Naive</option>
+								</select>
+							</div>
+						</div>
+
+						<div class="  mb-2.5 flex w-full justify-between">
+							<div class=" self-center text-xs font-medium">
+								{$i18n.t('Entity Extraction Gleaning')}
+							</div>
+							<div class="flex items-center relative">
+								<input
+									class="w-16 text-sm bg-transparent outline-hidden border border-gray-100/30 dark:border-gray-850/30 rounded-sm px-2 py-1 text-right"
+									type="number"
+									min="0"
+									max="5"
+									bind:value={RAGConfig.KG_ENTITY_EXTRACT_MAX_GLEANING}
+								/>
+							</div>
+						</div>
+					{/if}
+				</div>
+
+				<div class="mb-3">
+					<div class=" mt-0.5 mb-2.5 text-base font-medium">{$i18n.t('Multimodal RAG')}</div>
+
+					<hr class=" border-gray-100/30 dark:border-gray-850/30 my-2" />
+
+					<div class="  mb-2.5 flex w-full justify-between">
+						<div class=" self-center text-xs font-medium">
+							{$i18n.t('Enable Multimodal RAG')}
+						</div>
+						<div class="flex items-center relative">
+							<Switch bind:state={RAGConfig.ENABLE_MULTIMODAL_RAG} />
+						</div>
+					</div>
+
+					{#if RAGConfig.ENABLE_MULTIMODAL_RAG}
+						<div class="  mb-2.5 flex w-full justify-between">
+							<div class=" self-center text-xs font-medium">
+								{$i18n.t('Process Images')}
+							</div>
+							<div class="flex items-center relative">
+								<Switch bind:state={RAGConfig.MULTIMODAL_PROCESS_IMAGES} />
+							</div>
+						</div>
+
+						<div class="  mb-2.5 flex w-full justify-between">
+							<div class=" self-center text-xs font-medium">
+								{$i18n.t('Process Tables')}
+							</div>
+							<div class="flex items-center relative">
+								<Switch bind:state={RAGConfig.MULTIMODAL_PROCESS_TABLES} />
+							</div>
+						</div>
+
+						<div class="  mb-2.5 flex w-full justify-between">
+							<div class=" self-center text-xs font-medium">
+								{$i18n.t('Process Equations')}
+							</div>
+							<div class="flex items-center relative">
+								<Switch bind:state={RAGConfig.MULTIMODAL_PROCESS_EQUATIONS} />
+							</div>
+						</div>
+
+						<div class="  mb-2.5 flex w-full justify-between">
+							<div class=" self-center text-xs font-medium">
+								{$i18n.t('VLM-Enhanced Retrieval')}
+							</div>
+							<div class="flex items-center relative">
+								<Switch bind:state={RAGConfig.ENABLE_VLM_ENHANCED_RETRIEVAL} />
+							</div>
+						</div>
+
+						{#if RAGConfig.ENABLE_VLM_ENHANCED_RETRIEVAL}
+							<div class="mb-2.5">
+								<div class="text-xs font-medium mb-1">{$i18n.t('VLM Model')}</div>
+								<input
+									class="flex-1 w-full text-sm bg-transparent outline-hidden border border-gray-100/30 dark:border-gray-850/30 rounded-sm px-2 py-1"
+									type="text"
+									placeholder="gpt-4o / llava"
+									bind:value={RAGConfig.VLM_MODEL}
+								/>
+							</div>
+							<div class="mb-2.5">
+								<div class="text-xs font-medium mb-1">{$i18n.t('VLM Base URL')}</div>
+								<input
+									class="flex-1 w-full text-sm bg-transparent outline-hidden border border-gray-100/30 dark:border-gray-850/30 rounded-sm px-2 py-1"
+									type="text"
+									placeholder="https://api.openai.com/v1"
+									bind:value={RAGConfig.VLM_BASE_URL}
+								/>
+							</div>
+							<div class="mb-2.5">
+								<div class="text-xs font-medium mb-1">{$i18n.t('VLM API Key')}</div>
+								<SensitiveInput bind:value={RAGConfig.VLM_API_KEY} />
+							</div>
+						{/if}
+					{/if}
+				</div>
+
+				<div class="mb-3">
 					<div class=" mt-0.5 mb-2.5 text-base font-medium">{$i18n.t('Integration')}</div>
 
 					<hr class=" border-gray-100/30 dark:border-gray-850/30 my-2" />

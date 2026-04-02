@@ -2742,6 +2742,104 @@ RAG_FULL_CONTEXT = PersistentConfig(
     os.getenv("RAG_FULL_CONTEXT", "False").lower() == "true",
 )
 
+####################################
+# Knowledge Graph
+####################################
+
+ENABLE_KNOWLEDGE_GRAPH = PersistentConfig(
+    "ENABLE_KNOWLEDGE_GRAPH",
+    "rag.enable_knowledge_graph",
+    os.environ.get("ENABLE_KNOWLEDGE_GRAPH", "").lower() == "true",
+)
+
+GRAPH_DB = PersistentConfig(
+    "GRAPH_DB",
+    "rag.graph_db",
+    os.environ.get("GRAPH_DB", "networkx"),
+)
+
+NEO4J_URI = PersistentConfig(
+    "NEO4J_URI",
+    "rag.neo4j_uri",
+    os.environ.get("NEO4J_URI", "bolt://localhost:7687"),
+)
+
+NEO4J_USER = PersistentConfig(
+    "NEO4J_USER",
+    "rag.neo4j_user",
+    os.environ.get("NEO4J_USER", "neo4j"),
+)
+
+NEO4J_PASSWORD = PersistentConfig(
+    "NEO4J_PASSWORD",
+    "rag.neo4j_password",
+    os.environ.get("NEO4J_PASSWORD", ""),
+)
+
+KG_SEARCH_MODE = PersistentConfig(
+    "KG_SEARCH_MODE",
+    "rag.kg_search_mode",
+    os.environ.get("KG_SEARCH_MODE", "mix"),
+)
+
+KG_ENTITY_EXTRACT_MAX_GLEANING = PersistentConfig(
+    "KG_ENTITY_EXTRACT_MAX_GLEANING",
+    "rag.kg_entity_extract_max_gleaning",
+    int(os.environ.get("KG_ENTITY_EXTRACT_MAX_GLEANING", "1")),
+)
+
+####################################
+# Multimodal RAG
+####################################
+
+ENABLE_MULTIMODAL_RAG = PersistentConfig(
+    "ENABLE_MULTIMODAL_RAG",
+    "rag.enable_multimodal_rag",
+    os.environ.get("ENABLE_MULTIMODAL_RAG", "").lower() == "true",
+)
+
+MULTIMODAL_PROCESS_IMAGES = PersistentConfig(
+    "MULTIMODAL_PROCESS_IMAGES",
+    "rag.multimodal_process_images",
+    os.environ.get("MULTIMODAL_PROCESS_IMAGES", "True").lower() == "true",
+)
+
+MULTIMODAL_PROCESS_TABLES = PersistentConfig(
+    "MULTIMODAL_PROCESS_TABLES",
+    "rag.multimodal_process_tables",
+    os.environ.get("MULTIMODAL_PROCESS_TABLES", "True").lower() == "true",
+)
+
+MULTIMODAL_PROCESS_EQUATIONS = PersistentConfig(
+    "MULTIMODAL_PROCESS_EQUATIONS",
+    "rag.multimodal_process_equations",
+    os.environ.get("MULTIMODAL_PROCESS_EQUATIONS", "").lower() == "true",
+)
+
+ENABLE_VLM_ENHANCED_RETRIEVAL = PersistentConfig(
+    "ENABLE_VLM_ENHANCED_RETRIEVAL",
+    "rag.enable_vlm_enhanced_retrieval",
+    os.environ.get("ENABLE_VLM_ENHANCED_RETRIEVAL", "").lower() == "true",
+)
+
+VLM_MODEL = PersistentConfig(
+    "VLM_MODEL",
+    "rag.vlm_model",
+    os.environ.get("VLM_MODEL", ""),
+)
+
+VLM_BASE_URL = PersistentConfig(
+    "VLM_BASE_URL",
+    "rag.vlm_base_url",
+    os.environ.get("VLM_BASE_URL", ""),
+)
+
+VLM_API_KEY = PersistentConfig(
+    "VLM_API_KEY",
+    "rag.vlm_api_key",
+    os.environ.get("VLM_API_KEY", ""),
+)
+
 RAG_FILE_MAX_COUNT = PersistentConfig(
     "RAG_FILE_MAX_COUNT",
     "rag.file.max_count",
