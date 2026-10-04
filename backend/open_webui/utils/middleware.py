@@ -3186,7 +3186,12 @@ async def process_chat_payload(request, form_data, user, metadata, model):
     # Check if file context extraction is enabled for this model (default True)
     file_context_enabled = (model.get('info', {}).get('meta', {}).get('capabilities') or {}).get('file_context', True)
 
-    if file_context_enabled:
+    # A response resuming after tool approvals keeps the retrieval it paused with,
+    # instead of generating queries and searching again on every approval.
+    paused_sources = await get_paused_sources(metadata)
+    if paused_sources is not None:
+        sources.extend(paused_sources)
+    elif file_context_enabled:
         try:
             form_data, flags = await chat_completion_files_handler(request, form_data, extra_params, user)
             sources.extend(flags.get('sources', []))
@@ -3222,7 +3227,8 @@ async def process_chat_payload(request, form_data, user, metadata, model):
         if source.get('source', {}).get('name', '') or source.get('source', {}).get('id', '')
     ]
 
-    if len(sources) > 0:
+    # The resumed message already has its sources, which by now include those of its tool calls.
+    if len(sources) > 0 and paused_sources is None:
         events.append({'sources': sources})
 
     if model_knowledge:
@@ -3589,10 +3595,24 @@ async def pause_for_tool_approval(chat_id: str, message_id: str, output: list[di
                 'variables': metadata.get('variables') or {},
                 'files': metadata.get('files') or [],
                 'params': metadata.get('params') or {},
+                'sources': metadata.get('sources') or [],
             },
         },
         touch=False,
     )
+
+
+async def get_paused_sources(metadata: dict) -> list | None:
+    """Sources a saved message stored when it paused for a tool approval."""
+    chat_id = metadata.get('chat_id')
+    message_id = metadata.get('assistant_message_id')
+    if not is_saved_chat_id(chat_id) or not message_id:
+        return None
+
+    message = await Chats.get_message_by_id_and_message_id(chat_id, message_id)
+    meta = (message or {}).get('meta')
+    sources = meta.get('sources') if isinstance(meta, dict) else None
+    return sources if isinstance(sources, list) else None
 
 
 def get_response_data(response):
